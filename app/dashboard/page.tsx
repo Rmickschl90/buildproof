@@ -527,12 +527,22 @@ export default function DashboardPage() {
   }
 
   async function flushOfflineProofs() {
-    if (!navigator.onLine) return;
-
     try {
-      const { listPendingOfflineProofs, markOfflineProofSyncing, markOfflineProofFailed, deleteOfflineProof } = await import("@/lib/offlineProofOutbox");
+      const {
+        listPendingOfflineProofs,
+        markOfflineProofSyncing,
+        markOfflineProofFailed,
+        deleteOfflineProof,
+      } = await import("@/lib/offlineProofOutbox");
 
       const pending = await listPendingOfflineProofs();
+
+      if (pending.length === 0) {
+        if (selectedProject?.id) {
+          await refreshOfflineProofs(selectedProject.id);
+        }
+        return;
+      }
 
       for (const p of pending) {
         try {
