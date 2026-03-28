@@ -41,7 +41,43 @@ function openOfflineDb(): Promise<IDBDatabase> {
       }
     };
 
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      const db = request.result;
+
+      if (db.objectStoreNames.contains(PROOF_OUTBOX_STORE)) {
+        resolve(db);
+        return;
+      }
+
+      db.close();
+
+      const deleteRequest = indexedDB.deleteDatabase(DB_NAME);
+
+      deleteRequest.onsuccess = () => {
+        const retryRequest = indexedDB.open(DB_NAME, DB_VERSION + 1);
+
+        retryRequest.onupgradeneeded = () => {
+          const retryDb = retryRequest.result;
+
+          if (!retryDb.objectStoreNames.contains(PROOF_OUTBOX_STORE)) {
+            const store = retryDb.createObjectStore(PROOF_OUTBOX_STORE, { keyPath: "id" });
+            store.createIndex("by_projectId", "projectId", { unique: false });
+            store.createIndex("by_status", "status", { unique: false });
+            store.createIndex("by_createdAt", "createdAt", { unique: false });
+          }
+        };
+
+        retryRequest.onsuccess = () => resolve(retryRequest.result);
+        retryRequest.onerror = () =>
+          reject(retryRequest.error ?? new Error("Failed to recreate IndexedDB"));
+        retryRequest.onblocked = () => reject(new Error("IndexedDB recreate blocked"));
+      };
+
+      deleteRequest.onerror = () =>
+        reject(deleteRequest.error ?? new Error("Failed to delete broken IndexedDB"));
+      deleteRequest.onblocked = () => reject(new Error("IndexedDB delete blocked"));
+    };
+
     request.onerror = () => reject(request.error ?? new Error("Failed to open IndexedDB"));
     request.onblocked = () => reject(new Error("IndexedDB open blocked"));
   });
