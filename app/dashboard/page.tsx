@@ -242,8 +242,8 @@ export default function DashboardPage() {
   }, [selectedProject?.id]);
 
   useEffect(() => {
-    function handleOnline() {
-      void flushOfflineProofs();
+    async function handleOnline() {
+      await flushOfflineProofs();
     }
 
     window.addEventListener("online", handleOnline);
@@ -532,6 +532,7 @@ export default function DashboardPage() {
 
       if (selectedProject?.id) {
         await loadProofs(selectedProject.id, showArchivedEntries);
+        await refreshOfflineProofs(selectedProject.id);
       }
     } catch (err) {
       console.error("Offline proof flush failed", err);
