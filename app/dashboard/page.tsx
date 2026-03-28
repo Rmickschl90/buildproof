@@ -242,8 +242,8 @@ export default function DashboardPage() {
   }, [selectedProject?.id]);
 
   useEffect(() => {
-    async function handleOnline() {
-      await flushOfflineProofs();
+    function handleOnline() {
+      void flushOfflineProofs();
     }
 
     window.addEventListener("online", handleOnline);
@@ -251,7 +251,7 @@ export default function DashboardPage() {
     return () => {
       window.removeEventListener("online", handleOnline);
     };
-  }, []);
+  }, [selectedProject?.id, showArchivedEntries]);
 
   useEffect(() => {
     if (!isSendMode && !isApprovalMode) return;
