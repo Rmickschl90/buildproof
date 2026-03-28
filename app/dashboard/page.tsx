@@ -416,6 +416,20 @@ export default function DashboardPage() {
     }
   }, [status]);
 
+  useEffect(() => {
+    if (!selectedProject || offlineProofs.length === 0) return;
+
+    const interval = window.setInterval(() => {
+      if (navigator.onLine) {
+        void flushOfflineProofs();
+      }
+    }, 4000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [selectedProject?.id, offlineProofs.length, showArchivedEntries]);
+
   async function getAccessToken() {
     const { data, error } = await supabase.auth.getSession();
     if (error) throw error;
