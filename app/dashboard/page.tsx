@@ -242,14 +242,26 @@ export default function DashboardPage() {
   }, [selectedProject?.id]);
 
   useEffect(() => {
-    function handleOnline() {
+    function syncOfflineProofsNow() {
       void flushOfflineProofs();
     }
 
+    function handleOnline() {
+      syncOfflineProofsNow();
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible" && navigator.onLine) {
+        syncOfflineProofsNow();
+      }
+    }
+
     window.addEventListener("online", handleOnline);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       window.removeEventListener("online", handleOnline);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [selectedProject?.id, showArchivedEntries]);
 
