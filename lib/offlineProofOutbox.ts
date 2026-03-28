@@ -1,7 +1,7 @@
 "use client";
 
-const DB_NAME = "buildproof-offline";
-const DB_VERSION = 3;
+const DB_NAME = "buildproof-offline-proofs";
+const DB_VERSION = 1;
 
 const PROOF_OUTBOX_STORE = "proof_outbox";
 
@@ -33,14 +33,6 @@ function openOfflineDb(): Promise<IDBDatabase> {
     request.onupgradeneeded = () => {
       const db = request.result;
 
-      if (!db.objectStoreNames.contains("send_outbox")) {
-        db.createObjectStore("send_outbox", { keyPath: "id" });
-      }
-
-      if (!db.objectStoreNames.contains("attachment_outbox")) {
-        db.createObjectStore("attachment_outbox", { keyPath: "id" });
-      }
-
       if (!db.objectStoreNames.contains(PROOF_OUTBOX_STORE)) {
         const store = db.createObjectStore(PROOF_OUTBOX_STORE, { keyPath: "id" });
         store.createIndex("by_projectId", "projectId", { unique: false });
@@ -51,6 +43,7 @@ function openOfflineDb(): Promise<IDBDatabase> {
 
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error("Failed to open IndexedDB"));
+    request.onblocked = () => reject(new Error("IndexedDB open blocked"));
   });
 }
 
