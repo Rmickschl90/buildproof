@@ -1,0 +1,85 @@
+import { NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+
+export const runtime = "nodejs";
+
+function parseCookieHeader(cookieHeader: string | null) {
+  if (!cookieHeader) return [];
+  return cookieHeader
+    .split(";")
+    .map((c) => c.trim())
+    .filter(Boolean)
+    .map((c) => {
+      const idx = c.indexOf("=");
+      const name = idx === -1 ? c : c.slice(0, idx);
+      const value = idx === -1 ? "" : c.slice(idx + 1);
+      return { name, value };
+    });
+}
+
+// Only allow redirects within our own origin to avoid open-redirect issues.
+function safeRedirectPath(reqUrl: URL, candidate: string | null, fallbackPath: string) {
+  if (!candidate) return fallbackPath;
+  try {
+    const target = new URL(candidate, reqUrl.origin);
+    if (target.origin !== reqUrl.origin) return fallbackPath;
+    return target.pathname + target.search + target.hash;
+  } catch {
+    return fallbackPath;
+  }
+}
+
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+
+  const code = url.searchParams.get("code");
+  const token_hash = url.searchParams.get("token_hash");
+  const type = url.searchParams.get("type");
+
+  // After finishing auth, show a friendly screen then route onward.
+  const nextPath = safeRedirectPath(url, url.searchParams.get("redirect_to"), "/auth/signing-in");
+  const res = NextResponse.redirect(new URL(nextPath, url.origin));
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return parseCookieHeader(req.headers.get("cookie"));
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            res.cookies.set(name, value, options);
+          });
+        },
+      },
+    }
+  );
+
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      return NextResponse.redirect(
+        new URL(`/login?error=${encodeURIComponent(error.message)}`, url.origin)
+      );
+    }
+    return res;
+  }
+
+  if (token_hash && type) {
+    const { error } = await supabase.auth.verifyOtp({
+      token_hash,
+      type: type as any,
+    });
+
+    if (error) {
+      return NextResponse.redirect(
+        new URL(`/login?error=${encodeURIComponent(error.message)}`, url.origin)
+      );
+    }
+    return res;
+  }
+
+  return NextResponse.redirect(new URL("/login?error=invalid_callback", url.origin));
+}

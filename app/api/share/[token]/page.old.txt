@@ -1,0 +1,132 @@
+import { supabaseServer } from "../../../lib/supabaseServer";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+type Proof = {
+  id: number;
+  content: string;
+  created_at: string;
+};
+
+export default async function SharePage(props: {
+  params: Promise<{ token: string }>;
+}) {
+  const { token } = await props.params;
+
+  // 1) Validate token -> project_id
+  const { data: share, error: shareErr } = await supabaseServer
+    .from("project_shares")
+    .select("project_id, revoked_at")
+    .eq("token", token)
+    .maybeSingle();
+
+  if (shareErr) {
+    return (
+      <div style={{ padding: 24 }}>
+        <h1>Something went wrong</h1>
+        <pre>{shareErr.message}</pre>
+      </div>
+    );
+  }
+
+  if (!share || share.revoked_at) {
+    return (
+      <div style={{ padding: 24 }}>
+        <h1>Link not found</h1>
+        <p>This share link is invalid or has been revoked.</p>
+      </div>
+    );
+  }
+
+  const projectId = share.project_id;
+
+  // 2) Load project
+  const { data: project, error: projectErr } = await supabaseServer
+    .from("projects")
+    .select("id,title,created_at")
+    .eq("id", projectId)
+    .single();
+
+  if (projectErr || !project) {
+    return (
+      <div style={{ padding: 24 }}>
+        <h1>Project not found</h1>
+      </div>
+    );
+  }
+
+  // 3) Load proofs (simple display)
+  const { data: proofs, error: proofsErr } = await supabaseServer
+    .from("proofs_active")
+    .select("id,content,created_at")
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: true });
+
+  if (proofsErr) {
+    return (
+      <div style={{ padding: 24 }}>
+        <h1>Failed to load proofs</h1>
+        <pre>{proofsErr.message}</pre>
+      </div>
+    );
+  }
+
+  const list = (proofs ?? []) as Proof[];
+
+  return (
+    <div style={{ padding: 24, maxWidth: 900, margin: "0 auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+        <div>
+          <h1 style={{ margin: 0 }}>{project.title || "Shared Project"}</h1>
+          <p style={{ marginTop: 6, opacity: 0.75 }}>
+            Shared view (read-only)
+          </p>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <a
+            href={`/api/share/${token}/export`}
+            style={{
+              border: "1px solid #ccc",
+              padding: "10px 12px",
+              borderRadius: 8,
+              textDecoration: "none",
+              color: "inherit",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Download PDF
+          </a>
+        </div>
+      </div>
+
+      <hr style={{ margin: "18px 0" }} />
+
+      {list.length === 0 ? (
+        <p>No proofs yet.</p>
+      ) : (
+        <div style={{ display: "grid", gap: 12 }}>
+          {list.map((p) => (
+            <div
+              key={p.id}
+              style={{
+                border: "1px solid #e5e5e5",
+                borderRadius: 10,
+                padding: 14,
+              }}
+            >
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>
+                Proof #{p.id}
+              </div>
+              <div style={{ whiteSpace: "pre-wrap" }}>{p.content}</div>
+              <div style={{ marginTop: 8, fontSize: 12, opacity: 0.7 }}>
+                {p.created_at ? new Date(p.created_at).toLocaleString() : ""}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
