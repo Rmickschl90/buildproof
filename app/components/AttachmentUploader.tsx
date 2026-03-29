@@ -192,9 +192,9 @@ export default function AttachmentUploader({
       );
 
       if (remaining.length === 0) {
-        setMessage("Uploaded ✅");
+        setMessage("All files uploaded ✅");
       } else {
-        setMessage("Some files are still queued and will retry automatically.");
+        setMessage("Some files are still queued and will retry automatically when connected.");
       }
     } catch (err: any) {
       setMessage(err?.message || "Upload failed");
@@ -215,7 +215,7 @@ export default function AttachmentUploader({
           </div>
         ) : (
           <div className="sub" style={{ opacity: 0.75, marginTop: 2 }}>
-            Add photos, PDFs, receipts, or documents.
+            Add photos, PDFs, receipts, or documents. Works offline — uploads automatically when connected.
           </div>
         )}
       </div>
@@ -271,8 +271,8 @@ export default function AttachmentUploader({
             const statusLine =
               it.status === "pending"
                 ? it.lastError
-                  ? `Failed: ${it.lastError}`
-                  : "Ready"
+                  ? `Retrying needed: ${it.lastError}`
+                  : "Queued"
                 : "Uploading…";
 
             return (
