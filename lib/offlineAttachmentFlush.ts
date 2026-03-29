@@ -20,7 +20,6 @@ export async function flushOfflineAttachmentOutbox(
   for (const record of records) {
     try {
       if (!record.proofId) {
-        // waiting for proof to sync first
         continue;
       }
 
@@ -28,39 +27,63 @@ export async function flushOfflineAttachmentOutbox(
 
       const token = await getAccessToken();
 
-      const form = new FormData();
-      form.append("projectId", record.projectId);
-      form.append("proofId", String(record.proofId));
-      form.append(
-        "file",
-        new File([record.fileBlob], record.fileName, {
-          type: record.mimeType,
-        })
-      );
-
-      const res = await fetch("/api/attachments/upload", {
+      // 🔥 STEP 1 — request signed upload URL
+      const prepRes = await fetch("/api/attachments/upload", {
         method: "POST",
         headers: {
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: form,
+        body: JSON.stringify({
+          projectId: record.projectId,
+          proofId: record.proofId,
+          fileName: record.fileName,
+        }),
       });
 
-      const text = await res.text();
-      let json: any = {};
+      const prepJson = await prepRes.json();
 
-      try {
-        json = text ? JSON.parse(text) : {};
-      } catch {
-        json = {};
+      if (!prepRes.ok) {
+        throw new Error(prepJson?.error || "Failed to prepare upload");
       }
 
-      if (!res.ok) {
-        throw new Error(
-          json?.error ||
-          text ||
-          `Upload failed (${res.status})`
-        );
+      const { uploadUrl, path, attachmentId } = prepJson;
+
+      // 🔥 STEP 2 — upload directly to storage (bypasses Vercel limit)
+      const uploadRes = await fetch(uploadUrl, {
+        method: "PUT",
+        body: record.fileBlob,
+        headers: {
+          "Content-Type": record.mimeType || "application/octet-stream",
+        },
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error(`Direct upload failed (${uploadRes.status})`);
+      }
+
+      // 🔥 STEP 3 — insert metadata AFTER successful upload
+      const insertRes = await fetch("/api/attachments/insert", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          id: attachmentId,
+          projectId: record.projectId,
+          proofId: record.proofId,
+          path,
+          fileName: record.fileName,
+          mimeType: record.mimeType,
+          sizeBytes: record.sizeBytes,
+        }),
+      });
+
+      const insertJson = await insertRes.json().catch(() => ({}));
+
+      if (!insertRes.ok) {
+        throw new Error(insertJson?.error || "Metadata insert failed");
       }
 
       await removeOfflineAttachmentRecord(record.id);
