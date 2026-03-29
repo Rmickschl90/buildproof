@@ -130,9 +130,10 @@ export default function AttachmentUploader({
 
     try {
       for (const file of Array.from(files)) {
-        const maxOfflineBytes = 10 * 1024 * 1024;
+        const maxOfflineBytes = 25 * 1024 * 1024; // generous safety cap (not user-facing)
+
         if (file.size > maxOfflineBytes) {
-          setMessage(`"${file.name}" is too large for offline queue (max 10MB).`);
+          setMessage(`"${file.name}" is unusually large. Try a smaller file if upload fails.`);
           continue;
         }
 
