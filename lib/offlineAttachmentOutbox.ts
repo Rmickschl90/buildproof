@@ -5,7 +5,8 @@ export type OfflineAttachmentStatus = "pending" | "uploading";
 export type OfflineAttachmentRecord = {
   id: string;
   projectId: string;
-  proofId: number;
+  proofId: number | null;
+  offlineProofId?: string;
   fileName: string;
   mimeType: string;
   sizeBytes: number;
@@ -40,22 +41,23 @@ function openDb(): Promise<IDBDatabase> {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onupgradeneeded = () => {
-  const db = request.result;
+      const db = request.result;
 
-  // Ensure send_outbox exists
-  if (!db.objectStoreNames.contains("send_outbox")) {
-    db.createObjectStore("send_outbox", { keyPath: "id" });
-  }
+      // Ensure send_outbox exists
+      if (!db.objectStoreNames.contains("send_outbox")) {
+        db.createObjectStore("send_outbox", { keyPath: "id" });
+      }
 
-  // Ensure attachment_outbox exists
-  if (!db.objectStoreNames.contains(STORE_NAME)) {
-    const store = db.createObjectStore(STORE_NAME, { keyPath: "id" });
+      // Ensure attachment_outbox exists
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        const store = db.createObjectStore(STORE_NAME, { keyPath: "id" });
 
-    store.createIndex("status", "status", { unique: false });
-    store.createIndex("createdAt", "createdAt", { unique: false });
-    store.createIndex("proofId", "proofId", { unique: false });
-  }
-};
+        store.createIndex("status", "status", { unique: false });
+        store.createIndex("createdAt", "createdAt", { unique: false });
+        store.createIndex("proofId", "proofId", { unique: false });
+        store.createIndex("offlineProofId", "offlineProofId", { unique: false });
+      }
+    };
 
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error || new Error("Failed to open IndexedDB"));
@@ -95,7 +97,8 @@ async function withStore<T>(
 
 export async function createOfflineAttachmentRecord(input: {
   projectId: string;
-  proofId: number;
+  proofId?: number;
+  offlineProofId?: string;
   file: File;
 }): Promise<OfflineAttachmentRecord> {
   const now = new Date().toISOString();
@@ -103,7 +106,8 @@ export async function createOfflineAttachmentRecord(input: {
   const record: OfflineAttachmentRecord = {
     id: generateId(),
     projectId: input.projectId,
-    proofId: input.proofId,
+    proofId: input.proofId ?? null,
+    offlineProofId: input.offlineProofId,
     fileName: input.file.name,
     mimeType: input.file.type,
     sizeBytes: input.file.size,
@@ -182,5 +186,28 @@ export async function markAttachmentPending(
 export async function removeOfflineAttachmentRecord(id: string): Promise<void> {
   await withStore("readwrite", async (store) => {
     await promisify(store.delete(id));
+  });
+}
+
+export async function attachOfflineAttachmentsToProof(
+  offlineProofId: string,
+  proofId: number
+): Promise<void> {
+  await withStore("readwrite", async (store) => {
+    const all = (await promisify(store.getAll())) as OfflineAttachmentRecord[];
+
+    const matches = all.filter((rec) => rec.offlineProofId === offlineProofId);
+
+    for (const rec of matches) {
+      const updated: OfflineAttachmentRecord = {
+        ...rec,
+        proofId,
+        offlineProofId: undefined,
+        updatedAt: new Date().toISOString(),
+        lastError: null,
+      };
+
+      await promisify(store.put(updated));
+    }
   });
 }
