@@ -19,17 +19,17 @@ export async function flushOfflineAttachmentOutbox(
 
   for (const record of records) {
     try {
+      if (!record.proofId) {
+        // waiting for proof to sync first
+        continue;
+      }
+
       await markAttachmentUploading(record.id);
 
       const token = await getAccessToken();
 
       const form = new FormData();
       form.append("projectId", record.projectId);
-      if (!record.proofId) {
-        // waiting for proof to sync → skip for now
-        continue;
-      }
-
       form.append("proofId", String(record.proofId));
       form.append(
         "file",
