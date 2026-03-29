@@ -57,10 +57,25 @@ function openDb(): Promise<IDBDatabase> {
         store.createIndex("proofId", "proofId", { unique: false });
         store.createIndex("offlineProofId", "offlineProofId", { unique: false });
       }
+
+      // ✅ NEW: approval_attachment_outbox
+      if (!db.objectStoreNames.contains("approval_attachment_outbox")) {
+        const store = db.createObjectStore("approval_attachment_outbox", {
+          keyPath: "id",
+        });
+
+        store.createIndex("by_status", "status", { unique: false });
+        store.createIndex("by_approvalId", "approvalId", { unique: false });
+        store.createIndex("by_offlineApprovalId", "offlineApprovalId", {
+          unique: false,
+        });
+        store.createIndex("by_createdAt", "createdAt", { unique: false });
+      }
     };
 
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error || new Error("Failed to open IndexedDB"));
+    request.onerror = () =>
+      reject(request.error || new Error("Failed to open IndexedDB"));
   });
 }
 

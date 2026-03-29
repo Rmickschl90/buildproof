@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { addOfflineApprovalAttachment } from "@/lib/offlineApprovalAttachmentOutbox";
+import { flushOfflineApprovalAttachmentOutbox } from "@/lib/offlineApprovalAttachmentFlush";
 
 type ApprovalType =
   | "change_order"
@@ -313,11 +315,11 @@ export default function ApprovalComposer({
       setStatus(
         draftApprovalIdRef.current
           ? files.length === 1
-            ? "Uploading attachment..."
-            : `Uploading ${files.length} attachments...`
+            ? "Queueing attachment..."
+            : `Queueing ${files.length} attachments...`
           : files.length === 1
             ? "Creating approval draft..."
-            : `Creating approval draft and uploading ${files.length} attachments...`
+            : `Creating approval draft and queueing ${files.length} attachments...`
       );
 
       const approvalId = await upsertDraft(false);
@@ -331,43 +333,39 @@ export default function ApprovalComposer({
       setDraftApprovalId(approvalId);
       window.localStorage.setItem(draftStorageKey, approvalId);
 
-      const token = await getAccessToken();
-
       for (const file of files) {
-        const form = new FormData();
-        form.append("projectId", projectId);
-        form.append("approvalId", approvalId);
-        form.append("file", file);
-
-        const uploadRes = await fetch("/api/attachments/upload", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: form,
+        await addOfflineApprovalAttachment({
+          approvalId,
+          file,
+          fileName: file.name,
+          mimeType: file.type || "application/octet-stream",
         });
-
-        const uploadJson = await uploadRes.json();
-
-        if (!uploadRes.ok) {
-          setStatus(
-            uploadJson?.error ||
-            `Failed to upload ${file.name || "attachment"}.`
-          );
-          if (fileInputRef.current) fileInputRef.current.value = "";
-          return;
-        }
       }
 
+      const tokenGetter = async () => {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+
+        const token = data.session?.access_token;
+        if (!token) throw new Error("Missing bearer token");
+
+        return token;
+      };
+
+      await flushOfflineApprovalAttachmentOutbox(tokenGetter);
+
+      const token = await getAccessToken();
       await refreshDraftAttachments(token, approvalId);
+
       setStatus(
         files.length === 1
-          ? "Attachment added."
-          : `${files.length} attachments added.`
+          ? "Attachment queued."
+          : `${files.length} attachments queued.`
       );
+
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err: any) {
-      setStatus(err?.message || "Failed to upload attachment.");
+      setStatus(err?.message || "Failed to queue attachment.");
       if (fileInputRef.current) fileInputRef.current.value = "";
     } finally {
       setIsUploading(false);

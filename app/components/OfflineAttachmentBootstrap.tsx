@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { flushOfflineAttachmentOutbox } from "@/lib/offlineAttachmentFlush";
+import { flushOfflineApprovalAttachmentOutbox } from "@/lib/offlineApprovalAttachmentFlush";
 
 export default function OfflineAttachmentBootstrap() {
   useEffect(() => {
@@ -19,6 +20,7 @@ export default function OfflineAttachmentBootstrap() {
     async function runFlush() {
       try {
         await flushOfflineAttachmentOutbox(getAccessToken);
+        await flushOfflineApprovalAttachmentOutbox(getAccessToken);
       } catch (error) {
         console.error("[OfflineAttachmentBootstrap] flush failed", error);
       }
