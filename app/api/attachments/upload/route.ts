@@ -9,13 +9,10 @@ function sanitizeFilename(name: string) {
 }
 
 function detectFileType(bytes: Uint8Array): "pdf" | "jpg" | "png" | "webp" | "unknown" {
-  // PDF: %PDF
   if (bytes.length >= 4 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) return "pdf";
 
-  // JPG: FF D8 FF
   if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "jpg";
 
-  // PNG: 89 50 4E 47 0D 0A 1A 0A
   if (
     bytes.length >= 8 &&
     bytes[0] === 0x89 &&
@@ -28,7 +25,6 @@ function detectFileType(bytes: Uint8Array): "pdf" | "jpg" | "png" | "webp" | "un
     bytes[7] === 0x0a
   ) return "png";
 
-  // WEBP: RIFF....WEBP
   if (
     bytes.length >= 12 &&
     bytes[0] === 0x52 &&
@@ -46,13 +42,11 @@ function detectFileType(bytes: Uint8Array): "pdf" | "jpg" | "png" | "webp" | "un
 
 export async function POST(req: Request) {
   try {
-    // ✅ AUTH PROTECTION — verifies logged-in user
     const { user, errorResponse } = await requireUser(req);
     if (errorResponse) return errorResponse;
 
     const userId = user.id;
 
-    // 1) Parse multipart form
     const form = await req.formData();
     const projectId = String(form.get("projectId") || "");
     const proofIdRaw = String(form.get("proofId") || "");
@@ -78,13 +72,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing file" }, { status: 400 });
     }
 
-    // 2) Server-side size limit
-    const maxBytes = 25 * 1024 * 1024; // 25MB
+    // 🔥 FIX — safer limit to prevent silent failures
+    const maxBytes = 8 * 1024 * 1024; // 8MB
     if (file.size > maxBytes) {
-      return NextResponse.json({ error: "File too large (max 25MB)" }, { status: 413 });
+      return NextResponse.json(
+        { error: "File too large (max 8MB)" },
+        { status: 400 }
+      );
     }
 
-    // 3) Read bytes + verify real type via signature
     const buf = Buffer.from(await file.arrayBuffer());
     const head = new Uint8Array(buf.subarray(0, 16));
     const kind = detectFileType(head);
@@ -98,11 +94,10 @@ export async function POST(req: Request) {
 
     const mimeType =
       kind === "pdf" ? "application/pdf" :
-        kind === "jpg" ? "image/jpeg" :
-          kind === "webp" ? "image/webp" :
-            "image/png";
+      kind === "jpg" ? "image/jpeg" :
+      kind === "webp" ? "image/webp" :
+      "image/png";
 
-    // 4) Ownership checks (server-side)
     const { data: project, error: projectErr } = await supabaseServer
       .from("projects")
       .select("id,user_id")
@@ -128,52 +123,22 @@ export async function POST(req: Request) {
       }
     }
 
-    if (hasApprovalId) {
-      const { data: approval, error: approvalErr } = await supabaseServer
-        .from("approval_requests")
-        .select("id,project_id,status")
-        .eq("id", approvalId)
-        .single();
-
-      if (approvalErr || !approval) {
-        return NextResponse.json({ error: "Approval not found" }, { status: 404 });
-      }
-
-      if (approval.project_id !== projectId) {
-        return NextResponse.json({ error: "Approval does not belong to project" }, { status: 400 });
-      }
-
-      if (approval.status && approval.status !== "draft") {
-        return NextResponse.json(
-          { error: "Only draft approvals can accept attachments" },
-          { status: 400 }
-        );
-      }
-    }
-
-    // 5) Upload + insert metadata (cleanup on failure)
     const attachmentId = crypto.randomUUID();
     const safeName = sanitizeFilename(file.name || "file");
-    const ownerFolder = hasApprovalId ? approvalId : String(proofId);
-    const typeFolder = hasApprovalId ? "approval" : "proof";
-    const path = `${userId}/${projectId}/${typeFolder}/${ownerFolder}/${attachmentId}-${safeName}`;
+    const ownerFolder = String(proofId);
+    const path = `${userId}/${projectId}/proof/${ownerFolder}/${attachmentId}-${safeName}`;
 
     const { error: uploadErr } = await supabaseServer.storage
       .from("attachments")
       .upload(path, buf, { contentType: mimeType, upsert: false });
 
-    if (uploadErr) return NextResponse.json({ error: uploadErr.message }, { status: 400 });
+    if (uploadErr) {
+      return NextResponse.json({ error: uploadErr.message }, { status: 400 });
+    }
 
-    const insertPayload = hasApprovalId
-      ? {
-        id: attachmentId,
-        project_id: projectId,
-        approval_id: approvalId,
-        path,
-        filename: file.name || safeName,
-        mime_type: mimeType,
-      }
-      : {
+    const { error: insertErr } = await supabaseServer
+      .from("attachments")
+      .insert({
         id: attachmentId,
         user_id: userId,
         project_id: projectId,
@@ -182,13 +147,7 @@ export async function POST(req: Request) {
         filename: file.name || safeName,
         mime_type: mimeType,
         size_bytes: file.size,
-      };
-
-    const targetTable = hasApprovalId ? "approval_attachments" : "attachments";
-
-    const { error: insertErr } = await supabaseServer
-      .from(targetTable)
-      .insert(insertPayload);
+      });
 
     if (insertErr) {
       await supabaseServer.storage.from("attachments").remove([path]);
