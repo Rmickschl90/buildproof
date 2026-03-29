@@ -11,7 +11,8 @@ type Props = {
 type OfflineAttachmentRecord = {
   id: string;
   projectId: string;
-  proofId: number;
+  proofId: number | null;
+  offlineProofId?: string;
   fileName: string;
   mimeType: string;
   sizeBytes: number;
