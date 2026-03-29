@@ -564,7 +564,10 @@ export default function DashboardPage() {
 
           if (data?.id) {
             const { attachOfflineAttachmentsToProof } = await import("@/lib/offlineAttachmentOutbox");
+            const { flushOfflineAttachmentOutbox } = await import("@/lib/offlineAttachmentFlush");
+
             await attachOfflineAttachmentsToProof(p.id, data.id);
+            await flushOfflineAttachmentOutbox(getAccessToken);
           }
 
           await deleteOfflineProof(p.id);
