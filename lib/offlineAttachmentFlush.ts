@@ -46,10 +46,21 @@ export async function flushOfflineAttachmentOutbox(
         body: form,
       });
 
-      const json = await res.json().catch(() => ({}));
+      const text = await res.text();
+      let json: any = {};
+
+      try {
+        json = text ? JSON.parse(text) : {};
+      } catch {
+        json = {};
+      }
 
       if (!res.ok) {
-        throw new Error(json?.error || "Upload failed");
+        throw new Error(
+          json?.error ||
+          text ||
+          `Upload failed (${res.status})`
+        );
       }
 
       await removeOfflineAttachmentRecord(record.id);
