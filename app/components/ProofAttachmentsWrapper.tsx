@@ -6,7 +6,8 @@ import AttachmentList from "./AttachmentList";
 
 type Props = {
   projectId: string;
-  proofId: number;
+  proofId?: number;
+  offlineProofId?: string;
   lockedAt?: string | null;
   refreshKey?: number;
   onUploaded?: () => void;
@@ -15,6 +16,7 @@ type Props = {
 export default function ProofAttachmentsWrapper({
   projectId,
   proofId,
+  offlineProofId,
   lockedAt,
   refreshKey,
   onUploaded,
@@ -86,7 +88,13 @@ export default function ProofAttachmentsWrapper({
         }}
       >
         <div key={refreshKey ?? 0}>
-          <AttachmentList proofId={proofId} lockedAt={lockedAt} />
+          {proofId ? (
+            <AttachmentList proofId={proofId} lockedAt={lockedAt} />
+          ) : (
+            <div style={{ fontSize: 12, opacity: 0.6 }}>
+              Attachments will appear after sync
+            </div>
+          )}
         </div>
       </div>
 
@@ -106,14 +114,20 @@ export default function ProofAttachmentsWrapper({
             transition: "all 0.25s ease",
           }}
         >
-          <AttachmentUploader
-            projectId={projectId}
-            proofId={proofId}
-            lockedAt={lockedAt}
-            onUploaded={() => {
-              onUploaded?.();
-            }}
-          />
+          {proofId ? (
+            <AttachmentUploader
+              projectId={projectId}
+              proofId={proofId}
+              lockedAt={lockedAt}
+              onUploaded={() => {
+                onUploaded?.();
+              }}
+            />
+          ) : (
+            <div style={{ fontSize: 12, opacity: 0.6 }}>
+              Uploading offline attachments coming next
+            </div>
+          )}
           <div className="sub" style={{ marginTop: 8, opacity: 0.65 }}>
             Tip: upload a few key photos + any receipts. Then send the project update.
           </div>

@@ -2391,13 +2391,12 @@ export default function DashboardPage() {
                           <button
                             className="btn"
                             onClick={() => {
-                              if (offline) return;
                               setProofMenuOpenId(null);
                               setOpenProofId(isOpen ? null : proof.id);
                             }}
-                            disabled={isEditing || offline}
+                            disabled={isEditing}
                           >
-                            {offline ? "Pending" : isOpen ? "Hide" : "View"}
+                            {isOpen ? "Hide" : "View"}
                           </button>
 
                           <div
@@ -2528,7 +2527,7 @@ export default function DashboardPage() {
                               />
                             ) : (
                               <div style={{ fontSize: 12, opacity: 0.6 }}>
-                                Attachments available after sync
+                                Attachments coming next (offline support in progress)
                               </div>
                             )}
                           </div>

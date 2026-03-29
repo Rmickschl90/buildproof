@@ -25,6 +25,11 @@ export async function flushOfflineAttachmentOutbox(
 
       const form = new FormData();
       form.append("projectId", record.projectId);
+      if (!record.proofId) {
+        // waiting for proof to sync → skip for now
+        continue;
+      }
+
       form.append("proofId", String(record.proofId));
       form.append(
         "file",

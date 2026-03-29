@@ -12,7 +12,8 @@ import AttachmentDiagnosticsPanel from "@/app/components/AttachmentDiagnosticsPa
 
 type Props = {
   projectId: string;
-  proofId: number;
+  proofId?: number;
+  offlineProofId?: string;
   lockedAt?: string | null;
   onUploaded?: () => void;
 };
@@ -40,6 +41,7 @@ function fileIcon(kind: string) {
 export default function AttachmentUploader({
   projectId,
   proofId,
+  offlineProofId,
   lockedAt,
   onUploaded,
 }: Props) {
@@ -61,7 +63,13 @@ export default function AttachmentUploader({
 
   async function refreshRecords() {
     const all = await getAllOfflineAttachmentRecords();
-    setRecords(all.filter((r) => r.projectId === projectId && r.proofId === proofId));
+    setRecords(
+      all.filter(
+        (r) =>
+          r.projectId === projectId &&
+          (proofId != null ? r.proofId === proofId : r.offlineProofId === offlineProofId)
+      )
+    );
   }
 
   useEffect(() => {
@@ -105,7 +113,7 @@ export default function AttachmentUploader({
       );
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [projectId, proofId, onUploaded]);
+  }, [projectId, proofId, offlineProofId, onUploaded]);
 
   const counts = useMemo(() => {
     const queued = records.filter((q) => q.status === "pending").length;
@@ -131,6 +139,7 @@ export default function AttachmentUploader({
         await createOfflineAttachmentRecord({
           projectId,
           proofId,
+          offlineProofId,
           file,
         });
       }
@@ -176,7 +185,9 @@ export default function AttachmentUploader({
       onUploaded?.();
 
       const remaining = (await getAllOfflineAttachmentRecords()).filter(
-        (r) => r.projectId === projectId && r.proofId === proofId
+        (r) =>
+          r.projectId === projectId &&
+          (proofId != null ? r.proofId === proofId : r.offlineProofId === offlineProofId)
       );
 
       if (remaining.length === 0) {
@@ -303,7 +314,7 @@ export default function AttachmentUploader({
         </div>
       )}
 
-      {process.env.NODE_ENV === "development" ? (
+      {process.env.NODE_ENV === "development" && proofId != null ? (
         <AttachmentDiagnosticsPanel projectId={projectId} proofId={proofId} />
       ) : null}
     </div>
