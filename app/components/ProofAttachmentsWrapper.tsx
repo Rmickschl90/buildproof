@@ -79,6 +79,7 @@ export default function ProofAttachmentsWrapper({
         </button>
       </div>
 
+      {/* Attachment List */}
       <div
         style={{
           border: "1px solid rgba(15,23,42,0.08)",
@@ -98,6 +99,7 @@ export default function ProofAttachmentsWrapper({
         </div>
       </div>
 
+      {/* Uploader (NOW ALWAYS AVAILABLE) */}
       {showUploader ? (
         <div
           ref={uploaderRef}
@@ -114,20 +116,16 @@ export default function ProofAttachmentsWrapper({
             transition: "all 0.25s ease",
           }}
         >
-          {proofId ? (
-            <AttachmentUploader
-              projectId={projectId}
-              proofId={proofId}
-              lockedAt={lockedAt}
-              onUploaded={() => {
-                onUploaded?.();
-              }}
-            />
-          ) : (
-            <div style={{ fontSize: 12, opacity: 0.6 }}>
-              Uploading offline attachments coming next
-            </div>
-          )}
+          <AttachmentUploader
+            projectId={projectId}
+            proofId={proofId}
+            offlineProofId={offlineProofId}
+            lockedAt={lockedAt}
+            onUploaded={() => {
+              onUploaded?.();
+            }}
+          />
+
           <div className="sub" style={{ marginTop: 8, opacity: 0.65 }}>
             Tip: upload a few key photos + any receipts. Then send the project update.
           </div>
