@@ -79,7 +79,6 @@ export default function ProofAttachmentsWrapper({
         </button>
       </div>
 
-      {/* Attachment List */}
       <div
         style={{
           border: "1px solid rgba(15,23,42,0.08)",
@@ -93,13 +92,12 @@ export default function ProofAttachmentsWrapper({
             <AttachmentList proofId={proofId} lockedAt={lockedAt} />
           ) : (
             <div style={{ fontSize: 12, opacity: 0.6 }}>
-              Attachments will appear after sync
+              No uploaded attachments yet.
             </div>
           )}
         </div>
       </div>
 
-      {/* Uploader (NOW ALWAYS AVAILABLE) */}
       {showUploader ? (
         <div
           ref={uploaderRef}
