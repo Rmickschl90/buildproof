@@ -28,7 +28,7 @@ export async function POST(req: Request) {
 
         const { data: approval, error: approvalError } = await supabaseServer
             .from("approval_requests")
-            .select("id, created_by, status")
+            .select("id, project_id, created_by, status")
             .eq("id", approvalId)
             .eq("created_by", user.id)
             .single();
@@ -52,6 +52,7 @@ export async function POST(req: Request) {
             .insert({
                 id,
                 approval_id: approvalId,
+                project_id: approval.project_id,
                 filename: fileName,
                 mime_type: mimeType ?? null,
                 path,
