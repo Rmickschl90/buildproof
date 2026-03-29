@@ -154,7 +154,7 @@ export default function AttachmentUploader({
         await flushOfflineAttachmentOutbox(getAccessToken);
         await refreshRecords();
         onUploaded?.();
-        setMessage("Uploads started.");
+        setMessage("Uploading automatically…");
       }
     } catch (err: any) {
       setMessage(err?.message || "Failed to queue files");
@@ -244,9 +244,9 @@ export default function AttachmentUploader({
           className="btn btnPrimary"
           onClick={uploadAll}
           disabled={busy || isLocked || actionableCount === 0}
-          title={actionableCount === 0 ? "Add files first" : "Upload selected files"}
+          title="Manually retry uploads"
         >
-          {busy ? "Uploading..." : `Upload (${actionableCount})`}
+          {busy ? "Uploading..." : `Retry (${actionableCount})`}
         </button>
 
         {counts.uploading > 0 ? (
