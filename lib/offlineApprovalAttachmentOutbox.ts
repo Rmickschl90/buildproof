@@ -1,7 +1,7 @@
 "use client";
 
 export const OFFLINE_DB_NAME = "buildproof-offline";
-export const OFFLINE_DB_VERSION = 3;
+export const OFFLINE_DB_VERSION = 4;
 
 const APPROVAL_ATTACHMENT_STORE = "approval_attachment_outbox";
 
