@@ -17,6 +17,7 @@ import {
   listOfflineProofsForProject,
   type OfflineProofRecord,
 } from "@/lib/offlineProofOutbox";
+import OfflineAttachmentBootstrap from "../components/OfflineAttachmentBootstrap";
 
 type Project = {
   id: string;
@@ -1432,652 +1433,220 @@ export default function DashboardPage() {
   }, [approvals]);
 
   return (
-    <div className="container">
-      <div className="shell">
-        <div className="card">
-          <div className="row">
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <img
-                src="/buildproof-logo.png"
-                alt="BuildProof"
-                style={{ height: 60, width: "auto", display: "block" }}
-              />
+    <>
+      <OfflineAttachmentBootstrap />
+
+      <div className="container">
+        <div className="shell">
+          <div className="card">
+            <div className="row">
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <img
+                  src="/buildproof-logo.png"
+                  alt="BuildProof"
+                  style={{ height: 60, width: "auto", display: "block" }}
+                />
+              </div>
+              <button className="btn btnDanger" onClick={logout}>
+                Logout
+              </button>
             </div>
-            <button className="btn btnDanger" onClick={logout}>
-              Logout
-            </button>
+
+            <p className="sub">
+              Signed in as <b>{userEmail}</b>
+            </p>
+
+
+            {status && (
+              <div ref={statusRef} className="notice">
+                {status}
+              </div>
+            )}
+            {sendSuccessMessage ? (
+              <div
+                className="card"
+                style={{
+                  marginTop: 10,
+                  border: "1px solid rgba(16,185,129,0.22)",
+                  background: "rgba(16,185,129,0.08)",
+                  boxShadow: "0 12px 30px rgba(16,185,129,0.10)",
+                  padding: 12,
+                }}
+              >
+                <div style={{ fontWeight: 800, marginBottom: 2 }}>Update sent</div>
+                <div className="sub" style={{ opacity: 0.9 }}>
+                  {sendSuccessMessage}
+                </div>
+              </div>
+            ) : null}
           </div>
 
-          <p className="sub">
-            Signed in as <b>{userEmail}</b>
-          </p>
+          {dashboardReady ? (
+            <OnboardingWizard
+              projectCount={projects.length}
+              entryCount={proofs.length}
+              hasSelectedProject={!!selectedProject}
+              hasClientEmail={!!selectedProject?.client_email?.trim()}
+              showAttachmentStep={showAttachmentStep}
+              isCompleted={onboardingComplete}
+              onCreateProject={handleCreateProjectClick}
+              onOpenFirstProject={handleOpenFirstProject}
+              onAddFirstEntry={handleAddFirstEntryClick}
+              onAddFiles={handleAddFilesClick}
+              onSendFirstUpdate={handleSendFirstUpdateClick}
+              onAddClientInfo={handleAddClientInfoClick}
+            />
+          ) : null}
 
-
-          {status && (
-            <div ref={statusRef} className="notice">
-              {status}
-            </div>
-          )}
-          {sendSuccessMessage ? (
+          {onboardingCongrats ? (
             <div
+              id="onboarding-success"
               className="card"
               style={{
-                marginTop: 10,
                 border: "1px solid rgba(16,185,129,0.22)",
                 background: "rgba(16,185,129,0.08)",
                 boxShadow: "0 12px 30px rgba(16,185,129,0.10)",
-                padding: 12,
               }}
             >
-              <div style={{ fontWeight: 800, marginBottom: 2 }}>Update sent</div>
+              <div style={{ fontWeight: 800, marginBottom: 4 }}>You’re ready to go</div>
               <div className="sub" style={{ opacity: 0.9 }}>
-                {sendSuccessMessage}
+                {onboardingCongrats}
               </div>
             </div>
           ) : null}
-        </div>
 
-        {dashboardReady ? (
-          <OnboardingWizard
-            projectCount={projects.length}
-            entryCount={proofs.length}
-            hasSelectedProject={!!selectedProject}
-            hasClientEmail={!!selectedProject?.client_email?.trim()}
-            showAttachmentStep={showAttachmentStep}
-            isCompleted={onboardingComplete}
-            onCreateProject={handleCreateProjectClick}
-            onOpenFirstProject={handleOpenFirstProject}
-            onAddFirstEntry={handleAddFirstEntryClick}
-            onAddFiles={handleAddFilesClick}
-            onSendFirstUpdate={handleSendFirstUpdateClick}
-            onAddClientInfo={handleAddClientInfoClick}
-          />
-        ) : null}
-
-        {onboardingCongrats ? (
-          <div
-            id="onboarding-success"
-            className="card"
-            style={{
-              border: "1px solid rgba(16,185,129,0.22)",
-              background: "rgba(16,185,129,0.08)",
-              boxShadow: "0 12px 30px rgba(16,185,129,0.10)",
-            }}
-          >
-            <div style={{ fontWeight: 800, marginBottom: 4 }}>You’re ready to go</div>
-            <div className="sub" style={{ opacity: 0.9 }}>
-              {onboardingCongrats}
-            </div>
-          </div>
-        ) : null}
-
-        {!isSendMode && !selectedProject ? (
-          <div
-            id="onboarding-project-area"
-            className="card"
-            style={{
-              border:
-                highlightTarget === "onboarding-project-area"
-                  ? "2px solid rgba(37,99,235,0.55)"
-                  : undefined,
-              boxShadow:
-                highlightTarget === "onboarding-project-area"
-                  ? "0 0 0 6px rgba(59,130,246,0.12)"
-                  : undefined,
-              transition: "all 0.25s ease",
-            }}
-          >
-            <div className="row" style={{ alignItems: "center" }}>
-              <div style={{ fontWeight: 800 }}>Projects</div>
-
-              <button className="btn" onClick={() => router.push("/archived")}>
-                Archived
-              </button>
-            </div>
-
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-              <input
-                className="input"
-                placeholder="Search projects or clients..."
-                value={projectSearch}
-                onChange={(e) => setProjectSearch(e.target.value)}
-                style={{ flex: "1 1 220px", minWidth: 180 }}
-              />
-
-              <select
-                className="input"
-                value={projectSortMode}
-                onChange={(e) => setProjectSortMode(e.target.value as any)}
-                style={{ width: 160 }}
-                title="Sort projects"
-              >
-                <option value="newest">Newest</option>
-                <option value="oldest">Oldest</option>
-                <option value="az">A–Z</option>
-              </select>
-            </div>
-
-            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <input
-                id="new-project-input"
-                className="input"
-                placeholder="New project title"
-                value={newProjectTitle}
-                onChange={(e) => setNewProjectTitle(e.target.value)}
-              />
-              <button className="btn btnPrimary" onClick={addProject}>
-                Add
-              </button>
-            </div>
-
+          {!isSendMode && !selectedProject ? (
             <div
-              id="onboarding-project-list"
-              className="list"
+              id="onboarding-project-area"
+              className="card"
               style={{
-                marginTop: 12,
-                borderRadius: 14,
+                border:
+                  highlightTarget === "onboarding-project-area"
+                    ? "2px solid rgba(37,99,235,0.55)"
+                    : undefined,
                 boxShadow:
-                  highlightTarget === "onboarding-project-list"
+                  highlightTarget === "onboarding-project-area"
                     ? "0 0 0 6px rgba(59,130,246,0.12)"
                     : undefined,
                 transition: "all 0.25s ease",
               }}
             >
-              {filteredProjects.map((p) => (
-                <button
-                  key={p.id}
-                  className={`projectBtn ${selectedProjectId === p.id ? "projectBtnActive" : ""}`}
-                  onClick={() => {
-                    setSelectedProject(p);
+              <div className="row" style={{ alignItems: "center" }}>
+                <div style={{ fontWeight: 800 }}>Projects</div>
 
-                    // ✅ Update URL
-                    router.replace(`/dashboard?project=${p.id}`);
-
-                    setOpenProofId(null);
-                    setProjectMenuOpen(false);
-                    setRenaming(false);
-                    setRenameTitle(p.title || "");
-                    setProofMenuOpenId(null);
-                    setEditingProofId(null);
-                    setEditDraftContent("");
-                    loadProofs(p.id, false);
-                    loadApprovals(p.id);
-                    scrollBackToOnboarding(700);
-                  }}
-                >
-                  <div style={{ display: "grid", gap: 2, textAlign: "left" }}>
-                    <div>{p.title}</div>
-                    {p.client_name || p.client_email || p.client_phone || p.project_address ? (
-                      <div className="sub" style={{ opacity: 0.7, fontSize: 12 }}>
-                        {[p.client_name, p.client_email, p.client_phone, p.project_address]
-                          .filter(Boolean)
-                          .join(" • ")}
-                      </div>
-                    ) : null}
-                  </div>
+                <button className="btn" onClick={() => router.push("/archived")}>
+                  Archived
                 </button>
-              ))}
-            </div>
-
-            {filteredProjects.length === 0 ? (
-              <div className="sub" style={{ marginTop: 12, opacity: 0.75 }}>
-                No matching projects. Try searching by client name/email/phone.
               </div>
-            ) : null}
-          </div>
-        ) : null}
 
-        {selectedProject && (
-          <div className="card">
-            <div
-              style={{
-                marginBottom: 16,
-                paddingBottom: 12,
-                borderBottom: "1px solid rgba(0,0,0,0.06)",
-              }}
-            >
-              {/* Top row */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  justifyContent: "space-between",
-                  gap: 8,
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 800,
-                    textTransform: "uppercase",
-                    letterSpacing: 0.5,
-                    opacity: 0.58,
-                    paddingBottom: 6,
-                    borderBottom: "1px solid rgba(15,23,42,0.32)",
-                  }}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+                <input
+                  className="input"
+                  placeholder="Search projects or clients..."
+                  value={projectSearch}
+                  onChange={(e) => setProjectSearch(e.target.value)}
+                  style={{ flex: "1 1 220px", minWidth: 180 }}
+                />
+
+                <select
+                  className="input"
+                  value={projectSortMode}
+                  onChange={(e) => setProjectSortMode(e.target.value as any)}
+                  style={{ width: 160 }}
+                  title="Sort projects"
                 >
-                  Active Project
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 8,
-                    flexWrap: "wrap",
-                    justifyContent: "flex-end",
-                  }}
-                >
-                  <button
-                    className="btn"
-                    onClick={() => {
-                      if (isSendMode) {
-                        setIsSendMode(false);
-                        setSendCloseSignal((k) => k + 1);
-                      } else if (isApprovalMode) {
-                        setIsApprovalMode(false);
-                      } else {
-                        closeProjectView();
-                      }
-                    }}
-                    title={
-                      isSendMode
-                        ? "Exit send mode"
-                        : isApprovalMode
-                          ? "Exit approval mode"
-                          : "Close project view"
-                    }
-                  >
-                    {isSendMode ? "Exit Send" : isApprovalMode ? "Exit Approval" : "Close"}
-                  </button>
-
-                  {!isSendMode ? (
-                    <div style={{ position: "relative" }} ref={projectMenuRef}>
-                      <button
-                        id="approval-menu"
-                        className="btn"
-                        onClick={() => setProjectMenuOpen((v) => !v)}
-                        title="Project actions"
-                        style={{
-                          boxShadow:
-                            highlightTarget === "approval-menu"
-                              ? "0 0 0 6px rgba(59,130,246,0.12)"
-                              : undefined,
-                          transition: "all 0.25s ease",
-                        }}
-                      >
-                        …
-                      </button>
-
-                      {projectMenuOpen ? (
-                        <div
-                          style={{
-                            position: "absolute",
-                            right: 0,
-                            top: 44,
-                            zIndex: 20,
-                            width: 260,
-                            maxWidth: "min(320px, calc(100vw - 24px))",
-                            border: "1px solid rgba(15,23,42,0.12)",
-                            borderRadius: 14,
-                            background: "white",
-                            padding: 10,
-                            boxShadow: "0 12px 30px rgba(15,23,42,0.10)",
-                            display: "grid",
-                            gap: 8,
-                            boxSizing: "border-box",
-                            overflow: "hidden",
-                          }}
-                        >
-                          {!renaming ? (
-                            <>
-                              <button
-                                className="btn"
-                                style={{ width: "100%" }}
-                                onClick={() => {
-                                  setRenaming(true);
-                                  setRenameTitle(selectedProject.title || "");
-                                }}
-                              >
-                                Rename project
-                              </button>
-
-                              <button
-                                className="btn"
-                                style={{ width: "100%" }}
-                                onClick={exportProjectPdf}
-                              >
-                                Download PDF
-                              </button>
-
-                              <button
-                                className="btn"
-                                style={{ width: "100%" }}
-                                onClick={exportDisputePackage}
-                              >
-                                Export dispute package
-                              </button>
-
-                              <button
-                                className="btn"
-                                style={{
-                                  width: "100%",
-                                  background: "rgba(37,99,235,0.10)",
-                                  color: "#1d4ed8",
-                                  borderColor: "rgba(37,99,235,0.25)",
-                                }}
-                                onClick={() => {
-                                  window.localStorage.removeItem(`approval-draft:${selectedProject.id}`);
-                                  setEditingApproval(null);
-                                  setIsApprovalMode(true);
-                                  setProjectMenuOpen(false);
-                                }}
-                              >
-                                Request Approval
-                              </button>
-
-                              <button
-                                className="btn btnDanger"
-                                style={{ width: "100%" }}
-                                onClick={archiveProject}
-                              >
-                                Archive project
-                              </button>
-                            </>
-                          ) : (
-                            <div style={{ display: "grid", gap: 8 }}>
-                              <div className="sub" style={{ opacity: 0.75 }}>
-                                Project name
-                              </div>
-
-                              <textarea
-                                ref={renameInputRef as any}
-                                value={renameTitle}
-                                onChange={(e) => setRenameTitle(e.target.value)}
-                                placeholder="Project name"
-                                style={{
-                                  width: "100%",
-                                  fontSize: 16,
-                                  padding: "8px 12px",
-                                  borderRadius: 10,
-                                  border: "1px solid rgba(15,23,42,0.15)",
-                                }}
-                              />
-
-                              <div style={{ display: "flex", gap: 8 }}>
-                                <button className="btn btnPrimary" onClick={saveProjectRename}>
-                                  Save
-                                </button>
-                                <button className="btn btnDanger" onClick={cancelRename}>
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
+                  <option value="newest">Newest</option>
+                  <option value="oldest">Oldest</option>
+                  <option value="az">A–Z</option>
+                </select>
               </div>
 
-              {/* Project title */}
-              <div
-                style={{
-                  fontWeight: 900,
-                  fontSize: 26,
-                  lineHeight: 1.2,
-                  marginTop: 8,
-                  wordBreak: "break-word",
-                }}
-              >
-                {selectedProject.title}
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <input
+                  id="new-project-input"
+                  className="input"
+                  placeholder="New project title"
+                  value={newProjectTitle}
+                  onChange={(e) => setNewProjectTitle(e.target.value)}
+                />
+                <button className="btn btnPrimary" onClick={addProject}>
+                  Add
+                </button>
               </div>
-            </div>
 
-            {!isSendMode ? (
               <div
-                id="client-info-section"
+                id="onboarding-project-list"
+                className="list"
                 style={{
-                  display: "grid",
-                  gap: 10,
-                  marginBottom: 12,
-                  padding: highlightTarget === "client-info-section" ? 10 : 0,
+                  marginTop: 12,
                   borderRadius: 14,
                   boxShadow:
-                    highlightTarget === "client-info-section"
+                    highlightTarget === "onboarding-project-list"
                       ? "0 0 0 6px rgba(59,130,246,0.12)"
                       : undefined,
                   transition: "all 0.25s ease",
                 }}
               >
-                <div className="row" style={{ alignItems: "center" }}>
-                  <div>
-                    <div
-                      style={{
-                        display: "inline-block",
-                        fontSize: 14,
-                        fontWeight: 800,
-                        textTransform: "uppercase",
-                        letterSpacing: 0.5,
-                        opacity: 0.58,
-                        paddingBottom: 6,
-                        borderBottom: "1px solid rgba(15,23,42,0.32)",
-                        marginBottom: 8,
-                      }}
-                    >
-                      Client
-                    </div>
-
-                    <div
-                      style={{
-                        fontSize: 15,
-                        fontWeight: 500,
-                        opacity: 0.82,
-                      }}
-                    >
-                      {clientSummary}
-                    </div>
-                  </div>
-
-                  {!clientEditing ? (
-                    <button className="btn" onClick={() => setClientEditing(true)}>
-                      Edit
-                    </button>
-                  ) : null}
-                </div>
-
-                {!clientEditing && !selectedProject.client_email ? (
-                  <div
-                    className="sub"
-                    style={{
-                      opacity: 0.8,
-                      marginTop: -4,
-                    }}
-                  >
-                    Add client email to auto-fill send updates.
-                  </div>
-                ) : null}
-
-                {clientEditing ? (
-                  <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
-                    <input
-                      className="input"
-                      placeholder="Client name (optional)"
-                      value={clientNameDraft}
-                      onChange={(e) => setClientNameDraft(e.target.value)}
-                    />
-
-                    <input
-                      id="client-email-input"
-                      className="input"
-                      placeholder="Client email (optional)"
-                      value={clientEmailDraft}
-                      onChange={(e) => setClientEmailDraft(e.target.value)}
-                    />
-
-                    <input
-                      className="input"
-                      placeholder="Project address (optional)"
-                      value={projectAddressDraft}
-                      onChange={(e) => setProjectAddressDraft(e.target.value)}
-                    />
-
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <button className="btn btnPrimary" onClick={saveClient}>
-                        Save client
-                      </button>
-                      <button
-                        className="btn btnDanger"
-                        onClick={() => {
-                          setClientNameDraft(selectedProject.client_name ?? "");
-                          setClientEmailDraft(selectedProject.client_email ?? "");
-                          setClientPhoneDraft(selectedProject.client_phone ?? "");
-                          setProjectAddressDraft(selectedProject.project_address ?? "");
-                          setClientEditing(false);
-                        }}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-
-                    <div className="sub" style={{ opacity: 0.65 }}>
-                      Auto-fills send updates.
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            <div
-              style={{
-                height: 1,
-                background: "rgba(15,23,42,0.08)",
-                margin: "16px 0",
-              }}
-            />
-
-            <div
-              id="onboarding-send-area"
-              style={{
-                marginTop: 4,
-                marginBottom: 18,
-                padding: highlightTarget === "onboarding-send-area" ? 10 : 0,
-                borderRadius: 14,
-                boxShadow:
-                  highlightTarget === "onboarding-send-area"
-                    ? "0 0 0 6px rgba(59,130,246,0.12)"
-                    : undefined,
-                transition: "all 0.25s ease",
-              }}
-            >
-              {!isSendMode ? (
-                !isApprovalMode ? (
+                {filteredProjects.map((p) => (
                   <button
-                    className="btn"
+                    key={p.id}
+                    className={`projectBtn ${selectedProjectId === p.id ? "projectBtnActive" : ""}`}
                     onClick={() => {
-                      setIsApprovalMode(false);
-                      setIsSendMode(true);
-                    }}
-                    style={{
-                      width: "100%",
-                      background: "rgba(22,163,74,0.24)",
-                      color: "#14532d",
-                      borderColor: "rgba(22,163,74,0.48)",
-                      fontWeight: 800,
-                    }}
-                  >
-                    Send Project Update
-                  </button>
-                ) : null
-              ) : (
-                <>
-                  <div
-                    style={{
-                      marginBottom: 10,
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: 8,
-                    }}
-                  >
-                    <button
-                      className="btn"
-                      onClick={() => setShowDeliveryHistory((v) => !v)}
-                      title="Show or hide delivery history"
-                      style={{
-                        maxWidth: "100%",
-                        whiteSpace: "normal",
-                        textAlign: "center",
-                      }}
-                    >
-                      {showDeliveryHistory ? "Hide Delivery History" : "Show Delivery History"}
-                    </button>
-                  </div>
+                      setSelectedProject(p);
 
-                  {showDeliveryHistory ? (
-                    <div style={{ marginBottom: 10 }}>
-                      <DeliveryHistoryPanel projectId={selectedProject.id} />
+                      // ✅ Update URL
+                      router.replace(`/dashboard?project=${p.id}`);
+
+                      setOpenProofId(null);
+                      setProjectMenuOpen(false);
+                      setRenaming(false);
+                      setRenameTitle(p.title || "");
+                      setProofMenuOpenId(null);
+                      setEditingProofId(null);
+                      setEditDraftContent("");
+                      loadProofs(p.id, false);
+                      loadApprovals(p.id);
+                      scrollBackToOnboarding(700);
+                    }}
+                  >
+                    <div style={{ display: "grid", gap: 2, textAlign: "left" }}>
+                      <div>{p.title}</div>
+                      {p.client_name || p.client_email || p.client_phone || p.project_address ? (
+                        <div className="sub" style={{ opacity: 0.7, fontSize: 12 }}>
+                          {[p.client_name, p.client_email, p.client_phone, p.project_address]
+                            .filter(Boolean)
+                            .join(" • ")}
+                        </div>
+                      ) : null}
                     </div>
-                  ) : null}
+                  </button>
+                ))}
+              </div>
 
-                  <SendUpdatePack
-                    projectId={selectedProject.id}
-                    projectTitle={selectedProject.title}
-                    clientName={selectedProject.client_name ?? undefined}
-                    clientEmail={selectedProject.client_email ?? undefined}
-                    clientPhone={selectedProject.client_phone ?? undefined}
-                    entryCount={proofs.filter((p) => !p.locked_at && !p.deleted_at).length}
-                    archivedEntryCount={proofs.filter((p) => !!p.deleted_at).length}
-                    onSendSuccess={async () => {
-                      finishOnboarding();
-                      await loadProofs(selectedProject.id, showArchivedEntries);
-                      setShowDeliveryHistory(true);
-                      setIsSendMode(false);
-
-                      setSendSuccessMessage("Your project timeline and PDF were sent successfully.");
-
-                      setTimeout(() => {
-                        setSendSuccessMessage("");
-                      }, 5000);
-                    }}
-                  />
-                </>
-              )}
+              {filteredProjects.length === 0 ? (
+                <div className="sub" style={{ marginTop: 12, opacity: 0.75 }}>
+                  No matching projects. Try searching by client name/email/phone.
+                </div>
+              ) : null}
             </div>
+          ) : null}
 
-            {isApprovalMode && (
-              <ApprovalComposer
-                projectId={selectedProject.id}
-                initialApproval={editingApproval}
-                onComplete={async () => {
-                  window.localStorage.removeItem(`approval-draft:${selectedProject.id}`);
-                  setIsApprovalMode(false);
-                  setEditingApproval(null);
-                  await loadApprovals(selectedProject.id);
+          {selectedProject && (
+            <div className="card">
+              <div
+                style={{
+                  marginBottom: 16,
+                  paddingBottom: 12,
+                  borderBottom: "1px solid rgba(0,0,0,0.06)",
                 }}
-              />
-            )}
-
-
-
-
-
-            {!isSendMode && !isApprovalMode ? (
-              <>
-                <div
-                  style={{
-                    height: 1,
-                    background: "rgba(15,23,42,0.08)",
-                    margin: "18px 0 12px",
-                  }}
-                />
-
+              >
+                {/* Top row */}
                 <div
                   style={{
                     display: "flex",
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
                     gap: 8,
-                    flexWrap: "wrap",
-                    alignItems: "center",
-                    marginBottom: 8,
                   }}
                 >
                   <div
@@ -2089,473 +1658,909 @@ export default function DashboardPage() {
                       opacity: 0.58,
                       paddingBottom: 6,
                       borderBottom: "1px solid rgba(15,23,42,0.32)",
-                      marginBottom: 8,
-                      marginRight: 6,
                     }}
                   >
-                    Project Timeline
+                    Active Project
                   </div>
 
-                  <button
-                    className="btn"
-                    onClick={() => {
-                      const next = !showArchivedEntries;
-                      setShowArchivedEntries(next);
-                      loadProofs(selectedProject.id, next);
-                      loadApprovals(selectedProject.id, next);
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      flexWrap: "wrap",
+                      justifyContent: "flex-end",
                     }}
-                    title="Show/hide archived entries"
                   >
-                    {showArchivedEntries ? "Hide archived" : "Show archived"}
-                  </button>
+                    <button
+                      className="btn"
+                      onClick={() => {
+                        if (isSendMode) {
+                          setIsSendMode(false);
+                          setSendCloseSignal((k) => k + 1);
+                        } else if (isApprovalMode) {
+                          setIsApprovalMode(false);
+                        } else {
+                          closeProjectView();
+                        }
+                      }}
+                      title={
+                        isSendMode
+                          ? "Exit send mode"
+                          : isApprovalMode
+                            ? "Exit approval mode"
+                            : "Close project view"
+                      }
+                    >
+                      {isSendMode ? "Exit Send" : isApprovalMode ? "Exit Approval" : "Close"}
+                    </button>
 
-                  <input
-                    className="input"
-                    placeholder="Search entries..."
-                    value={entrySearch}
-                    onChange={(e) => setEntrySearch(e.target.value)}
-                    style={{ minWidth: 180, flex: "1 1 220px" }}
-                  />
+                    {!isSendMode ? (
+                      <div style={{ position: "relative" }} ref={projectMenuRef}>
+                        <button
+                          id="approval-menu"
+                          className="btn"
+                          onClick={() => setProjectMenuOpen((v) => !v)}
+                          title="Project actions"
+                          style={{
+                            boxShadow:
+                              highlightTarget === "approval-menu"
+                                ? "0 0 0 6px rgba(59,130,246,0.12)"
+                                : undefined,
+                            transition: "all 0.25s ease",
+                          }}
+                        >
+                          …
+                        </button>
 
-                  <select
-                    className="input"
-                    value={entrySortMode}
-                    onChange={(e) => setEntrySortMode(e.target.value as any)}
-                    style={{ width: 160, flex: "0 0 auto" }}
-                    title="Sort entries"
-                  >
-                    <option value="newest">Newest first</option>
-                    <option value="oldest">Oldest first</option>
-                  </select>
+                        {projectMenuOpen ? (
+                          <div
+                            style={{
+                              position: "absolute",
+                              right: 0,
+                              top: 44,
+                              zIndex: 20,
+                              width: 260,
+                              maxWidth: "min(320px, calc(100vw - 24px))",
+                              border: "1px solid rgba(15,23,42,0.12)",
+                              borderRadius: 14,
+                              background: "white",
+                              padding: 10,
+                              boxShadow: "0 12px 30px rgba(15,23,42,0.10)",
+                              display: "grid",
+                              gap: 8,
+                              boxSizing: "border-box",
+                              overflow: "hidden",
+                            }}
+                          >
+                            {!renaming ? (
+                              <>
+                                <button
+                                  className="btn"
+                                  style={{ width: "100%" }}
+                                  onClick={() => {
+                                    setRenaming(true);
+                                    setRenameTitle(selectedProject.title || "");
+                                  }}
+                                >
+                                  Rename project
+                                </button>
+
+                                <button
+                                  className="btn"
+                                  style={{ width: "100%" }}
+                                  onClick={exportProjectPdf}
+                                >
+                                  Download PDF
+                                </button>
+
+                                <button
+                                  className="btn"
+                                  style={{ width: "100%" }}
+                                  onClick={exportDisputePackage}
+                                >
+                                  Export dispute package
+                                </button>
+
+                                <button
+                                  className="btn"
+                                  style={{
+                                    width: "100%",
+                                    background: "rgba(37,99,235,0.10)",
+                                    color: "#1d4ed8",
+                                    borderColor: "rgba(37,99,235,0.25)",
+                                  }}
+                                  onClick={() => {
+                                    window.localStorage.removeItem(`approval-draft:${selectedProject.id}`);
+                                    setEditingApproval(null);
+                                    setIsApprovalMode(true);
+                                    setProjectMenuOpen(false);
+                                  }}
+                                >
+                                  Request Approval
+                                </button>
+
+                                <button
+                                  className="btn btnDanger"
+                                  style={{ width: "100%" }}
+                                  onClick={archiveProject}
+                                >
+                                  Archive project
+                                </button>
+                              </>
+                            ) : (
+                              <div style={{ display: "grid", gap: 8 }}>
+                                <div className="sub" style={{ opacity: 0.75 }}>
+                                  Project name
+                                </div>
+
+                                <textarea
+                                  ref={renameInputRef as any}
+                                  value={renameTitle}
+                                  onChange={(e) => setRenameTitle(e.target.value)}
+                                  placeholder="Project name"
+                                  style={{
+                                    width: "100%",
+                                    fontSize: 16,
+                                    padding: "8px 12px",
+                                    borderRadius: 10,
+                                    border: "1px solid rgba(15,23,42,0.15)",
+                                  }}
+                                />
+
+                                <div style={{ display: "flex", gap: 8 }}>
+                                  <button className="btn btnPrimary" onClick={saveProjectRename}>
+                                    Save
+                                  </button>
+                                  <button className="btn btnDanger" onClick={cancelRename}>
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
 
+                {/* Project title */}
                 <div
-                  id="onboarding-entry-area"
+                  style={{
+                    fontWeight: 900,
+                    fontSize: 26,
+                    lineHeight: 1.2,
+                    marginTop: 8,
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {selectedProject.title}
+                </div>
+              </div>
+
+              {!isSendMode ? (
+                <div
+                  id="client-info-section"
                   style={{
                     display: "grid",
-                    gap: 8,
-                    marginTop: 6,
-                    padding: highlightTarget === "onboarding-entry-area" ? 10 : 0,
+                    gap: 10,
+                    marginBottom: 12,
+                    padding: highlightTarget === "client-info-section" ? 10 : 0,
                     borderRadius: 14,
                     boxShadow:
-                      highlightTarget === "onboarding-entry-area"
+                      highlightTarget === "client-info-section"
                         ? "0 0 0 6px rgba(59,130,246,0.12)"
                         : undefined,
                     transition: "all 0.25s ease",
                   }}
                 >
-                  <textarea
-                    id="new-entry-textarea"
-                    className={`textarea ${isTemplateText ? "templateText" : ""}`}
-                    placeholder="Add update or note..."
-                    value={newProofContent}
-                    onChange={(e) => {
-                      setNewProofContent(e.target.value);
-                      setIsTemplateText(false);
-                    }}
-                  />
-                  <div style={{ display: "flex", justifyContent: "flex-start" }}>
-                    <button
-                      type="button"
-                      className={`btn ${showTemplates ? "btnDanger" : ""}`}
-                      onClick={() => setShowTemplates((v) => !v)}
-                    >
-                      {showTemplates ? "Hide Templates" : "⚡ Quick Templates"}
-                    </button>
+                  <div className="row" style={{ alignItems: "center" }}>
+                    <div>
+                      <div
+                        style={{
+                          display: "inline-block",
+                          fontSize: 14,
+                          fontWeight: 800,
+                          textTransform: "uppercase",
+                          letterSpacing: 0.5,
+                          opacity: 0.58,
+                          paddingBottom: 6,
+                          borderBottom: "1px solid rgba(15,23,42,0.32)",
+                          marginBottom: 8,
+                        }}
+                      >
+                        Client
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: 15,
+                          fontWeight: 500,
+                          opacity: 0.82,
+                        }}
+                      >
+                        {clientSummary}
+                      </div>
+                    </div>
+
+                    {!clientEditing ? (
+                      <button className="btn" onClick={() => setClientEditing(true)}>
+                        Edit
+                      </button>
+                    ) : null}
                   </div>
 
-                  {showTemplates ? (
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      {entryTemplates.map((template) => (
-                        <button
-                          key={template.name}
-                          type="button"
-                          className="btn"
-                          onClick={() => {
-                            setNewProofContent(template.text);
-                            setIsTemplateText(true);
-                            setShowTemplates(false);
-
-                            setTimeout(() => {
-                              const el = document.getElementById("new-entry-textarea") as HTMLTextAreaElement | null;
-                              el?.focus();
-                            }, 50);
-                          }}
-                        >
-                          {template.name}
-                        </button>
-                      ))}
+                  {!clientEditing && !selectedProject.client_email ? (
+                    <div
+                      className="sub"
+                      style={{
+                        opacity: 0.8,
+                        marginTop: -4,
+                      }}
+                    >
+                      Add client email to auto-fill send updates.
                     </div>
                   ) : null}
 
-                  <button
-                    className="btn"
-                    onClick={addProof}
-                    disabled={addingProof}
-                    style={{
-                      background: "rgba(15,23,42,0.14)",
-                      color: "#020617",
-                      borderColor: "rgba(15,23,42,0.28)",
-                      fontWeight: 700,
-                    }}
-                  >
-                    {addingProof ? "Saving..." : "Add Entry"}
-                  </button>
+                  {clientEditing ? (
+                    <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
+                      <input
+                        className="input"
+                        placeholder="Client name (optional)"
+                        value={clientNameDraft}
+                        onChange={(e) => setClientNameDraft(e.target.value)}
+                      />
 
-                  {proofStatus ? (
-                    <div className="sub" style={{ opacity: 0.85 }}>
-                      {proofStatus}
+                      <input
+                        id="client-email-input"
+                        className="input"
+                        placeholder="Client email (optional)"
+                        value={clientEmailDraft}
+                        onChange={(e) => setClientEmailDraft(e.target.value)}
+                      />
+
+                      <input
+                        className="input"
+                        placeholder="Project address (optional)"
+                        value={projectAddressDraft}
+                        onChange={(e) => setProjectAddressDraft(e.target.value)}
+                      />
+
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <button className="btn btnPrimary" onClick={saveClient}>
+                          Save client
+                        </button>
+                        <button
+                          className="btn btnDanger"
+                          onClick={() => {
+                            setClientNameDraft(selectedProject.client_name ?? "");
+                            setClientEmailDraft(selectedProject.client_email ?? "");
+                            setClientPhoneDraft(selectedProject.client_phone ?? "");
+                            setProjectAddressDraft(selectedProject.project_address ?? "");
+                            setClientEditing(false);
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+
+                      <div className="sub" style={{ opacity: 0.65 }}>
+                        Auto-fills send updates.
+                      </div>
                     </div>
                   ) : null}
                 </div>
+              ) : null}
 
-                {draftApprovals.length > 0 ? (
-                  <div className="list" style={{ marginTop: 14, display: "grid", gap: 14 }}>
-                    <div
+              <div
+                style={{
+                  height: 1,
+                  background: "rgba(15,23,42,0.08)",
+                  margin: "16px 0",
+                }}
+              />
+
+              <div
+                id="onboarding-send-area"
+                style={{
+                  marginTop: 4,
+                  marginBottom: 18,
+                  padding: highlightTarget === "onboarding-send-area" ? 10 : 0,
+                  borderRadius: 14,
+                  boxShadow:
+                    highlightTarget === "onboarding-send-area"
+                      ? "0 0 0 6px rgba(59,130,246,0.12)"
+                      : undefined,
+                  transition: "all 0.25s ease",
+                }}
+              >
+                {!isSendMode ? (
+                  !isApprovalMode ? (
+                    <button
+                      className="btn"
+                      onClick={() => {
+                        setIsApprovalMode(false);
+                        setIsSendMode(true);
+                      }}
                       style={{
-                        fontSize: 13,
+                        width: "100%",
+                        background: "rgba(22,163,74,0.24)",
+                        color: "#14532d",
+                        borderColor: "rgba(22,163,74,0.48)",
                         fontWeight: 800,
-                        textTransform: "uppercase",
-                        letterSpacing: 0.4,
-                        opacity: 0.65,
                       }}
                     >
-                      Draft Approvals
+                      Send Project Update
+                    </button>
+                  ) : null
+                ) : (
+                  <>
+                    <div
+                      style={{
+                        marginBottom: 10,
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 8,
+                      }}
+                    >
+                      <button
+                        className="btn"
+                        onClick={() => setShowDeliveryHistory((v) => !v)}
+                        title="Show or hide delivery history"
+                        style={{
+                          maxWidth: "100%",
+                          whiteSpace: "normal",
+                          textAlign: "center",
+                        }}
+                      >
+                        {showDeliveryHistory ? "Hide Delivery History" : "Show Delivery History"}
+                      </button>
                     </div>
 
-                    {draftApprovals.map((approval) => (
-                      <ApprovalCard
-                        key={approval.id}
-                        approval={approval}
-                        onUpdated={async () => {
-                          await loadApprovals(selectedProject.id);
-                        }}
-                        onEdit={(approval) => {
-                          setEditingApproval(approval);
-                          setIsApprovalMode(true);
-                        }}
-                      />
-                    ))}
-                  </div>
-                ) : null}
+                    {showDeliveryHistory ? (
+                      <div style={{ marginBottom: 10 }}>
+                        <DeliveryHistoryPanel projectId={selectedProject.id} />
+                      </div>
+                    ) : null}
 
-                {approvals.filter((a) => a.status !== "draft").length > 0 ? (
-                  <div className="list" style={{ marginTop: 14, display: "grid", gap: 14 }}>
-                    {approvals
-                      .filter((a) => a.status !== "draft")
-                      .map((approval) => (
+                    <SendUpdatePack
+                      projectId={selectedProject.id}
+                      projectTitle={selectedProject.title}
+                      clientName={selectedProject.client_name ?? undefined}
+                      clientEmail={selectedProject.client_email ?? undefined}
+                      clientPhone={selectedProject.client_phone ?? undefined}
+                      entryCount={proofs.filter((p) => !p.locked_at && !p.deleted_at).length}
+                      archivedEntryCount={proofs.filter((p) => !!p.deleted_at).length}
+                      onSendSuccess={async () => {
+                        finishOnboarding();
+                        await loadProofs(selectedProject.id, showArchivedEntries);
+                        setShowDeliveryHistory(true);
+                        setIsSendMode(false);
+
+                        setSendSuccessMessage("Your project timeline and PDF were sent successfully.");
+
+                        setTimeout(() => {
+                          setSendSuccessMessage("");
+                        }, 5000);
+                      }}
+                    />
+                  </>
+                )}
+              </div>
+
+              {isApprovalMode && (
+                <ApprovalComposer
+                  projectId={selectedProject.id}
+                  initialApproval={editingApproval}
+                  onComplete={async () => {
+                    window.localStorage.removeItem(`approval-draft:${selectedProject.id}`);
+                    setIsApprovalMode(false);
+                    setEditingApproval(null);
+                    await loadApprovals(selectedProject.id);
+                  }}
+                />
+              )}
+
+
+
+
+
+              {!isSendMode && !isApprovalMode ? (
+                <>
+                  <div
+                    style={{
+                      height: 1,
+                      background: "rgba(15,23,42,0.08)",
+                      margin: "18px 0 12px",
+                    }}
+                  />
+
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                      marginBottom: 8,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: 0.5,
+                        opacity: 0.58,
+                        paddingBottom: 6,
+                        borderBottom: "1px solid rgba(15,23,42,0.32)",
+                        marginBottom: 8,
+                        marginRight: 6,
+                      }}
+                    >
+                      Project Timeline
+                    </div>
+
+                    <button
+                      className="btn"
+                      onClick={() => {
+                        const next = !showArchivedEntries;
+                        setShowArchivedEntries(next);
+                        loadProofs(selectedProject.id, next);
+                        loadApprovals(selectedProject.id, next);
+                      }}
+                      title="Show/hide archived entries"
+                    >
+                      {showArchivedEntries ? "Hide archived" : "Show archived"}
+                    </button>
+
+                    <input
+                      className="input"
+                      placeholder="Search entries..."
+                      value={entrySearch}
+                      onChange={(e) => setEntrySearch(e.target.value)}
+                      style={{ minWidth: 180, flex: "1 1 220px" }}
+                    />
+
+                    <select
+                      className="input"
+                      value={entrySortMode}
+                      onChange={(e) => setEntrySortMode(e.target.value as any)}
+                      style={{ width: 160, flex: "0 0 auto" }}
+                      title="Sort entries"
+                    >
+                      <option value="newest">Newest first</option>
+                      <option value="oldest">Oldest first</option>
+                    </select>
+                  </div>
+
+                  <div
+                    id="onboarding-entry-area"
+                    style={{
+                      display: "grid",
+                      gap: 8,
+                      marginTop: 6,
+                      padding: highlightTarget === "onboarding-entry-area" ? 10 : 0,
+                      borderRadius: 14,
+                      boxShadow:
+                        highlightTarget === "onboarding-entry-area"
+                          ? "0 0 0 6px rgba(59,130,246,0.12)"
+                          : undefined,
+                      transition: "all 0.25s ease",
+                    }}
+                  >
+                    <textarea
+                      id="new-entry-textarea"
+                      className={`textarea ${isTemplateText ? "templateText" : ""}`}
+                      placeholder="Add update or note..."
+                      value={newProofContent}
+                      onChange={(e) => {
+                        setNewProofContent(e.target.value);
+                        setIsTemplateText(false);
+                      }}
+                    />
+                    <div style={{ display: "flex", justifyContent: "flex-start" }}>
+                      <button
+                        type="button"
+                        className={`btn ${showTemplates ? "btnDanger" : ""}`}
+                        onClick={() => setShowTemplates((v) => !v)}
+                      >
+                        {showTemplates ? "Hide Templates" : "⚡ Quick Templates"}
+                      </button>
+                    </div>
+
+                    {showTemplates ? (
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        {entryTemplates.map((template) => (
+                          <button
+                            key={template.name}
+                            type="button"
+                            className="btn"
+                            onClick={() => {
+                              setNewProofContent(template.text);
+                              setIsTemplateText(true);
+                              setShowTemplates(false);
+
+                              setTimeout(() => {
+                                const el = document.getElementById("new-entry-textarea") as HTMLTextAreaElement | null;
+                                el?.focus();
+                              }, 50);
+                            }}
+                          >
+                            {template.name}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    <button
+                      className="btn"
+                      onClick={addProof}
+                      disabled={addingProof}
+                      style={{
+                        background: "rgba(15,23,42,0.14)",
+                        color: "#020617",
+                        borderColor: "rgba(15,23,42,0.28)",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {addingProof ? "Saving..." : "Add Entry"}
+                    </button>
+
+                    {proofStatus ? (
+                      <div className="sub" style={{ opacity: 0.85 }}>
+                        {proofStatus}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {draftApprovals.length > 0 ? (
+                    <div className="list" style={{ marginTop: 14, display: "grid", gap: 14 }}>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 800,
+                          textTransform: "uppercase",
+                          letterSpacing: 0.4,
+                          opacity: 0.65,
+                        }}
+                      >
+                        Draft Approvals
+                      </div>
+
+                      {draftApprovals.map((approval) => (
                         <ApprovalCard
                           key={approval.id}
                           approval={approval}
                           onUpdated={async () => {
                             await loadApprovals(selectedProject.id);
                           }}
+                          onEdit={(approval) => {
+                            setEditingApproval(approval);
+                            setIsApprovalMode(true);
+                          }}
                         />
                       ))}
-                  </div>
-                ) : null}
+                    </div>
+                  ) : null}
 
-                <div className="list" style={{ marginTop: 14, display: "grid", gap: 14 }}>
-                  {filteredProofs.map((proof) => {
-                    const offline = isOfflineProof(proof);
-                    const serverProof = offline ? null : proof;
-                    const isOpen = openProofId === proof.id;
-                    const isLocked = offline ? false : !!proof.locked_at;
-                    const isArchived = offline ? false : isArchivedProof(proof);
-                    const working = !offline && workingProofId === proof.id;
-                    const isEditing = !offline && editingProofId === proof.id;
-
-                    return (
-                      <div
-                        key={offline ? proof.id : proof.id}
-                        className="proofItem"
-                        style={{
-                          border: isArchived
-                            ? "1px solid rgba(239,68,68,0.18)"
-                            : isLocked
-                              ? "1px solid rgba(16,185,129,0.18)"
-                              : "1px solid rgba(15,23,42,0.12)",
-                          borderLeft: isArchived
-                            ? "6px solid #f87171"
-                            : isLocked
-                              ? "6px solid #10b981"
-                              : "6px solid #f59e0b",
-                          borderRadius: 18,
-                          padding: 18,
-                          background: isArchived
-                            ? "rgba(248,250,252,0.9)"
-                            : "rgba(255,255,255,0.98)",
-                          boxShadow: "0 10px 24px rgba(15,23,42,0.06)",
-                          opacity: isArchived ? 0.9 : 1,
-                          position: "relative",
-                          zIndex: !offline && proofMenuOpenId === proof.id ? 50 : 1,
-                        }}
-                      >
-                        <div className="row" style={{ alignItems: "flex-start" }}>
-                          <div style={{ flex: 1 }}>
-                            {isEditing ? (
-                              <div style={{ display: "grid", gap: 8 }}>
-                                <textarea
-                                  className="textarea"
-                                  value={editDraftContent}
-                                  onChange={(e) => setEditDraftContent(e.target.value)}
-                                />
-                                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                  <button
-                                    className="btn btnPrimary"
-                                    onClick={() => saveEditEntry(proof.id)}
-                                    disabled={working}
-                                  >
-                                    {working ? "Saving..." : "Save changes"}
-                                  </button>
-                                  <button className="btn btnDanger" onClick={cancelEditEntry} disabled={working}>
-                                    Cancel
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div
-                                style={{
-                                  whiteSpace: "pre-wrap",
-                                  fontSize: 15,
-                                  lineHeight: 1.4,
-                                  overflowWrap: "anywhere",
-                                  wordBreak: "break-word",
-                                  minWidth: 0,
-                                  maxWidth: "100%",
-                                }}
-                              >
-                                {proof.content.split("\n").map((line, index) => (
-                                  <div
-                                    key={index}
-                                    style={{
-                                      fontWeight: index === 0 ? 700 : 400,
-                                      marginBottom: index === 0 ? 6 : 0,
-                                      overflowWrap: "anywhere",
-                                      wordBreak: "break-word",
-                                      minWidth: 0,
-                                      maxWidth: "100%",
-                                    }}
-                                  >
-                                    {line}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                marginTop: 14,
-                                paddingTop: 12,
-                                borderTop: "1px solid rgba(15,23,42,0.08)",
-                                flexWrap: "wrap",
-                                gap: 8,
-                              }}
-                            >
-                              <div className="sub" style={{ opacity: 0.75 }}>
-                                {formatWhen(offline ? proof.createdAt : proof.created_at)}
-                              </div>
-
-                              <div
-                                style={{
-                                  fontSize: 12,
-                                  fontWeight: 700,
-                                  padding: "6px 10px",
-                                  borderRadius: 999,
-                                  border: isArchived
-                                    ? "1px solid rgba(239,68,68,0.35)"
-                                    : isLocked
-                                      ? "1px solid rgba(16,185,129,0.35)"
-                                      : "1px solid rgba(245,158,11,0.35)",
-                                  background: isArchived
-                                    ? "rgba(239,68,68,0.08)"
-                                    : isLocked
-                                      ? "rgba(16,185,129,0.08)"
-                                      : "rgba(245,158,11,0.08)",
-                                  color: isArchived ? "#991b1b" : isLocked ? "#065f46" : "#92400e",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {offline
-                                  ? "Pending Sync"
-                                  : isArchived
-                                    ? isLocked
-                                      ? "Archived Finalized"
-                                      : "Archived Draft"
-                                    : isLocked
-                                      ? "Finalized"
-                                      : "Draft"}
-                              </div>
-                            </div>
-
-                            {isArchived ? (
-                              <div className="sub" style={{ marginTop: 8, opacity: 0.72 }}>
-                                Hidden from normal timeline view
-                              </div>
-                            ) : null}
-                          </div>
-
-                          <button
-                            className="btn"
-                            onClick={() => {
-                              setProofMenuOpenId(null);
-                              setOpenProofId(isOpen ? null : proof.id);
+                  {approvals.filter((a) => a.status !== "draft").length > 0 ? (
+                    <div className="list" style={{ marginTop: 14, display: "grid", gap: 14 }}>
+                      {approvals
+                        .filter((a) => a.status !== "draft")
+                        .map((approval) => (
+                          <ApprovalCard
+                            key={approval.id}
+                            approval={approval}
+                            onUpdated={async () => {
+                              await loadApprovals(selectedProject.id);
                             }}
-                            disabled={isEditing}
-                          >
-                            {isOpen ? "Hide" : "View"}
-                          </button>
+                          />
+                        ))}
+                    </div>
+                  ) : null}
 
-                          <div
-                            style={{ position: "relative" }}
-                            ref={!offline && proofMenuOpenId === proof.id ? proofMenuRef : null}
-                          >
-                            <button
-                              className="btn"
-                              onClick={() => setProofMenuOpenId((v) => (v === proof.id ? null : proof.id))}
-                              title="Entry actions"
-                              disabled={isEditing || offline}
-                            >
-                              …
-                            </button>
+                  <div className="list" style={{ marginTop: 14, display: "grid", gap: 14 }}>
+                    {filteredProofs.map((proof) => {
+                      const offline = isOfflineProof(proof);
+                      const serverProof = offline ? null : proof;
+                      const isOpen = openProofId === proof.id;
+                      const isLocked = offline ? false : !!proof.locked_at;
+                      const isArchived = offline ? false : isArchivedProof(proof);
+                      const working = !offline && workingProofId === proof.id;
+                      const isEditing = !offline && editingProofId === proof.id;
 
-                            {!offline && proofMenuOpenId === proof.id ? (
+                      return (
+                        <div
+                          key={offline ? proof.id : proof.id}
+                          className="proofItem"
+                          style={{
+                            border: isArchived
+                              ? "1px solid rgba(239,68,68,0.18)"
+                              : isLocked
+                                ? "1px solid rgba(16,185,129,0.18)"
+                                : "1px solid rgba(15,23,42,0.12)",
+                            borderLeft: isArchived
+                              ? "6px solid #f87171"
+                              : isLocked
+                                ? "6px solid #10b981"
+                                : "6px solid #f59e0b",
+                            borderRadius: 18,
+                            padding: 18,
+                            background: isArchived
+                              ? "rgba(248,250,252,0.9)"
+                              : "rgba(255,255,255,0.98)",
+                            boxShadow: "0 10px 24px rgba(15,23,42,0.06)",
+                            opacity: isArchived ? 0.9 : 1,
+                            position: "relative",
+                            zIndex: !offline && proofMenuOpenId === proof.id ? 50 : 1,
+                          }}
+                        >
+                          <div className="row" style={{ alignItems: "flex-start" }}>
+                            <div style={{ flex: 1 }}>
+                              {isEditing ? (
+                                <div style={{ display: "grid", gap: 8 }}>
+                                  <textarea
+                                    className="textarea"
+                                    value={editDraftContent}
+                                    onChange={(e) => setEditDraftContent(e.target.value)}
+                                  />
+                                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                    <button
+                                      className="btn btnPrimary"
+                                      onClick={() => saveEditEntry(proof.id)}
+                                      disabled={working}
+                                    >
+                                      {working ? "Saving..." : "Save changes"}
+                                    </button>
+                                    <button className="btn btnDanger" onClick={cancelEditEntry} disabled={working}>
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div
+                                  style={{
+                                    whiteSpace: "pre-wrap",
+                                    fontSize: 15,
+                                    lineHeight: 1.4,
+                                    overflowWrap: "anywhere",
+                                    wordBreak: "break-word",
+                                    minWidth: 0,
+                                    maxWidth: "100%",
+                                  }}
+                                >
+                                  {proof.content.split("\n").map((line, index) => (
+                                    <div
+                                      key={index}
+                                      style={{
+                                        fontWeight: index === 0 ? 700 : 400,
+                                        marginBottom: index === 0 ? 6 : 0,
+                                        overflowWrap: "anywhere",
+                                        wordBreak: "break-word",
+                                        minWidth: 0,
+                                        maxWidth: "100%",
+                                      }}
+                                    >
+                                      {line}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
                               <div
                                 style={{
-                                  position: "absolute",
-                                  right: 0,
-                                  top: 44,
-                                  zIndex: 999,
-                                  width: 220,
-                                  maxWidth: "min(220px, 88vw)",
-                                  border: "1px solid rgba(15,23,42,0.12)",
-                                  borderRadius: 14,
-                                  background: "white",
-                                  padding: 10,
-                                  boxShadow: "0 12px 30px rgba(15,23,42,0.10)",
-                                  display: "grid",
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  marginTop: 14,
+                                  paddingTop: 12,
+                                  borderTop: "1px solid rgba(15,23,42,0.08)",
+                                  flexWrap: "wrap",
                                   gap: 8,
                                 }}
                               >
-                                {!isLocked ? (
-                                  <button
-                                    className="btn"
-                                    onClick={() => {
-                                      if (!serverProof) return;
-                                      startEditEntry(serverProof);
-                                    }}
-                                    disabled={working}
-                                  >
-                                    Edit
-                                  </button>
-                                ) : null}
+                                <div className="sub" style={{ opacity: 0.75 }}>
+                                  {formatWhen(offline ? proof.createdAt : proof.created_at)}
+                                </div>
 
-                                {isArchived ? (
-                                  <button
-                                    className="btn"
-                                    onClick={() => {
-                                      if (!serverProof) return;
-                                      restoreEntry(serverProof.id);
-                                    }}
-                                    disabled={working}
-                                  >
-                                    {working ? "Working..." : "Restore"}
-                                  </button>
-                                ) : (
-                                  <button
-                                    className="btn btnDanger"
-                                    onClick={() => {
-                                      if (offline) return;
-                                      archiveEntry(proof.id);
-                                    }}
-                                    disabled={working}
-                                  >
-                                    {working ? "Working..." : "Archive"}
-                                  </button>
-                                )}
-
-                                {!isLocked ? (
-                                  <button
-                                    className="btn btnDanger"
-                                    onClick={() => {
-                                      if (!serverProof) return;
-                                      deleteEntry(serverProof.id);
-                                    }}
-                                    disabled={working}
-                                  >
-                                    {working ? "Working..." : "Delete"}
-                                  </button>
-                                ) : null}
+                                <div
+                                  style={{
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    padding: "6px 10px",
+                                    borderRadius: 999,
+                                    border: isArchived
+                                      ? "1px solid rgba(239,68,68,0.35)"
+                                      : isLocked
+                                        ? "1px solid rgba(16,185,129,0.35)"
+                                        : "1px solid rgba(245,158,11,0.35)",
+                                    background: isArchived
+                                      ? "rgba(239,68,68,0.08)"
+                                      : isLocked
+                                        ? "rgba(16,185,129,0.08)"
+                                        : "rgba(245,158,11,0.08)",
+                                    color: isArchived ? "#991b1b" : isLocked ? "#065f46" : "#92400e",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {offline
+                                    ? "Pending Sync"
+                                    : isArchived
+                                      ? isLocked
+                                        ? "Archived Finalized"
+                                        : "Archived Draft"
+                                      : isLocked
+                                        ? "Finalized"
+                                        : "Draft"}
+                                </div>
                               </div>
-                            ) : null}
-                          </div>
-                        </div>
 
-                        {isOpen ? (
-                          <div
-                            id="onboarding-attachments-area"
-                            style={{
-                              marginTop: 14,
-                              padding: 14,
-                              borderRadius: 14,
-                              border: "1px dashed rgba(15,23,42,0.12)",
-                              background: "rgba(15,23,42,0.02)",
-                              boxShadow:
-                                highlightTarget === "onboarding-attachments-area"
-                                  ? "0 0 0 6px rgba(59,130,246,0.12)"
-                                  : undefined,
-                              transition: "all 0.25s ease",
-                            }}
-                          >
-                            <div
-                              style={{
-                                fontSize: 11,
-                                fontWeight: 800,
-                                letterSpacing: 0.5,
-                                textTransform: "uppercase",
-                                opacity: 0.55,
-                                marginBottom: 10,
-                              }}
-                            >
-                              Attachments
+                              {isArchived ? (
+                                <div className="sub" style={{ marginTop: 8, opacity: 0.72 }}>
+                                  Hidden from normal timeline view
+                                </div>
+                              ) : null}
                             </div>
 
-                            <ProofAttachmentsWrapper
-                              projectId={selectedProject.id}
-                              proofId={serverProof?.id}
-                              offlineProofId={offline ? proof.id : undefined}
-                              lockedAt={serverProof?.locked_at}
-                              refreshKey={attachmentsRefreshKey}
-                              onUploaded={() => {
-                                setAttachmentsRefreshKey((k) => k + 1);
-                                setShowAttachmentStep(false);
-                                scrollBackToOnboarding(700);
+                            <button
+                              className="btn"
+                              onClick={() => {
+                                setProofMenuOpenId(null);
+                                setOpenProofId(isOpen ? null : proof.id);
                               }}
-                            />
+                              disabled={isEditing}
+                            >
+                              {isOpen ? "Hide" : "View"}
+                            </button>
+
+                            <div
+                              style={{ position: "relative" }}
+                              ref={!offline && proofMenuOpenId === proof.id ? proofMenuRef : null}
+                            >
+                              <button
+                                className="btn"
+                                onClick={() => setProofMenuOpenId((v) => (v === proof.id ? null : proof.id))}
+                                title="Entry actions"
+                                disabled={isEditing || offline}
+                              >
+                                …
+                              </button>
+
+                              {!offline && proofMenuOpenId === proof.id ? (
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    right: 0,
+                                    top: 44,
+                                    zIndex: 999,
+                                    width: 220,
+                                    maxWidth: "min(220px, 88vw)",
+                                    border: "1px solid rgba(15,23,42,0.12)",
+                                    borderRadius: 14,
+                                    background: "white",
+                                    padding: 10,
+                                    boxShadow: "0 12px 30px rgba(15,23,42,0.10)",
+                                    display: "grid",
+                                    gap: 8,
+                                  }}
+                                >
+                                  {!isLocked ? (
+                                    <button
+                                      className="btn"
+                                      onClick={() => {
+                                        if (!serverProof) return;
+                                        startEditEntry(serverProof);
+                                      }}
+                                      disabled={working}
+                                    >
+                                      Edit
+                                    </button>
+                                  ) : null}
+
+                                  {isArchived ? (
+                                    <button
+                                      className="btn"
+                                      onClick={() => {
+                                        if (!serverProof) return;
+                                        restoreEntry(serverProof.id);
+                                      }}
+                                      disabled={working}
+                                    >
+                                      {working ? "Working..." : "Restore"}
+                                    </button>
+                                  ) : (
+                                    <button
+                                      className="btn btnDanger"
+                                      onClick={() => {
+                                        if (offline) return;
+                                        archiveEntry(proof.id);
+                                      }}
+                                      disabled={working}
+                                    >
+                                      {working ? "Working..." : "Archive"}
+                                    </button>
+                                  )}
+
+                                  {!isLocked ? (
+                                    <button
+                                      className="btn btnDanger"
+                                      onClick={() => {
+                                        if (!serverProof) return;
+                                        deleteEntry(serverProof.id);
+                                      }}
+                                      disabled={working}
+                                    >
+                                      {working ? "Working..." : "Delete"}
+                                    </button>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                            </div>
                           </div>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
 
-                {filteredProofs.length === 0 ? (
-                  <div className="sub" style={{ marginTop: 14, opacity: 0.75 }}>
-                    No entries yet. Add your first update above to start the project timeline.
+                          {isOpen ? (
+                            <div
+                              id="onboarding-attachments-area"
+                              style={{
+                                marginTop: 14,
+                                padding: 14,
+                                borderRadius: 14,
+                                border: "1px dashed rgba(15,23,42,0.12)",
+                                background: "rgba(15,23,42,0.02)",
+                                boxShadow:
+                                  highlightTarget === "onboarding-attachments-area"
+                                    ? "0 0 0 6px rgba(59,130,246,0.12)"
+                                    : undefined,
+                                transition: "all 0.25s ease",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  letterSpacing: 0.5,
+                                  textTransform: "uppercase",
+                                  opacity: 0.55,
+                                  marginBottom: 10,
+                                }}
+                              >
+                                Attachments
+                              </div>
+
+                              <ProofAttachmentsWrapper
+                                projectId={selectedProject.id}
+                                proofId={serverProof?.id}
+                                offlineProofId={offline ? proof.id : undefined}
+                                lockedAt={serverProof?.locked_at}
+                                refreshKey={attachmentsRefreshKey}
+                                onUploaded={() => {
+                                  setAttachmentsRefreshKey((k) => k + 1);
+                                  setShowAttachmentStep(false);
+                                  scrollBackToOnboarding(700);
+                                }}
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
                   </div>
-                ) : null}
 
-                <div style={{ marginTop: 18, fontSize: 12, opacity: 0.6 }}>
-                  Draft entries become finalized when they are included in a sent project update.
-                </div>
-              </>
-            ) : null}
-          </div>
-        )}
+                  {filteredProofs.length === 0 ? (
+                    <div className="sub" style={{ marginTop: 14, opacity: 0.75 }}>
+                      No entries yet. Add your first update above to start the project timeline.
+                    </div>
+                  ) : null}
+
+                  <div style={{ marginTop: 18, fontSize: 12, opacity: 0.6 }}>
+                    Draft entries become finalized when they are included in a sent project update.
+                  </div>
+                </>
+              ) : null}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
