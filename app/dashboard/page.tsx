@@ -111,7 +111,7 @@ export default function DashboardPage() {
   // ---------------- UI STATES ----------------
   const [addingProof, setAddingProof] = useState(false);
   const [workingProofId, setWorkingProofId] = useState<number | string | null>(null);
-  const [openProofId, setOpenProofId] = useState<number | string | null>(null);
+  const [openProofId, setOpenProofId] = useState<string | number | null>(null);
   const [attachmentsRefreshKey, setAttachmentsRefreshKey] = useState(0);
 
   const [showArchivedEntries, setShowArchivedEntries] = useState(false);
@@ -548,16 +548,23 @@ export default function DashboardPage() {
         try {
           await markOfflineProofSyncing(p.id);
 
-          const { error } = await supabase
+          const { data, error } = await supabase
             .from("proofs")
             .insert({
               content: p.content,
               project_id: p.projectId,
-            });
+            })
+            .select("id")
+            .single();
 
           if (error) {
             await markOfflineProofFailed(p.id, error.message);
             continue;
+          }
+
+          if (data?.id) {
+            const { attachOfflineAttachmentsToProof } = await import("@/lib/offlineAttachmentOutbox");
+            await attachOfflineAttachmentsToProof(p.id, data.id);
           }
 
           await deleteOfflineProof(p.id);
@@ -2249,7 +2256,7 @@ export default function DashboardPage() {
                   {filteredProofs.map((proof) => {
                     const offline = isOfflineProof(proof);
                     const serverProof = offline ? null : proof;
-                    const isOpen = !offline && openProofId === proof.id;
+                    const isOpen = openProofId === proof.id;
                     const isLocked = offline ? false : !!proof.locked_at;
                     const isArchived = offline ? false : isArchivedProof(proof);
                     const working = !offline && workingProofId === proof.id;
@@ -2513,23 +2520,18 @@ export default function DashboardPage() {
                               Attachments
                             </div>
 
-                            {serverProof ? (
-                              <ProofAttachmentsWrapper
-                                projectId={selectedProject.id}
-                                proofId={serverProof.id}
-                                lockedAt={serverProof.locked_at}
-                                refreshKey={attachmentsRefreshKey}
-                                onUploaded={() => {
-                                  setAttachmentsRefreshKey((k) => k + 1);
-                                  setShowAttachmentStep(false);
-                                  scrollBackToOnboarding(700);
-                                }}
-                              />
-                            ) : (
-                              <div style={{ fontSize: 12, opacity: 0.6 }}>
-                                Attachments coming next (offline support in progress)
-                              </div>
-                            )}
+                            <ProofAttachmentsWrapper
+                              projectId={selectedProject.id}
+                              proofId={serverProof?.id}
+                              offlineProofId={offline ? proof.id : undefined}
+                              lockedAt={serverProof?.locked_at}
+                              refreshKey={attachmentsRefreshKey}
+                              onUploaded={() => {
+                                setAttachmentsRefreshKey((k) => k + 1);
+                                setShowAttachmentStep(false);
+                                scrollBackToOnboarding(700);
+                              }}
+                            />
                           </div>
                         ) : null}
                       </div>
