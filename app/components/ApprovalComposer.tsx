@@ -685,9 +685,9 @@ export default function ApprovalComposer({
                       border: "1px solid rgba(15,23,42,0.08)",
                       borderRadius: 10,
                       padding: 8,
+                      minWidth: 0,
                     }}
                   >
-                    {/* Thumbnail */}
                     <div
                       style={{
                         width: 56,
@@ -695,7 +695,7 @@ export default function ApprovalComposer({
                         borderRadius: 8,
                         overflow: "hidden",
                         background: "#f1f5f9",
-                        flexShrink: 0,
+                        flex: "0 0 56px",
                       }}
                     >
                       {isImage ? (
@@ -724,8 +724,15 @@ export default function ApprovalComposer({
                       )}
                     </div>
 
-                    {/* Info */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 8,
+                      }}
+                    >
                       <a
                         href={`/api/attachments/open?id=${attachment.id}&kind=approval`}
                         target="_blank"
@@ -737,19 +744,22 @@ export default function ApprovalComposer({
                           overflow: "hidden",
                           textOverflow: "ellipsis",
                           whiteSpace: "nowrap",
+                          minWidth: 0,
                         }}
                       >
                         {attachment.filename || "Attachment"}
                       </a>
-                    </div>
 
-                    {/* Remove */}
-                    <button
-                      className="btn btnDanger"
-                      onClick={() => void handleRemoveAttachment(attachment.id)}
-                    >
-                      Remove
-                    </button>
+                      <div>
+                        <button
+                          className="btn btnDanger"
+                          type="button"
+                          onClick={() => void handleRemoveAttachment(attachment.id)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 );
               })}
