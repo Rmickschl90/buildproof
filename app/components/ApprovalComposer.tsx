@@ -519,7 +519,13 @@ export default function ApprovalComposer({
 
       setStatus("Saving draft...");
       await upsertDraft(true);
-      await onComplete?.();
+
+      const isOffline =
+        typeof navigator !== "undefined" && !navigator.onLine;
+
+      if (!isOffline) {
+        await onComplete?.();
+      }
     } catch (err: any) {
       setStatus(err?.message || "Failed to save draft.");
     }
