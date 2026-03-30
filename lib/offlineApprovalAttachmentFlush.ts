@@ -41,8 +41,19 @@ export async function flushOfflineApprovalAttachmentOutbox(
 
       const prepJson = await prepRes.json().catch(() => ({}));
 
-      if (!prepRes.ok) {
-        throw new Error(prepJson?.error || "Failed to prepare approval attachment upload");
+            if (!prepRes.ok) {
+        const errorMessage =
+          prepJson?.error || "Failed to prepare approval attachment upload";
+
+        if (
+          prepRes.status === 404 &&
+          String(errorMessage).toLowerCase().includes("approval not found")
+        ) {
+          await removeOfflineApprovalAttachmentRecord(record.id);
+          continue;
+        }
+
+        throw new Error(errorMessage);
       }
 
       const { uploadUrl, path, attachmentId } = prepJson;
