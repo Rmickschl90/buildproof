@@ -400,7 +400,9 @@ export default function ApprovalComposer({
         return;
       }
 
-
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("buildproof-run-offline-flush"));
+      }
 
       const token = await getAccessToken();
       await refreshDraftAttachments(token, approvalId);
