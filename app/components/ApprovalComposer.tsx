@@ -669,42 +669,90 @@ export default function ApprovalComposer({
 
           {attachments.length ? (
             <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-              {attachments.map((attachment) => (
-                <div
-                  key={attachment.id}
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: 10,
-                    border: "1px solid rgba(15,23,42,0.08)",
-                    borderRadius: 10,
-                    padding: "8px 10px",
-                  }}
-                >
-                  <div style={{ flex: "1 1 100%" }}>
-                    <a
-                      href={`/api/attachments/open?id=${attachment.id}&kind=approval`}
-                      target="_blank"
-                      rel="noreferrer"
+              {attachments.map((attachment) => {
+                const isImage =
+                  attachment.mime_type?.startsWith("image/") ||
+                  (attachment.filename &&
+                    /\.(jpg|jpeg|png|webp)$/i.test(attachment.filename));
+
+                return (
+                  <div
+                    key={attachment.id}
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      alignItems: "center",
+                      border: "1px solid rgba(15,23,42,0.08)",
+                      borderRadius: 10,
+                      padding: 8,
+                    }}
+                  >
+                    {/* Thumbnail */}
+                    <div
                       style={{
-                        display: "block",
-                        whiteSpace: "normal",
-                        overflowWrap: "anywhere",
-                        wordBreak: "break-word",
+                        width: 56,
+                        height: 56,
+                        borderRadius: 8,
+                        overflow: "hidden",
+                        background: "#f1f5f9",
+                        flexShrink: 0,
                       }}
                     >
-                      {attachment.filename || "Attachment"}
-                    </a>
-                  </div>
+                      {isImage ? (
+                        <img
+                          src={`/api/attachments/open?id=${attachment.id}&kind=approval`}
+                          alt={attachment.filename || "attachment"}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            fontSize: 12,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            height: "100%",
+                            opacity: 0.6,
+                          }}
+                        >
+                          FILE
+                        </div>
+                      )}
+                    </div>
 
-                  <button
-                    className="btn btnDanger"
-                    onClick={() => void handleRemoveAttachment(attachment.id)}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
+                    {/* Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <a
+                        href={`/api/attachments/open?id=${attachment.id}&kind=approval`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 600,
+                          display: "block",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {attachment.filename || "Attachment"}
+                      </a>
+                    </div>
+
+                    {/* Remove */}
+                    <button
+                      className="btn btnDanger"
+                      onClick={() => void handleRemoveAttachment(attachment.id)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           ) : null}
         </div>
