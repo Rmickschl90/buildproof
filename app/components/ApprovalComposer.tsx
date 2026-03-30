@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { addOfflineApprovalAttachment } from "@/lib/offlineApprovalAttachmentOutbox";
-import { flushOfflineApprovalAttachmentOutbox } from "@/lib/offlineApprovalAttachmentFlush";
+
 
 type ApprovalType =
   | "change_order"

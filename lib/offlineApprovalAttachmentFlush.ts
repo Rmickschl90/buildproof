@@ -23,7 +23,10 @@ export async function flushOfflineApprovalAttachmentOutbox(
                 continue;
             }
 
-            const claimed = await markOfflineApprovalAttachmentUploading(record.id);
+            const claimed = await (markOfflineApprovalAttachmentUploading as any)(
+                record.id
+            );
+
             if (!claimed) {
                 continue;
             }
