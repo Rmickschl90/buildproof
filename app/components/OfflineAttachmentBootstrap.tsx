@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { flushOfflineAttachmentOutbox } from "@/lib/offlineAttachmentFlush";
 import { flushOfflineApprovalAttachmentOutbox } from "@/lib/offlineApprovalAttachmentFlush";
 
 export default function OfflineAttachmentBootstrap() {
+  const isFlushingRef = useRef(false);
+
   useEffect(() => {
     async function getAccessToken() {
       const { data, error } = await supabase.auth.getSession();
@@ -18,29 +20,35 @@ export default function OfflineAttachmentBootstrap() {
     }
 
     async function runFlush() {
+      if (isFlushingRef.current) return;
+
+      isFlushingRef.current = true;
+
       try {
         await flushOfflineAttachmentOutbox(getAccessToken);
         await flushOfflineApprovalAttachmentOutbox(getAccessToken);
       } catch (error) {
         console.error("[OfflineAttachmentBootstrap] flush failed", error);
+      } finally {
+        isFlushingRef.current = false;
       }
     }
 
     function handleOnline() {
-      runFlush();
+      void runFlush();
     }
 
     function handleFocus() {
-      runFlush();
+      void runFlush();
     }
 
     function handleVisibility() {
       if (document.visibilityState === "visible") {
-        runFlush();
+        void runFlush();
       }
     }
 
-    runFlush();
+    void runFlush();
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("focus", handleFocus);
