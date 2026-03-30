@@ -147,21 +147,47 @@ export async function getPendingOfflineApprovalAttachments(): Promise<
             store.getAll()
         );
 
+        const now = Date.now();
+
         return (records ?? [])
-            .filter((record) => record.status === "pending")
+            .filter((record) => {
+                if (record.status === "pending") return true;
+
+                if (record.status === "uploading") {
+                    const lastAttempt = record.lastUploadAttemptAt
+                        ? new Date(record.lastUploadAttemptAt).getTime()
+                        : 0;
+
+                    return !lastAttempt || now - lastAttempt > 15000;
+                }
+
+                return false;
+            })
             .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     });
 }
 
 export async function markOfflineApprovalAttachmentUploading(
     id: string
-): Promise<void> {
-    await withStore("readwrite", async (store) => {
-        const existing = await promisifyRequest<OfflineApprovalAttachmentRecord | undefined>(
-            store.get(id)
-        );
+): Promise<boolean> {
+    return withStore("readwrite", async (store) => {
+        const existing = await promisifyRequest<
+            OfflineApprovalAttachmentRecord | undefined
+        >(store.get(id));
 
-        if (!existing) return;
+        if (!existing) return false;
+
+        const now = Date.now();
+        const lastAttempt = existing.lastUploadAttemptAt
+            ? new Date(existing.lastUploadAttemptAt).getTime()
+            : 0;
+
+        const canClaim =
+            existing.status === "pending" ||
+            (existing.status === "uploading" &&
+                (!lastAttempt || now - lastAttempt > 15000));
+
+        if (!canClaim) return false;
 
         const updated: OfflineApprovalAttachmentRecord = {
             ...existing,
@@ -173,7 +199,7 @@ export async function markOfflineApprovalAttachmentUploading(
         };
 
         await promisifyRequest(store.put(updated));
-        return undefined;
+        return true;
     });
 }
 
