@@ -124,6 +124,32 @@ export default function ApprovalComposer({
     setDraftApprovalId(savedDraftId);
   }, [draftStorageKey, initialApproval]);
 
+  useEffect(() => {
+    async function handleApprovalAttachmentComplete() {
+      const approvalId = draftApprovalIdRef.current;
+      if (!approvalId) return;
+
+      try {
+        const token = await getAccessToken();
+        await refreshDraftAttachments(token, approvalId);
+      } catch (err) {
+        console.error("[ApprovalComposer] refresh after attachment complete failed", err);
+      }
+    }
+
+    window.addEventListener(
+      "buildproof-approval-attachment-complete",
+      handleApprovalAttachmentComplete
+    );
+
+    return () => {
+      window.removeEventListener(
+        "buildproof-approval-attachment-complete",
+        handleApprovalAttachmentComplete
+      );
+    };
+  }, []);
+
   function clearStatus() {
     if (status) setStatus("");
   }
@@ -322,16 +348,21 @@ export default function ApprovalComposer({
             : `Creating approval draft and queueing ${files.length} attachments...`
       );
 
-      const approvalId = await upsertDraft(false);
-      if (!approvalId) {
-        setStatus("Failed to create approval draft.");
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        return;
-      }
+      let approvalId = draftApprovalIdRef.current;
 
-      draftApprovalIdRef.current = approvalId;
-      setDraftApprovalId(approvalId);
-      window.localStorage.setItem(draftStorageKey, approvalId);
+      if (!approvalId) {
+        approvalId = await upsertDraft(false);
+
+        if (!approvalId) {
+          setStatus("Failed to create approval draft.");
+          if (fileInputRef.current) fileInputRef.current.value = "";
+          return;
+        }
+
+        draftApprovalIdRef.current = approvalId;
+        setDraftApprovalId(approvalId);
+        window.localStorage.setItem(draftStorageKey, approvalId);
+      }
 
       for (const file of files) {
         await addOfflineApprovalAttachment({
