@@ -755,6 +755,11 @@ export default function ApprovalComposer({
                           className="btn btnDanger"
                           type="button"
                           onClick={() => void handleRemoveAttachment(attachment.id)}
+                          style={{
+                            padding: "4px 8px",
+                            fontSize: 12,
+                            borderRadius: 6,
+                          }}
                         >
                           Remove
                         </button>
