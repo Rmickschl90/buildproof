@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { addOfflineApprovalAttachment } from "@/lib/offlineApprovalAttachmentOutbox";
-
+import { flushOfflineApprovalAttachmentOutbox } from "@/lib/offlineApprovalAttachmentFlush";
 
 type ApprovalType =
   | "change_order"
@@ -400,9 +400,8 @@ export default function ApprovalComposer({
         return;
       }
 
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("buildproof-run-offline-flush"));
-      }
+
+      await flushOfflineApprovalAttachmentOutbox(tokenGetter);
 
       const token = await getAccessToken();
       await refreshDraftAttachments(token, approvalId);
