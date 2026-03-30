@@ -510,68 +510,87 @@ export default function ApprovalComposer({
   }
 
   async function handleSaveDraft() {
-  try {
-    if (isUploading) {
-      setStatus("Please wait for attachment upload to finish.");
-      return;
-    }
-
-    if (!hasMeaningfulContent()) {
-      setStatus("Nothing to save yet.");
-      return;
-    }
-
-    const isOffline =
-      typeof navigator !== "undefined" && !navigator.onLine;
-
-    if (isOffline) {
-      setStatus("Saving draft...");
-
-      let approvalId = draftApprovalIdRef.current;
-
-      if (!approvalId) {
-        approvalId = createTempApprovalId();
-
-        await addOfflineApproval({
-          id: approvalId,
-          projectId,
-          title,
-          approvalType,
-          description,
-          recipientName,
-          recipientEmail,
-          costDelta: costDelta === "" ? null : Number(costDelta),
-          scheduleDelta: scheduleDelta || null,
-          dueAt: dueAt || null,
-        });
-
-        draftApprovalIdRef.current = approvalId;
-        setDraftApprovalId(approvalId);
-        window.localStorage.setItem(draftStorageKey, approvalId);
-      } else if (approvalId.startsWith("offline-")) {
-        await updateOfflineApproval(approvalId, {
-          title,
-          approvalType,
-          description,
-          recipientName,
-          recipientEmail,
-          costDelta: costDelta === "" ? null : Number(costDelta),
-          scheduleDelta: scheduleDelta || null,
-          dueAt: dueAt || null,
-        });
+    try {
+      if (isUploading) {
+        setStatus("Please wait for attachment upload to finish.");
+        return;
       }
 
-      setStatus("Saved offline — will sync when connected.");
-      return;
-    }
+      if (!hasMeaningfulContent()) {
+        setStatus("Nothing to save yet.");
+        return;
+      }
 
-    setStatus("Saving draft...");
-    await upsertDraft(true);
-    await onComplete?.();
-  } catch (err: any) {
-    setStatus(err?.message || "Failed to save draft.");
+      const saveOffline = async () => {
+        let approvalId = draftApprovalIdRef.current;
+
+        if (!approvalId || !approvalId.startsWith("offline-")) {
+          approvalId = createTempApprovalId();
+
+          await addOfflineApproval({
+            id: approvalId,
+            projectId,
+            title,
+            approvalType,
+            description,
+            recipientName,
+            recipientEmail,
+            costDelta: costDelta === "" ? null : Number(costDelta),
+            scheduleDelta: scheduleDelta || null,
+            dueAt: dueAt || null,
+          });
+
+          draftApprovalIdRef.current = approvalId;
+          setDraftApprovalId(approvalId);
+          window.localStorage.setItem(draftStorageKey, approvalId);
+        } else {
+          await updateOfflineApproval(approvalId, {
+            title,
+            approvalType,
+            description,
+            recipientName,
+            recipientEmail,
+            costDelta: costDelta === "" ? null : Number(costDelta),
+            scheduleDelta: scheduleDelta || null,
+            dueAt: dueAt || null,
+          });
+        }
+
+        setStatus("Saved offline — will sync when connected.");
+      };
+
+      setStatus("Saving draft...");
+
+      try {
+        const isOffline =
+          typeof navigator !== "undefined" && !navigator.onLine;
+
+        if (isOffline) {
+          await saveOffline();
+          return;
+        }
+
+        await upsertDraft(true);
+        await onComplete?.();
+      } catch (err: any) {
+        const message = String(err?.message || "").toLowerCase();
+
+        const looksOffline =
+          message.includes("failed to fetch") ||
+          message.includes("network") ||
+          message.includes("fetch");
+
+        if (looksOffline) {
+          await saveOffline();
+          return;
+        }
+
+        throw err;
+      }
+    } catch (err: any) {
+      setStatus(err?.message || "Failed to save draft.");
+    }
   }
-}
 
   async function handleSendApproval() {
     try {
