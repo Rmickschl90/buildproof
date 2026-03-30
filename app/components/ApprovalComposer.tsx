@@ -394,7 +394,7 @@ export default function ApprovalComposer({
         return;
       }
 
-      await flushOfflineApprovalAttachmentOutbox(tokenGetter);
+      
 
       const token = await getAccessToken();
       await refreshDraftAttachments(token, approvalId);
