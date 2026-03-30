@@ -383,6 +383,17 @@ export default function ApprovalComposer({
         return token;
       };
 
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        setStatus(
+          files.length === 1
+            ? "Attachment saved — will upload when connected."
+            : `${files.length} attachments saved — will upload when connected.`
+        );
+
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+
       await flushOfflineApprovalAttachmentOutbox(tokenGetter);
 
       const token = await getAccessToken();
