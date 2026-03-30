@@ -132,6 +132,12 @@ export default function ApprovalComposer({
       try {
         const token = await getAccessToken();
         await refreshDraftAttachments(token, approvalId);
+
+        setStatus("Attachment uploaded.");
+
+        setTimeout(() => {
+          setStatus("");
+        }, 2000);
       } catch (err) {
         console.error("[ApprovalComposer] refresh after attachment complete failed", err);
       }
@@ -394,7 +400,7 @@ export default function ApprovalComposer({
         return;
       }
 
-      
+
 
       const token = await getAccessToken();
       await refreshDraftAttachments(token, approvalId);
@@ -647,9 +653,18 @@ export default function ApprovalComposer({
             ref={fileInputRef}
             type="file"
             multiple
+            style={{ display: "none" }}
             onChange={(e) => void handleAttachmentChange(e.target.files)}
-            disabled={isUploading}
           />
+
+          <button
+            className="btn"
+            type="button"
+            disabled={isUploading}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {isUploading ? "Uploading..." : "Add attachments"}
+          </button>
 
           {attachments.length ? (
             <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
