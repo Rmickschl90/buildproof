@@ -892,11 +892,17 @@ export default function ApprovalComposer({
         </div>
 
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button className="btn" onClick={handleSaveDraft} disabled={isUploading}>
+          <button
+            type="button"
+            className="btn"
+            onClick={handleSaveDraft}
+            disabled={isUploading}
+          >
             Save Draft
           </button>
 
           <button
+            type="button"
             className="btn btnPrimary"
             onClick={handleSendApproval}
             disabled={isUploading}
