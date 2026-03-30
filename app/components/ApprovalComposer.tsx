@@ -270,11 +270,62 @@ export default function ApprovalComposer({
   async function upsertDraft(showStatusMessage = false) {
     if (!hasMeaningfulContent()) return draftApprovalIdRef.current;
 
+    const isOffline =
+      typeof navigator !== "undefined" && !navigator.onLine;
+
+    // 🔥 OFFLINE PATH
+    if (isOffline) {
+      let approvalId = draftApprovalIdRef.current;
+
+      // create new offline approval
+      if (!approvalId) {
+        approvalId = createTempApprovalId();
+
+        await addOfflineApproval({
+          id: approvalId,
+          projectId,
+          title,
+          approvalType,
+          description,
+          recipientName,
+          recipientEmail,
+          costDelta: costDelta === "" ? null : Number(costDelta),
+          scheduleDelta,
+          dueAt: dueAt || null,
+        });
+
+        draftApprovalIdRef.current = approvalId;
+        setDraftApprovalId(approvalId);
+        window.localStorage.setItem(draftStorageKey, approvalId);
+      } else {
+        // update existing offline approval
+        await addOfflineApproval({
+          id: approvalId,
+          projectId,
+          title,
+          approvalType,
+          description,
+          recipientName,
+          recipientEmail,
+          costDelta: costDelta === "" ? null : Number(costDelta),
+          scheduleDelta,
+          dueAt: dueAt || null,
+        });
+      }
+
+      if (showStatusMessage) {
+        setStatus("Saved offline — will sync when connected.");
+      }
+
+      return approvalId;
+    }
+
+    // 🌐 ONLINE PATH (UNCHANGED)
     const token = await getAccessToken();
 
     let approvalId: string;
 
-    if (draftApprovalIdRef.current) {
+    if (draftApprovalIdRef.current && !draftApprovalIdRef.current.startsWith("offline-")) {
       try {
         approvalId = await updateDraft(token);
       } catch (err: any) {
