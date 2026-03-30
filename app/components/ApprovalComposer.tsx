@@ -4,7 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { addOfflineApprovalAttachment } from "@/lib/offlineApprovalAttachmentOutbox";
 import { flushOfflineApprovalAttachmentOutbox } from "@/lib/offlineApprovalAttachmentFlush";
-import { addOfflineApproval, createTempApprovalId } from "@/lib/offlineApprovalOutbox";
+import {
+  addOfflineApproval,
+  createTempApprovalId,
+  updateOfflineApproval,
+} from "@/lib/offlineApprovalOutbox";
 
 type ApprovalType =
   | "change_order"
@@ -506,30 +510,68 @@ export default function ApprovalComposer({
   }
 
   async function handleSaveDraft() {
-    try {
-      if (isUploading) {
-        setStatus("Please wait for attachment upload to finish.");
-        return;
-      }
-
-      if (!hasMeaningfulContent()) {
-        setStatus("Nothing to save yet.");
-        return;
-      }
-
-      setStatus("Saving draft...");
-      await upsertDraft(true);
-
-      const isOffline =
-        typeof navigator !== "undefined" && !navigator.onLine;
-
-      if (!isOffline) {
-        await onComplete?.();
-      }
-    } catch (err: any) {
-      setStatus(err?.message || "Failed to save draft.");
+  try {
+    if (isUploading) {
+      setStatus("Please wait for attachment upload to finish.");
+      return;
     }
+
+    if (!hasMeaningfulContent()) {
+      setStatus("Nothing to save yet.");
+      return;
+    }
+
+    const isOffline =
+      typeof navigator !== "undefined" && !navigator.onLine;
+
+    if (isOffline) {
+      setStatus("Saving draft...");
+
+      let approvalId = draftApprovalIdRef.current;
+
+      if (!approvalId) {
+        approvalId = createTempApprovalId();
+
+        await addOfflineApproval({
+          id: approvalId,
+          projectId,
+          title,
+          approvalType,
+          description,
+          recipientName,
+          recipientEmail,
+          costDelta: costDelta === "" ? null : Number(costDelta),
+          scheduleDelta: scheduleDelta || null,
+          dueAt: dueAt || null,
+        });
+
+        draftApprovalIdRef.current = approvalId;
+        setDraftApprovalId(approvalId);
+        window.localStorage.setItem(draftStorageKey, approvalId);
+      } else if (approvalId.startsWith("offline-")) {
+        await updateOfflineApproval(approvalId, {
+          title,
+          approvalType,
+          description,
+          recipientName,
+          recipientEmail,
+          costDelta: costDelta === "" ? null : Number(costDelta),
+          scheduleDelta: scheduleDelta || null,
+          dueAt: dueAt || null,
+        });
+      }
+
+      setStatus("Saved offline — will sync when connected.");
+      return;
+    }
+
+    setStatus("Saving draft...");
+    await upsertDraft(true);
+    await onComplete?.();
+  } catch (err: any) {
+    setStatus(err?.message || "Failed to save draft.");
   }
+}
 
   async function handleSendApproval() {
     try {
