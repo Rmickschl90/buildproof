@@ -22,7 +22,7 @@ export type OfflineSendRecord = {
 };
 
 const DB_NAME = "buildproof-offline";
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 const STORE_NAME = "send_outbox";
 
 function isBrowser() {
