@@ -10,6 +10,7 @@ import { attachServerApprovalIdToOfflineApprovalAttachments } from "@/lib/offlin
 function isOnline(): boolean {
     if (typeof navigator === "undefined") return true;
     return navigator.onLine;
+
 }
 
 export async function flushOfflineApprovalOutbox(
@@ -63,7 +64,14 @@ export async function flushOfflineApprovalOutbox(
             await removeOfflineApproval(record.id);
 
             if (typeof window !== "undefined") {
-                window.dispatchEvent(new Event("buildproof-offline-approval-sync-complete"));
+                window.dispatchEvent(
+                    new CustomEvent("buildproof-offline-approval-sync-complete", {
+                        detail: {
+                            offlineApprovalId: record.id,
+                            approvalId,
+                        },
+                    })
+                );
             }
         } catch (err: any) {
             await markApprovalFailed(

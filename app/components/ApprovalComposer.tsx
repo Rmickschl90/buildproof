@@ -132,7 +132,7 @@ export default function ApprovalComposer({
   useEffect(() => {
     async function handleApprovalAttachmentComplete() {
       const approvalId = draftApprovalIdRef.current;
-      if (!approvalId) return;
+      if (!approvalId || approvalId.startsWith("offline-")) return;
 
       try {
         const token = await getAccessToken();
@@ -148,9 +148,42 @@ export default function ApprovalComposer({
       }
     }
 
+    async function handleOfflineApprovalSyncComplete(event: Event) {
+      const customEvent = event as CustomEvent<{
+        offlineApprovalId: string;
+        approvalId: string;
+      }>;
+
+      const offlineApprovalId = customEvent.detail?.offlineApprovalId;
+      const approvalId = customEvent.detail?.approvalId;
+
+      if (!offlineApprovalId || !approvalId) return;
+      if (draftApprovalIdRef.current !== offlineApprovalId) return;
+
+      try {
+        draftApprovalIdRef.current = approvalId;
+        setDraftApprovalId(approvalId);
+        window.localStorage.setItem(draftStorageKey, approvalId);
+
+        const token = await getAccessToken();
+        await refreshDraftAttachments(token, approvalId);
+
+        setStatus("Approval synced.");
+
+        await onComplete?.();
+      } catch (err) {
+        console.error("[ApprovalComposer] refresh after offline approval sync failed", err);
+      }
+    }
+
     window.addEventListener(
       "buildproof-approval-attachment-complete",
       handleApprovalAttachmentComplete
+    );
+
+    window.addEventListener(
+      "buildproof-offline-approval-sync-complete",
+      handleOfflineApprovalSyncComplete as EventListener
     );
 
     return () => {
@@ -158,8 +191,13 @@ export default function ApprovalComposer({
         "buildproof-approval-attachment-complete",
         handleApprovalAttachmentComplete
       );
+
+      window.removeEventListener(
+        "buildproof-offline-approval-sync-complete",
+        handleOfflineApprovalSyncComplete as EventListener
+      );
     };
-  }, []);
+  }, [draftStorageKey, onComplete]);
 
   function clearStatus() {
     if (status) setStatus("");
