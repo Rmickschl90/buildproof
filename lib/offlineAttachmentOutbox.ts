@@ -20,7 +20,7 @@ export type OfflineAttachmentRecord = {
 };
 
 const DB_NAME = "buildproof-offline";
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 const STORE_NAME = "attachment_outbox";
 
 function isBrowser() {
