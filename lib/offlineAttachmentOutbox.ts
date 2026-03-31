@@ -38,51 +38,75 @@ function openDb(): Promise<IDBDatabase> {
       return;
     }
 
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    const request = indexedDB.open(DB_NAME);
 
-    request.onupgradeneeded = () => {
+    request.onsuccess = () => {
       const db = request.result;
 
-      // Ensure send_outbox exists
-      if (!db.objectStoreNames.contains("send_outbox")) {
-        db.createObjectStore("send_outbox", { keyPath: "id" });
+      const needsSendStore = !db.objectStoreNames.contains("send_outbox");
+      const needsAttachmentStore = !db.objectStoreNames.contains(STORE_NAME);
+      const needsApprovalAttachmentStore = !db.objectStoreNames.contains("approval_attachment_outbox");
+      const needsOfflineApprovalsStore = !db.objectStoreNames.contains("offline_approvals");
+
+      if (
+        !needsSendStore &&
+        !needsAttachmentStore &&
+        !needsApprovalAttachmentStore &&
+        !needsOfflineApprovalsStore
+      ) {
+        resolve(db);
+        return;
       }
 
-      // Ensure attachment_outbox exists
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME, { keyPath: "id" });
+      const nextVersion = db.version + 1;
+      db.close();
 
-        store.createIndex("status", "status", { unique: false });
-        store.createIndex("createdAt", "createdAt", { unique: false });
-        store.createIndex("proofId", "proofId", { unique: false });
-        store.createIndex("offlineProofId", "offlineProofId", { unique: false });
-      }
+      const upgradeReq = indexedDB.open(DB_NAME, nextVersion);
 
-      // ✅ NEW: approval_attachment_outbox
-      if (!db.objectStoreNames.contains("approval_attachment_outbox")) {
-        const store = db.createObjectStore("approval_attachment_outbox", {
-          keyPath: "id",
-        });
+      upgradeReq.onupgradeneeded = () => {
+        const upgradeDb = upgradeReq.result;
 
-        store.createIndex("by_status", "status", { unique: false });
-        store.createIndex("by_approvalId", "approvalId", { unique: false });
-        store.createIndex("by_offlineApprovalId", "offlineApprovalId", {
-          unique: false,
-        });
-        store.createIndex("by_createdAt", "createdAt", { unique: false });
-      }
-      // ✅ NEW: offline_approvals (CRITICAL FIX)
-      if (!db.objectStoreNames.contains("offline_approvals")) {
-        const store = db.createObjectStore("offline_approvals", {
-          keyPath: "id",
-        });
+        if (!upgradeDb.objectStoreNames.contains("send_outbox")) {
+          upgradeDb.createObjectStore("send_outbox", { keyPath: "id" });
+        }
 
-        store.createIndex("projectId", "projectId", { unique: false });
-        store.createIndex("status", "status", { unique: false });
-      }
+        if (!upgradeDb.objectStoreNames.contains(STORE_NAME)) {
+          const store = upgradeDb.createObjectStore(STORE_NAME, { keyPath: "id" });
+
+          store.createIndex("status", "status", { unique: false });
+          store.createIndex("createdAt", "createdAt", { unique: false });
+          store.createIndex("proofId", "proofId", { unique: false });
+          store.createIndex("offlineProofId", "offlineProofId", { unique: false });
+        }
+
+        if (!upgradeDb.objectStoreNames.contains("approval_attachment_outbox")) {
+          const store = upgradeDb.createObjectStore("approval_attachment_outbox", {
+            keyPath: "id",
+          });
+
+          store.createIndex("by_status", "status", { unique: false });
+          store.createIndex("by_approvalId", "approvalId", { unique: false });
+          store.createIndex("by_offlineApprovalId", "offlineApprovalId", {
+            unique: false,
+          });
+          store.createIndex("by_createdAt", "createdAt", { unique: false });
+        }
+
+        if (!upgradeDb.objectStoreNames.contains("offline_approvals")) {
+          const store = upgradeDb.createObjectStore("offline_approvals", {
+            keyPath: "id",
+          });
+
+          store.createIndex("projectId", "projectId", { unique: false });
+          store.createIndex("status", "status", { unique: false });
+        }
+      };
+
+      upgradeReq.onsuccess = () => resolve(upgradeReq.result);
+      upgradeReq.onerror = () =>
+        reject(upgradeReq.error || new Error("Failed to upgrade IndexedDB"));
     };
 
-    request.onsuccess = () => resolve(request.result);
     request.onerror = () =>
       reject(request.error || new Error("Failed to open IndexedDB"));
   });
