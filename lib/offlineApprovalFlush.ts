@@ -72,6 +72,9 @@ export async function flushOfflineApprovalOutbox(
                         },
                     })
                 );
+
+                // 🔥 trigger dashboard + global data refresh
+                window.dispatchEvent(new Event("buildproof-data-changed"));
             }
         } catch (err: any) {
             await markApprovalFailed(

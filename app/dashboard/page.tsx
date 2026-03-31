@@ -267,6 +267,21 @@ export default function DashboardPage() {
   }, [selectedProject?.id, showArchivedEntries]);
 
   useEffect(() => {
+    function handleBuildProofDataChanged() {
+      if (!selectedProject?.id) return;
+
+      void loadProofs(selectedProject.id, showArchivedEntries);
+      void loadApprovals(selectedProject.id, showArchivedEntries);
+    }
+
+    window.addEventListener("buildproof-data-changed", handleBuildProofDataChanged);
+
+    return () => {
+      window.removeEventListener("buildproof-data-changed", handleBuildProofDataChanged);
+    };
+  }, [selectedProject?.id, showArchivedEntries]);
+
+  useEffect(() => {
     if (!isSendMode && !isApprovalMode) return;
 
     setProjectMenuOpen(false);
