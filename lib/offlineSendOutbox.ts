@@ -44,32 +44,47 @@ function openDb(): Promise<IDBDatabase> {
       return;
     }
 
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onupgradeneeded = () => {
-      const db = request.result;
-
-      // Ensure send_outbox exists
-      if (!db.objectStoreNames.contains("send_outbox")) {
-        const sendStore = db.createObjectStore("send_outbox", { keyPath: "id" });
-
-        sendStore.createIndex("status", "status", { unique: false });
-        sendStore.createIndex("createdAt", "createdAt", { unique: false });
-        sendStore.createIndex("idempotencyKey", "idempotencyKey", { unique: true });
-      }
-
-      // Ensure attachment_outbox exists
-      if (!db.objectStoreNames.contains("attachment_outbox")) {
-        const attachmentStore = db.createObjectStore("attachment_outbox", { keyPath: "id" });
-
-        attachmentStore.createIndex("status", "status", { unique: false });
-        attachmentStore.createIndex("createdAt", "createdAt", { unique: false });
-        attachmentStore.createIndex("proofId", "proofId", { unique: false });
-      }
-    };
+    const request = indexedDB.open(DB_NAME);
 
     request.onsuccess = () => {
-      resolve(request.result);
+      const db = request.result;
+
+      const needsSendStore = !db.objectStoreNames.contains("send_outbox");
+      const needsAttachmentStore = !db.objectStoreNames.contains("attachment_outbox");
+
+      if (!needsSendStore && !needsAttachmentStore) {
+        resolve(db);
+        return;
+      }
+
+      const nextVersion = db.version + 1;
+      db.close();
+
+      const upgradeReq = indexedDB.open(DB_NAME, nextVersion);
+
+      upgradeReq.onupgradeneeded = () => {
+        const upgradeDb = upgradeReq.result;
+
+        if (!upgradeDb.objectStoreNames.contains("send_outbox")) {
+          const sendStore = upgradeDb.createObjectStore("send_outbox", { keyPath: "id" });
+
+          sendStore.createIndex("status", "status", { unique: false });
+          sendStore.createIndex("createdAt", "createdAt", { unique: false });
+          sendStore.createIndex("idempotencyKey", "idempotencyKey", { unique: true });
+        }
+
+        if (!upgradeDb.objectStoreNames.contains("attachment_outbox")) {
+          const attachmentStore = upgradeDb.createObjectStore("attachment_outbox", { keyPath: "id" });
+
+          attachmentStore.createIndex("status", "status", { unique: false });
+          attachmentStore.createIndex("createdAt", "createdAt", { unique: false });
+          attachmentStore.createIndex("proofId", "proofId", { unique: false });
+        }
+      };
+
+      upgradeReq.onsuccess = () => resolve(upgradeReq.result);
+      upgradeReq.onerror = () =>
+        reject(upgradeReq.error || new Error("Failed to upgrade IndexedDB"));
     };
 
     request.onerror = () => {
