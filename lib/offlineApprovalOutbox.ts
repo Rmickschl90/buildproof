@@ -145,6 +145,40 @@ export async function markApprovalFailed(id: string): Promise<void> {
     return updateOfflineApproval(id, { status: "failed" });
 }
 
+export async function claimPendingOfflineApproval(
+    id: string
+): Promise<OfflineApprovalRecord | null> {
+    const db = await openDb();
+
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readwrite");
+        const store = tx.objectStore(STORE_NAME);
+
+        const getReq = store.get(id);
+
+        getReq.onsuccess = () => {
+            const existing = getReq.result as OfflineApprovalRecord | undefined;
+
+            if (!existing || existing.status !== "pending") {
+                resolve(null);
+                return;
+            }
+
+            const updated: OfflineApprovalRecord = {
+                ...existing,
+                status: "syncing",
+                updatedAt: Date.now(),
+            };
+
+            store.put(updated);
+            resolve(updated);
+        };
+
+        getReq.onerror = () => reject(getReq.error);
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
 export async function removeOfflineApproval(id: string): Promise<void> {
     const db = await openDb();
 

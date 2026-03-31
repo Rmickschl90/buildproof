@@ -427,8 +427,11 @@ export default function ApprovalComposer({
       }
 
       for (const file of files) {
+        const isOfflineApprovalId = approvalId.startsWith("offline-");
+
         await addOfflineApprovalAttachment({
-          approvalId,
+          approvalId: isOfflineApprovalId ? null : approvalId,
+          offlineApprovalId: isOfflineApprovalId ? approvalId : null,
           file,
           fileName: file.name,
           mimeType: file.type || "application/octet-stream",
