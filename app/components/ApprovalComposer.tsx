@@ -170,7 +170,7 @@ export default function ApprovalComposer({
 
         setStatus("Approval synced.");
 
-        await onComplete?.();
+        
       } catch (err) {
         console.error("[ApprovalComposer] refresh after offline approval sync failed", err);
       }
