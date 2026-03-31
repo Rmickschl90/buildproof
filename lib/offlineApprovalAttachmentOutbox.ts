@@ -43,26 +43,42 @@ function promisifyRequest<T = undefined>(request: IDBRequest<T>): Promise<T> {
 
 function openOfflineDb(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
-        const request = getIndexedDb().open(OFFLINE_DB_NAME, OFFLINE_DB_VERSION);
+        const request = getIndexedDb().open(OFFLINE_DB_NAME);
 
-        request.onupgradeneeded = () => {
+        request.onsuccess = () => {
             const db = request.result;
 
             if (!db.objectStoreNames.contains(APPROVAL_ATTACHMENT_STORE)) {
-                const store = db.createObjectStore(APPROVAL_ATTACHMENT_STORE, {
-                    keyPath: "id",
-                });
+                const nextVersion = db.version + 1;
+                db.close();
 
-                store.createIndex("by_status", "status", { unique: false });
-                store.createIndex("by_approvalId", "approvalId", { unique: false });
-                store.createIndex("by_offlineApprovalId", "offlineApprovalId", {
-                    unique: false,
-                });
-                store.createIndex("by_createdAt", "createdAt", { unique: false });
+                const upgradeReq = getIndexedDb().open(OFFLINE_DB_NAME, nextVersion);
+
+                upgradeReq.onupgradeneeded = () => {
+                    const upgradeDb = upgradeReq.result;
+
+                    if (!upgradeDb.objectStoreNames.contains(APPROVAL_ATTACHMENT_STORE)) {
+                        const store = upgradeDb.createObjectStore(APPROVAL_ATTACHMENT_STORE, {
+                            keyPath: "id",
+                        });
+
+                        store.createIndex("by_status", "status", { unique: false });
+                        store.createIndex("by_approvalId", "approvalId", { unique: false });
+                        store.createIndex("by_offlineApprovalId", "offlineApprovalId", {
+                            unique: false,
+                        });
+                        store.createIndex("by_createdAt", "createdAt", { unique: false });
+                    }
+                };
+
+                upgradeReq.onsuccess = () => resolve(upgradeReq.result);
+                upgradeReq.onerror = () =>
+                    reject(upgradeReq.error ?? new Error("Failed to upgrade offline database."));
+            } else {
+                resolve(db);
             }
         };
 
-        request.onsuccess = () => resolve(request.result);
         request.onerror = () =>
             reject(request.error ?? new Error("Failed to open offline database."));
     });
