@@ -71,6 +71,15 @@ function openDb(): Promise<IDBDatabase> {
         });
         store.createIndex("by_createdAt", "createdAt", { unique: false });
       }
+      // ✅ NEW: offline_approvals (CRITICAL FIX)
+      if (!db.objectStoreNames.contains("offline_approvals")) {
+        const store = db.createObjectStore("offline_approvals", {
+          keyPath: "id",
+        });
+
+        store.createIndex("projectId", "projectId", { unique: false });
+        store.createIndex("status", "status", { unique: false });
+      }
     };
 
     request.onsuccess = () => resolve(request.result);

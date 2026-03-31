@@ -4,142 +4,157 @@ const DB_VERSION = 6;
 const STORE_NAME = "offline_approvals";
 
 export type OfflineApprovalRecord = {
-  id: string;
-  projectId: string;
-  title: string;
-  approvalType: string;
-  description: string;
-  recipientName: string;
-  recipientEmail: string;
-  costDelta: number | null;
-  scheduleDelta: string | null;
-  dueAt: string | null;
-  createdAt: number;
-  updatedAt: number;
-  status: "pending" | "syncing" | "synced" | "failed";
+    id: string;
+    projectId: string;
+    title: string;
+    approvalType: string;
+    description: string;
+    recipientName: string;
+    recipientEmail: string;
+    costDelta: number | null;
+    scheduleDelta: string | null;
+    dueAt: string | null;
+    createdAt: number;
+    updatedAt: number;
+    status: "pending" | "syncing" | "synced" | "failed";
 };
 
 function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME);
 
-    req.onupgradeneeded = () => {
-      const db = req.result;
+        request.onsuccess = () => {
+            const db = request.result;
 
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME, {
-          keyPath: "id",
-        });
+            // 🔥 CRITICAL FIX: ensure store exists
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.close();
 
-        store.createIndex("projectId", "projectId", { unique: false });
-        store.createIndex("status", "status", { unique: false });
-      }
-    };
+                const upgradeReq = indexedDB.open(DB_NAME, db.version + 1);
 
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
+                upgradeReq.onupgradeneeded = () => {
+                    const upgradeDb = upgradeReq.result;
+
+                    if (!upgradeDb.objectStoreNames.contains(STORE_NAME)) {
+                        const store = upgradeDb.createObjectStore(STORE_NAME, {
+                            keyPath: "id",
+                        });
+
+                        store.createIndex("projectId", "projectId", { unique: false });
+                        store.createIndex("status", "status", { unique: false });
+                    }
+                };
+
+                upgradeReq.onsuccess = () => resolve(upgradeReq.result);
+                upgradeReq.onerror = () => reject(upgradeReq.error);
+            } else {
+                resolve(db);
+            }
+        };
+
+        request.onerror = () => reject(request.error);
+    });
 }
 
 export function createTempApprovalId(): string {
-  return `offline-${crypto.randomUUID()}`;
+    return `offline-${crypto.randomUUID()}`;
 }
 
 export async function addOfflineApproval(
-  record: Omit<OfflineApprovalRecord, "createdAt" | "updatedAt" | "status">
+    record: Omit<OfflineApprovalRecord, "createdAt" | "updatedAt" | "status">
 ): Promise<void> {
-  const db = await openDb();
-  const now = Date.now();
+    const db = await openDb();
+    const now = Date.now();
 
-  const fullRecord: OfflineApprovalRecord = {
-    ...record,
-    createdAt: now,
-    updatedAt: now,
-    status: "pending",
-  };
+    const fullRecord: OfflineApprovalRecord = {
+        ...record,
+        createdAt: now,
+        updatedAt: now,
+        status: "pending",
+    };
 
-  return new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readwrite");
-    const store = tx.objectStore(STORE_NAME);
+    return new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readwrite");
+        const store = tx.objectStore(STORE_NAME);
 
-    store.put(fullRecord);
+        store.put(fullRecord);
 
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
 }
 
 export async function updateOfflineApproval(
-  id: string,
-  updates: Partial<OfflineApprovalRecord>
+    id: string,
+    updates: Partial<OfflineApprovalRecord>
 ): Promise<void> {
-  const db = await openDb();
+    const db = await openDb();
 
-  return new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readwrite");
-    const store = tx.objectStore(STORE_NAME);
+    return new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readwrite");
+        const store = tx.objectStore(STORE_NAME);
 
-    const getReq = store.get(id);
+        const getReq = store.get(id);
 
-    getReq.onsuccess = () => {
-      const existing = getReq.result;
-      if (!existing) {
-        resolve();
-        return;
-      }
+        getReq.onsuccess = () => {
+            const existing = getReq.result;
+            if (!existing) {
+                resolve();
+                return;
+            }
 
-      const updated: OfflineApprovalRecord = {
-        ...existing,
-        ...updates,
-        updatedAt: Date.now(),
-      };
+            const updated: OfflineApprovalRecord = {
+                ...existing,
+                ...updates,
+                updatedAt: Date.now(),
+            };
 
-      store.put(updated);
-    };
+            store.put(updated);
+        };
 
-    getReq.onerror = () => reject(getReq.error);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
+        getReq.onerror = () => reject(getReq.error);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
 }
 
 export async function getPendingOfflineApprovals(): Promise<OfflineApprovalRecord[]> {
-  const db = await openDb();
+    const db = await openDb();
 
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readonly");
-    const store = tx.objectStore(STORE_NAME);
-    const index = store.index("status");
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readonly");
+        const store = tx.objectStore(STORE_NAME);
+        const index = store.index("status");
 
-    const req = index.getAll("pending");
+        const req = index.getAll("pending");
 
-    req.onsuccess = () => resolve(req.result || []);
-    req.onerror = () => reject(req.error);
-  });
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+    });
 }
 
 export async function markApprovalSyncing(id: string): Promise<void> {
-  return updateOfflineApproval(id, { status: "syncing" });
+    return updateOfflineApproval(id, { status: "syncing" });
 }
 
 export async function markApprovalSynced(id: string): Promise<void> {
-  return updateOfflineApproval(id, { status: "synced" });
+    return updateOfflineApproval(id, { status: "synced" });
 }
 
 export async function markApprovalFailed(id: string): Promise<void> {
-  return updateOfflineApproval(id, { status: "failed" });
+    return updateOfflineApproval(id, { status: "failed" });
 }
 
 export async function removeOfflineApproval(id: string): Promise<void> {
-  const db = await openDb();
+    const db = await openDb();
 
-  return new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readwrite");
-    const store = tx.objectStore(STORE_NAME);
+    return new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readwrite");
+        const store = tx.objectStore(STORE_NAME);
 
-    store.delete(id);
+        store.delete(id);
 
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
 }
