@@ -210,7 +210,6 @@ export default function ApprovalComposer({
 
         const token = await getAccessToken();
         await refreshDraftAttachments(token, approvalId);
-        await flushOfflineApprovalSendOutbox(getAccessToken);
 
         setStatus("Approval synced.");
 
@@ -897,6 +896,8 @@ export default function ApprovalComposer({
 
       if (looksOffline) {
         const currentApprovalId = draftApprovalIdRef.current;
+
+        setStatus("Queueing approval...");
 
         await queueApprovalSendOffline({
           approvalId:
