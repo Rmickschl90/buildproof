@@ -106,6 +106,9 @@ export async function flushOfflineApprovalAttachmentOutbox(
                 window.dispatchEvent(
                     new Event("buildproof-approval-attachment-complete")
                 );
+
+                // 🔥 refresh dashboard / approval cards after attachment finishes syncing
+                window.dispatchEvent(new Event("buildproof-data-changed"));
             }
         } catch (err: any) {
             await markOfflineApprovalAttachmentPending(
