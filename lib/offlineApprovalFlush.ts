@@ -29,13 +29,14 @@ export async function flushOfflineApprovalOutbox(
 
             const token = await getAccessToken();
 
-            const res = await fetch("/api/approvals/create", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
+            const isNewOfflineApproval = record.id.startsWith("offline-");
+
+            const endpoint = isNewOfflineApproval
+                ? "/api/approvals/create"
+                : "/api/approvals/update";
+
+            const body = isNewOfflineApproval
+                ? {
                     projectId: record.projectId,
                     title: record.title,
                     approvalType: record.approvalType,
@@ -45,7 +46,26 @@ export async function flushOfflineApprovalOutbox(
                     costDelta: record.costDelta,
                     scheduleDelta: record.scheduleDelta,
                     dueAt: record.dueAt,
-                }),
+                }
+                : {
+                    approvalId: record.id,
+                    title: record.title,
+                    approvalType: record.approvalType,
+                    description: record.description,
+                    recipientName: record.recipientName,
+                    recipientEmail: record.recipientEmail,
+                    costDelta: record.costDelta,
+                    scheduleDelta: record.scheduleDelta,
+                    dueAt: record.dueAt,
+                };
+
+            const res = await fetch(endpoint, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(body),
             });
 
             const json = await res.json().catch(() => ({}));
@@ -54,12 +74,15 @@ export async function flushOfflineApprovalOutbox(
                 throw new Error(json?.error || "Failed to sync offline approval.");
             }
 
-            const approvalId = json?.approval?.id;
+            const approvalId = json?.approval?.id || record.id;
             if (!approvalId) {
                 throw new Error("Offline approval synced but missing server approval id.");
             }
 
-            await attachServerApprovalIdToOfflineApprovalAttachments(record.id, approvalId);
+            if (isNewOfflineApproval) {
+                await attachServerApprovalIdToOfflineApprovalAttachments(record.id, approvalId);
+            }
+
             await markApprovalSynced(record.id);
             await removeOfflineApproval(record.id);
 
@@ -73,7 +96,6 @@ export async function flushOfflineApprovalOutbox(
                     })
                 );
 
-                // 🔥 trigger dashboard + global data refresh
                 window.dispatchEvent(new Event("buildproof-data-changed"));
             }
         } catch (err: any) {

@@ -577,7 +577,7 @@ export default function ApprovalComposer({
       const saveOffline = async () => {
         let approvalId = draftApprovalIdRef.current;
 
-        if (!approvalId || !approvalId.startsWith("offline-")) {
+        if (!approvalId) {
           approvalId = createTempApprovalId();
 
           await addOfflineApproval({
@@ -596,8 +596,23 @@ export default function ApprovalComposer({
           draftApprovalIdRef.current = approvalId;
           setDraftApprovalId(approvalId);
           window.localStorage.setItem(draftStorageKey, approvalId);
-        } else {
+        } else if (approvalId.startsWith("offline-")) {
           await updateOfflineApproval(approvalId, {
+            title,
+            approvalType,
+            description,
+            recipientName,
+            recipientEmail,
+            costDelta: costDelta === "" ? null : Number(costDelta),
+            scheduleDelta: scheduleDelta || null,
+            dueAt: dueAt || null,
+          });
+        } else {
+          // existing real server approval being edited offline:
+          // queue a single pending offline UPDATE keyed by the real approval id
+          await addOfflineApproval({
+            id: approvalId,
+            projectId,
             title,
             approvalType,
             description,
