@@ -108,7 +108,7 @@ export default function ApprovalComposer({
     void loadProjectContact();
   }, [projectId, initialApproval]);
 
-    useEffect(() => {
+  useEffect(() => {
     if (!initialApproval) return;
 
     draftApprovalIdRef.current = initialApproval.id;
@@ -144,7 +144,7 @@ export default function ApprovalComposer({
     })();
   }, [initialApproval, draftStorageKey]);
 
-    useEffect(() => {
+  useEffect(() => {
     if (initialApproval) return;
 
     const savedDraftId = window.localStorage.getItem(draftStorageKey);
@@ -203,12 +203,12 @@ export default function ApprovalComposer({
         setHasSyncedOfflineDraft(true);
         window.localStorage.setItem(draftStorageKey, approvalId);
 
-                await remapOfflineApprovalSendApprovalId({
+        await remapOfflineApprovalSendApprovalId({
           offlineApprovalId,
           approvalId,
         });
 
-                const token = await getAccessToken();
+        const token = await getAccessToken();
         await refreshDraftAttachments(token, approvalId);
         await flushOfflineApprovalSendOutbox(getAccessToken);
 
@@ -323,7 +323,7 @@ export default function ApprovalComposer({
     return token;
   }
 
-    async function queueApprovalSendOffline(args: {
+  async function queueApprovalSendOffline(args: {
     approvalId: string | null;
     offlineApprovalId: string | null;
     projectId: string;
@@ -808,7 +808,11 @@ export default function ApprovalComposer({
       }
 
       setIsQueueingSend(true);
-      setStatus("Sending approval...");
+      setStatus(
+        typeof navigator !== "undefined" && !navigator.onLine
+          ? "Queueing approval..."
+          : "Sending approval..."
+      );
 
       const approvalId = await upsertDraft(false);
       if (!approvalId) {
@@ -1154,16 +1158,18 @@ export default function ApprovalComposer({
             type="button"
             className="btn"
             onClick={handleSaveDraft}
-            disabled={isUploading || hasSyncedOfflineDraft}
+            disabled={isUploading || hasSyncedOfflineDraft || sendQueuedOffline}
           >
-            {hasSyncedOfflineDraft
-              ? "Already Synced"
-              : hasSavedOfflineDraft
-                ? "Saved Offline"
-                : "Save Draft"}
+            {sendQueuedOffline
+              ? "Queued to Send"
+              : hasSyncedOfflineDraft
+                ? "Already Synced"
+                : hasSavedOfflineDraft
+                  ? "Saved Offline"
+                  : "Save Draft"}
           </button>
 
-                    <button
+          <button
             type="button"
             className="btn btnPrimary"
             onClick={handleSendApproval}
