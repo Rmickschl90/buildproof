@@ -71,6 +71,7 @@ export default function ApprovalComposer({
   const draftApprovalIdRef = useRef<string | null>(null);
   const [attachments, setAttachments] = useState<UploadedApprovalAttachment[]>([]);
   const [hasSyncedOfflineDraft, setHasSyncedOfflineDraft] = useState(false);
+  const [hasSavedOfflineDraft, setHasSavedOfflineDraft] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -117,6 +118,7 @@ export default function ApprovalComposer({
     setScheduleDelta(initialApproval.schedule_delta || "");
     setDueAt(toDateTimeLocalValue(initialApproval.due_at));
     setAttachments(initialApproval.attachments || []);
+    setHasSavedOfflineDraft(false);
     setHasSyncedOfflineDraft(false);
     setStatus("");
   }, [initialApproval, draftStorageKey]);
@@ -165,6 +167,7 @@ export default function ApprovalComposer({
       try {
         draftApprovalIdRef.current = approvalId;
         setDraftApprovalId(approvalId);
+        setHasSavedOfflineDraft(false);
         setHasSyncedOfflineDraft(true);
         window.localStorage.setItem(draftStorageKey, approvalId);
 
@@ -359,8 +362,10 @@ export default function ApprovalComposer({
         });
       }
 
+      setHasSavedOfflineDraft(true);
+
       if (showStatusMessage) {
-        setStatus("Saved offline — will sync when connected.");
+        setStatus("Draft saved offline — will sync when connected.");
       }
 
       return approvalId;
@@ -604,7 +609,8 @@ export default function ApprovalComposer({
           });
         }
 
-        setStatus("Saved offline — will sync when connected.");
+        setHasSavedOfflineDraft(true);
+        setStatus("Draft saved offline — will sync when connected.");
       };
 
       setStatus("Saving draft...");
@@ -685,6 +691,7 @@ export default function ApprovalComposer({
       setStatus("Approval sent.");
       draftApprovalIdRef.current = null;
       setDraftApprovalId(null);
+      setHasSavedOfflineDraft(false);
       setHasSyncedOfflineDraft(false);
       setAttachments([]);
       setTitle("");
@@ -947,7 +954,11 @@ export default function ApprovalComposer({
             onClick={handleSaveDraft}
             disabled={isUploading || hasSyncedOfflineDraft}
           >
-            {hasSyncedOfflineDraft ? "Already Synced" : "Save Draft"}
+            {hasSyncedOfflineDraft
+              ? "Already Synced"
+              : hasSavedOfflineDraft
+                ? "Saved Offline"
+                : "Save Draft"}
           </button>
 
           <button
