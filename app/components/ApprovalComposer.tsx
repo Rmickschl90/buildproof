@@ -9,6 +9,14 @@ import {
   createTempApprovalId,
   updateOfflineApproval,
 } from "@/lib/offlineApprovalOutbox";
+import {
+  createApprovalSendIdempotencyKey,
+  createOfflineApprovalSendId,
+  hasPendingOfflineApprovalSend,
+  putOfflineApprovalSend,
+  remapOfflineApprovalSendApprovalId,
+} from "@/lib/offlineApprovalSendOutbox";
+import { flushOfflineApprovalSendOutbox } from "@/lib/offlineApprovalSendFlush";
 
 type ApprovalType =
   | "change_order"
@@ -72,6 +80,8 @@ export default function ApprovalComposer({
   const [attachments, setAttachments] = useState<UploadedApprovalAttachment[]>([]);
   const [hasSyncedOfflineDraft, setHasSyncedOfflineDraft] = useState(false);
   const [hasSavedOfflineDraft, setHasSavedOfflineDraft] = useState(false);
+  const [isQueueingSend, setIsQueueingSend] = useState(false);
+  const [sendQueuedOffline, setSendQueuedOffline] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -98,7 +108,7 @@ export default function ApprovalComposer({
     void loadProjectContact();
   }, [projectId, initialApproval]);
 
-  useEffect(() => {
+    useEffect(() => {
     if (!initialApproval) return;
 
     draftApprovalIdRef.current = initialApproval.id;
@@ -121,9 +131,20 @@ export default function ApprovalComposer({
     setHasSavedOfflineDraft(false);
     setHasSyncedOfflineDraft(false);
     setStatus("");
+
+    void (async () => {
+      const queued = await hasPendingOfflineApprovalSend({
+        approvalId: initialApproval.id.startsWith("offline-") ? null : initialApproval.id,
+        offlineApprovalId: initialApproval.id.startsWith("offline-")
+          ? initialApproval.id
+          : null,
+      });
+
+      setSendQueuedOffline(queued);
+    })();
   }, [initialApproval, draftStorageKey]);
 
-  useEffect(() => {
+    useEffect(() => {
     if (initialApproval) return;
 
     const savedDraftId = window.localStorage.getItem(draftStorageKey);
@@ -131,6 +152,17 @@ export default function ApprovalComposer({
 
     draftApprovalIdRef.current = savedDraftId;
     setDraftApprovalId(savedDraftId);
+
+    void (async () => {
+      const queued = await hasPendingOfflineApprovalSend({
+        approvalId: savedDraftId.startsWith("offline-") ? null : savedDraftId,
+        offlineApprovalId: savedDraftId.startsWith("offline-") ? savedDraftId : null,
+      });
+
+      if (queued) {
+        setSendQueuedOffline(true);
+      }
+    })();
   }, [draftStorageKey, initialApproval]);
 
   useEffect(() => {
@@ -171,8 +203,14 @@ export default function ApprovalComposer({
         setHasSyncedOfflineDraft(true);
         window.localStorage.setItem(draftStorageKey, approvalId);
 
-        const token = await getAccessToken();
+                await remapOfflineApprovalSendApprovalId({
+          offlineApprovalId,
+          approvalId,
+        });
+
+                const token = await getAccessToken();
         await refreshDraftAttachments(token, approvalId);
+        await flushOfflineApprovalSendOutbox(getAccessToken);
 
         setStatus("Approval synced.");
 
@@ -180,6 +218,49 @@ export default function ApprovalComposer({
       } catch (err) {
         console.error("[ApprovalComposer] refresh after offline approval sync failed", err);
       }
+    }
+
+    function handleApprovalSendComplete(event: Event) {
+      const customEvent = event as CustomEvent<{
+        approvalId: string | null;
+        offlineApprovalId: string | null;
+      }>;
+
+      const completedApprovalId = customEvent.detail?.approvalId;
+      const completedOfflineApprovalId = customEvent.detail?.offlineApprovalId;
+      const currentApprovalId = draftApprovalIdRef.current;
+
+      if (!currentApprovalId) return;
+
+      if (
+        currentApprovalId !== completedApprovalId &&
+        currentApprovalId !== completedOfflineApprovalId
+      ) {
+        return;
+      }
+
+      window.localStorage.removeItem(draftStorageKey);
+
+      setSendQueuedOffline(false);
+      setHasSavedOfflineDraft(false);
+      setHasSyncedOfflineDraft(false);
+      setAttachments([]);
+      setTitle("");
+      setApprovalType("change_order");
+      setDescription("");
+      setRecipientName("");
+      setRecipientEmail("");
+      setCostDelta("");
+      setScheduleDelta("");
+      setDueAt("");
+      setStatus("Approval sent.");
+
+      draftApprovalIdRef.current = null;
+      setDraftApprovalId(null);
+
+      if (fileInputRef.current) fileInputRef.current.value = "";
+
+      void onComplete?.();
     }
 
     window.addEventListener(
@@ -192,6 +273,11 @@ export default function ApprovalComposer({
       handleOfflineApprovalSyncComplete as EventListener
     );
 
+    window.addEventListener(
+      "buildproof-approval-send-complete",
+      handleApprovalSendComplete as EventListener
+    );
+
     return () => {
       window.removeEventListener(
         "buildproof-approval-attachment-complete",
@@ -201,6 +287,11 @@ export default function ApprovalComposer({
       window.removeEventListener(
         "buildproof-offline-approval-sync-complete",
         handleOfflineApprovalSyncComplete as EventListener
+      );
+
+      window.removeEventListener(
+        "buildproof-approval-send-complete",
+        handleApprovalSendComplete as EventListener
       );
     };
   }, [draftStorageKey, onComplete]);
@@ -230,6 +321,44 @@ export default function ApprovalComposer({
     if (!token) throw new Error("Missing bearer token");
 
     return token;
+  }
+
+    async function queueApprovalSendOffline(args: {
+    approvalId: string | null;
+    offlineApprovalId: string | null;
+    projectId: string;
+  }) {
+    const alreadyQueued = await hasPendingOfflineApprovalSend({
+      approvalId: args.approvalId,
+      offlineApprovalId: args.offlineApprovalId,
+    });
+
+    if (alreadyQueued) {
+      setSendQueuedOffline(true);
+      setStatus("Approval already queued — will send when connected.");
+      return;
+    }
+
+    const now = new Date().toISOString();
+
+    await putOfflineApprovalSend({
+      id: createOfflineApprovalSendId(),
+      approvalId: args.approvalId,
+      offlineApprovalId: args.offlineApprovalId,
+      projectId: args.projectId,
+      createdAt: now,
+      updatedAt: now,
+      status: "pending",
+      syncAttemptCount: 0,
+      lastSyncAttemptAt: null,
+      lastError: null,
+      sendIdempotencyKey: createApprovalSendIdempotencyKey(),
+    });
+
+    setSendQueuedOffline(true);
+    setStatus("Approval queued — will send when connected.");
+
+    window.dispatchEvent(new CustomEvent("buildproof-data-changed"));
   }
 
   function buildApprovalPayload() {
@@ -668,16 +797,34 @@ export default function ApprovalComposer({
         return;
       }
 
+      if (isQueueingSend) {
+        setStatus("Approval send is already being queued.");
+        return;
+      }
+
       if (!title.trim() || !description.trim()) {
         setStatus("Add title and description before sending approval.");
         return;
       }
 
+      setIsQueueingSend(true);
       setStatus("Sending approval...");
 
       const approvalId = await upsertDraft(false);
       if (!approvalId) {
         setStatus("Failed to save approval before sending.");
+        return;
+      }
+
+      const isOffline =
+        typeof navigator !== "undefined" && !navigator.onLine;
+
+      if (isOffline) {
+        await queueApprovalSendOffline({
+          approvalId: approvalId.startsWith("offline-") ? null : approvalId,
+          offlineApprovalId: approvalId.startsWith("offline-") ? approvalId : null,
+          projectId,
+        });
         return;
       }
 
@@ -691,13 +838,29 @@ export default function ApprovalComposer({
         },
         body: JSON.stringify({
           approvalId,
+          idempotencyKey: createApprovalSendIdempotencyKey(),
         }),
       });
 
       const sendJson = await sendRes.json();
 
       if (!sendRes.ok) {
-        setStatus(sendJson?.error || "Failed to send approval.");
+        const message = String(sendJson?.error || "Failed to send approval.");
+        const looksOffline =
+          message.toLowerCase().includes("failed to fetch") ||
+          message.toLowerCase().includes("network") ||
+          message.toLowerCase().includes("fetch");
+
+        if (looksOffline) {
+          await queueApprovalSendOffline({
+            approvalId: approvalId.startsWith("offline-") ? null : approvalId,
+            offlineApprovalId: approvalId.startsWith("offline-") ? approvalId : null,
+            projectId,
+          });
+          return;
+        }
+
+        setStatus(message);
         return;
       }
 
@@ -722,7 +885,31 @@ export default function ApprovalComposer({
 
       await onComplete?.();
     } catch (err: any) {
-      setStatus(err?.message || "Failed to send approval.");
+      const message = String(err?.message || "Failed to send approval.");
+      const looksOffline =
+        message.toLowerCase().includes("failed to fetch") ||
+        message.toLowerCase().includes("network") ||
+        message.toLowerCase().includes("fetch");
+
+      if (looksOffline) {
+        const currentApprovalId = draftApprovalIdRef.current;
+
+        await queueApprovalSendOffline({
+          approvalId:
+            currentApprovalId && !currentApprovalId.startsWith("offline-")
+              ? currentApprovalId
+              : null,
+          offlineApprovalId:
+            currentApprovalId && currentApprovalId.startsWith("offline-")
+              ? currentApprovalId
+              : null,
+          projectId,
+        });
+      } else {
+        setStatus(message);
+      }
+    } finally {
+      setIsQueueingSend(false);
     }
   }
 
@@ -976,13 +1163,17 @@ export default function ApprovalComposer({
                 : "Save Draft"}
           </button>
 
-          <button
+                    <button
             type="button"
             className="btn btnPrimary"
             onClick={handleSendApproval}
-            disabled={isUploading}
+            disabled={isUploading || isQueueingSend || sendQueuedOffline}
           >
-            Send Approval
+            {sendQueuedOffline
+              ? "Queued to Send"
+              : isQueueingSend
+                ? "Queueing..."
+                : "Send Approval"}
           </button>
         </div>
 
