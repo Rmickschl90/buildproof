@@ -70,6 +70,7 @@ export default function ApprovalComposer({
   const [draftApprovalId, setDraftApprovalId] = useState<string | null>(null);
   const draftApprovalIdRef = useRef<string | null>(null);
   const [attachments, setAttachments] = useState<UploadedApprovalAttachment[]>([]);
+  const [hasSyncedOfflineDraft, setHasSyncedOfflineDraft] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -116,6 +117,7 @@ export default function ApprovalComposer({
     setScheduleDelta(initialApproval.schedule_delta || "");
     setDueAt(toDateTimeLocalValue(initialApproval.due_at));
     setAttachments(initialApproval.attachments || []);
+    setHasSyncedOfflineDraft(false);
     setStatus("");
   }, [initialApproval, draftStorageKey]);
 
@@ -163,6 +165,7 @@ export default function ApprovalComposer({
       try {
         draftApprovalIdRef.current = approvalId;
         setDraftApprovalId(approvalId);
+        setHasSyncedOfflineDraft(true);
         window.localStorage.setItem(draftStorageKey, approvalId);
 
         const token = await getAccessToken();
@@ -170,7 +173,7 @@ export default function ApprovalComposer({
 
         setStatus("Approval synced.");
 
-        
+
       } catch (err) {
         console.error("[ApprovalComposer] refresh after offline approval sync failed", err);
       }
@@ -552,6 +555,10 @@ export default function ApprovalComposer({
 
   async function handleSaveDraft() {
     try {
+      if (hasSyncedOfflineDraft) {
+        setStatus("Approval already synced.");
+        return;
+      }
       if (isUploading) {
         setStatus("Please wait for attachment upload to finish.");
         return;
@@ -678,6 +685,7 @@ export default function ApprovalComposer({
       setStatus("Approval sent.");
       draftApprovalIdRef.current = null;
       setDraftApprovalId(null);
+      setHasSyncedOfflineDraft(false);
       setAttachments([]);
       setTitle("");
       setApprovalType("change_order");
@@ -937,9 +945,9 @@ export default function ApprovalComposer({
             type="button"
             className="btn"
             onClick={handleSaveDraft}
-            disabled={isUploading}
+            disabled={isUploading || hasSyncedOfflineDraft}
           >
-            Save Draft
+            {hasSyncedOfflineDraft ? "Already Synced" : "Save Draft"}
           </button>
 
           <button
