@@ -1,3 +1,4 @@
+import { hasPendingOfflineApprovalAttachments } from "@/lib/offlineApprovalAttachmentOutbox";
 import {
   getPendingOfflineApprovalSends,
   markOfflineApprovalSendFailed,
@@ -29,6 +30,21 @@ export async function flushOfflineApprovalSendOutbox(
         await markOfflineApprovalSendPending(
           record.id,
           "Approval is not synced yet."
+        );
+        continue;
+      }
+
+      const stillUploadingAttachments = await hasPendingOfflineApprovalAttachments(
+        {
+          approvalId: record.approvalId,
+          offlineApprovalId: record.offlineApprovalId,
+        }
+      );
+
+      if (stillUploadingAttachments) {
+        await markOfflineApprovalSendPending(
+          record.id,
+          "Waiting for approval attachments to finish uploading."
         );
         continue;
       }

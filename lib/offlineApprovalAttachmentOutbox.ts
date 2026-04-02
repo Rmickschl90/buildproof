@@ -305,3 +305,29 @@ export async function getOfflineApprovalAttachmentsForApproval(params: {
             .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     });
 }
+
+/* ✅ FIXED VERSION */
+export async function hasPendingOfflineApprovalAttachments(args: {
+    approvalId: string | null;
+    offlineApprovalId: string | null;
+}): Promise<boolean> {
+    return withStore("readonly", async (store) => {
+        const records = await promisifyRequest<OfflineApprovalAttachmentRecord[]>(
+            store.getAll()
+        );
+
+        return (records ?? []).some((record) => {
+            const matchesApprovalId =
+                !!args.approvalId && record.approvalId === args.approvalId;
+
+            const matchesOfflineApprovalId =
+                !!args.offlineApprovalId &&
+                record.offlineApprovalId === args.offlineApprovalId;
+
+            const isStillQueued =
+                record.status === "pending" || record.status === "uploading";
+
+            return (matchesApprovalId || matchesOfflineApprovalId) && isStillQueued;
+        });
+    });
+}
