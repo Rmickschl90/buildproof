@@ -50,6 +50,16 @@ export async function POST(req: Request) {
         }
 
         if (approval.status && approval.status !== "draft") {
+            console.error("[approval-attachments/upload] blocked", {
+                approvalId: approval.id,
+                projectId: approval.project_id,
+                status: approval.status,
+                createdBy: approval.created_by,
+                fileName,
+                userId: user.id,
+                at: new Date().toISOString(),
+            });
+
             return NextResponse.json(
                 { error: "Attachments can only be added to draft approvals" },
                 { status: 400 }
