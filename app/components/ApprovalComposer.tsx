@@ -688,11 +688,13 @@ export default function ApprovalComposer({
         await refreshDraftAttachments(token, approvalId);
 
       } else {
-        // 🟡 OFFLINE = QUEUE (existing behavior)
+        // 🟡 OFFLINE = QUEUE
+        const isTempOfflineApproval = approvalId.startsWith("offline-");
+
         for (const file of files) {
           await addOfflineApprovalAttachment({
-            approvalId: null,
-            offlineApprovalId: approvalId,
+            approvalId: isTempOfflineApproval ? null : approvalId,
+            offlineApprovalId: isTempOfflineApproval ? approvalId : null,
             file,
             fileName: file.name,
             mimeType: file.type || "application/octet-stream",
