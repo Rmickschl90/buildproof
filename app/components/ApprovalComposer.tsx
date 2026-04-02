@@ -577,7 +577,12 @@ export default function ApprovalComposer({
     setAttachments(matchedApproval?.attachments || []);
   }
 
-  async function handleAttachmentChange(fileList: FileList | null) {
+    async function handleAttachmentChange(fileList: FileList | null) {
+    if (sendQueuedOffline || isQueueingSend) {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     const files = fileList ? Array.from(fileList) : [];
     if (!files.length) return;
     if (isUploading) return;
