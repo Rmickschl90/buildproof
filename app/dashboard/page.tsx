@@ -654,6 +654,11 @@ export default function DashboardPage() {
 
   async function loadApprovals(projectId: string, includeArchived = showArchivedEntries) {
     try {
+      // 🔒 Prevent fetch while offline
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        return;
+      }
+
       const token = await getAccessToken();
 
       const res = await fetch("/api/approvals/list", {
@@ -669,13 +674,33 @@ export default function DashboardPage() {
       const json = text ? JSON.parse(text) : {};
 
       if (!res.ok) {
+        const message = String(json?.error || "Failed to load approvals.").toLowerCase();
+
+        if (
+          message.includes("failed to fetch") ||
+          message.includes("network") ||
+          message.includes("fetch")
+        ) {
+          return;
+        }
+
         setStatus(json?.error || "Failed to load approvals.");
         return;
       }
 
       setApprovals((json?.approvals ?? []) as Approval[]);
     } catch (err: any) {
-      setStatus(err?.message || "Failed to load approvals.");
+      const message = String(err?.message || "Failed to load approvals.");
+
+      if (
+        message.toLowerCase().includes("failed to fetch") ||
+        message.toLowerCase().includes("network") ||
+        message.toLowerCase().includes("fetch")
+      ) {
+        return;
+      }
+
+      setStatus(message);
     }
   }
 
