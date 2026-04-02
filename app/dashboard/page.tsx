@@ -621,12 +621,28 @@ export default function DashboardPage() {
   async function loadProofs(projectId: string, includeArchived = showArchivedEntries) {
     const source = includeArchived ? "proofs" : "proofs_active";
 
+    // 🔒 Prevent fetch while offline
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      return;
+    }
+
     const { data, error } = await supabase
       .from(source)
       .select("id,content,created_at,project_id,locked_at,deleted_at,deleted_by,updated_at")
       .eq("project_id", projectId);
 
     if (error) {
+      // 🔒 Suppress offline-related noise
+      const message = String(error.message || "").toLowerCase();
+
+      if (
+        message.includes("failed to fetch") ||
+        message.includes("network") ||
+        message.includes("fetch")
+      ) {
+        return;
+      }
+
       setProofStatus(`Load entries failed: ${error.message}`);
       return;
     }
