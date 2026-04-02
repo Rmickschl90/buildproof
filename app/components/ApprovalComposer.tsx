@@ -325,7 +325,7 @@ export default function ApprovalComposer({
     return token;
   }
 
-    async function getExpectedApprovalAttachmentCount(args: {
+  async function getExpectedApprovalAttachmentCount(args: {
     approvalId: string | null;
     offlineApprovalId: string | null;
   }): Promise<number> {
@@ -577,7 +577,7 @@ export default function ApprovalComposer({
     setAttachments(matchedApproval?.attachments || []);
   }
 
-    async function handleAttachmentChange(fileList: FileList | null) {
+  async function handleAttachmentChange(fileList: FileList | null) {
     if (sendQueuedOffline || isQueueingSend) {
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
@@ -621,16 +621,83 @@ export default function ApprovalComposer({
         window.localStorage.setItem(draftStorageKey, approvalId);
       }
 
-      for (const file of files) {
-        const isOfflineApprovalId = approvalId.startsWith("offline-");
+      const isOffline =
+        typeof navigator !== "undefined" && !navigator.onLine;
 
-        await addOfflineApprovalAttachment({
-          approvalId: isOfflineApprovalId ? null : approvalId,
-          offlineApprovalId: isOfflineApprovalId ? approvalId : null,
-          file,
-          fileName: file.name,
-          mimeType: file.type || "application/octet-stream",
-        });
+      if (!isOffline) {
+        // ✅ ONLINE = DIRECT UPLOAD (no outbox)
+        const token = await getAccessToken();
+
+        for (const file of files) {
+          const prepRes = await fetch("/api/approval-attachments/upload", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              approvalId,
+              fileName: file.name,
+            }),
+          });
+
+          const prepJson = await prepRes.json();
+
+          if (!prepRes.ok) {
+            throw new Error(prepJson?.error || "Upload prep failed");
+          }
+
+          const { uploadUrl, path, attachmentId } = prepJson;
+
+          const uploadRes = await fetch(uploadUrl, {
+            method: "PUT",
+            body: file,
+            headers: {
+              "Content-Type": file.type || "application/octet-stream",
+            },
+          });
+
+          if (!uploadRes.ok) {
+            throw new Error("File upload failed");
+          }
+
+          const insertRes = await fetch("/api/approval-attachments/insert", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              id: attachmentId,
+              approvalId,
+              path,
+              fileName: file.name,
+              mimeType: file.type,
+              sizeBytes: file.size,
+            }),
+          });
+
+          const insertJson = await insertRes.json();
+
+          if (!insertRes.ok) {
+            throw new Error(insertJson?.error || "Insert failed");
+          }
+        }
+
+        // refresh after direct upload
+        await refreshDraftAttachments(token, approvalId);
+
+      } else {
+        // 🟡 OFFLINE = QUEUE (existing behavior)
+        for (const file of files) {
+          await addOfflineApprovalAttachment({
+            approvalId: null,
+            offlineApprovalId: approvalId,
+            file,
+            fileName: file.name,
+            mimeType: file.type || "application/octet-stream",
+          });
+        }
       }
 
       const tokenGetter = async () => {
@@ -857,7 +924,7 @@ export default function ApprovalComposer({
 
       const token = await getAccessToken();
 
-            const sendRes = await fetch("/api/approvals/send", {
+      const sendRes = await fetch("/api/approvals/send", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -964,274 +1031,274 @@ export default function ApprovalComposer({
     }
   }
 
-    return (
-      <div
-        className="card"
-        style={{
-          marginTop: 12,
-          border: "1px solid rgba(37,99,235,0.18)",
-          boxShadow: "0 10px 24px rgba(37,99,235,0.08)",
-          width: "100%",
-          maxWidth: "100%",
-          minWidth: 0,
-          boxSizing: "border-box",
-          overflow: "hidden",
-        }}
-      >
-        <div style={{ fontWeight: 800, marginBottom: 12 }}>Approval Request</div>
+  return (
+    <div
+      className="card"
+      style={{
+        marginTop: 12,
+        border: "1px solid rgba(37,99,235,0.18)",
+        boxShadow: "0 10px 24px rgba(37,99,235,0.08)",
+        width: "100%",
+        maxWidth: "100%",
+        minWidth: 0,
+        boxSizing: "border-box",
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ fontWeight: 800, marginBottom: 12 }}>Approval Request</div>
 
-        <div style={{ display: "grid", gap: 10 }}>
+      <div style={{ display: "grid", gap: 10 }}>
+        <input
+          className="input"
+          placeholder="Title"
+          value={title}
+          onChange={(e) => {
+            clearStatus();
+            setTitle(e.target.value);
+          }}
+        />
+
+        <select
+          className="input"
+          value={approvalType}
+          onChange={(e) => {
+            clearStatus();
+            setApprovalType(e.target.value as ApprovalType);
+          }}
+        >
+          <option value="change_order">Change Order</option>
+          <option value="scope">Scope</option>
+          <option value="material">Material</option>
+          <option value="schedule">Schedule</option>
+          <option value="general">General</option>
+        </select>
+
+        <textarea
+          className="textarea"
+          placeholder="Summary / description"
+          value={description}
+          onChange={(e) => {
+            clearStatus();
+            setDescription(e.target.value);
+          }}
+        />
+
+        <input
+          className="input"
+          placeholder="Recipient name"
+          value={recipientName}
+          onChange={(e) => {
+            clearStatus();
+            setRecipientName(e.target.value);
+          }}
+        />
+
+        <input
+          className="input"
+          placeholder="Recipient email"
+          value={recipientEmail}
+          onChange={(e) => {
+            clearStatus();
+            setRecipientEmail(e.target.value);
+          }}
+        />
+
+        <input
+          className="input"
+          placeholder="Cost impact"
+          value={costDelta}
+          onChange={(e) => {
+            clearStatus();
+            const val = e.target.value;
+            if (/^\d*\.?\d*$/.test(val)) setCostDelta(val);
+          }}
+        />
+
+        <input
+          className="input"
+          placeholder="Schedule impact"
+          value={scheduleDelta}
+          onChange={(e) => {
+            clearStatus();
+            setScheduleDelta(e.target.value);
+          }}
+        />
+
+        <input
+          className="input"
+          type="datetime-local"
+          value={dueAt}
+          onChange={(e) => {
+            clearStatus();
+            setDueAt(e.target.value);
+          }}
+        />
+
+        <div
+          style={{
+            border: "1px solid rgba(15,23,42,0.08)",
+            borderRadius: 12,
+            padding: 10,
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
+            Attachments
+          </div>
+
           <input
-            className="input"
-            placeholder="Title"
-            value={title}
-            onChange={(e) => {
-              clearStatus();
-              setTitle(e.target.value);
-            }}
+            ref={fileInputRef}
+            type="file"
+            multiple
+            style={{ display: "none" }}
+            onChange={(e) => void handleAttachmentChange(e.target.files)}
           />
 
-          <select
-            className="input"
-            value={approvalType}
-            onChange={(e) => {
-              clearStatus();
-              setApprovalType(e.target.value as ApprovalType);
-            }}
+          <button
+            className="btn"
+            type="button"
+            disabled={isUploading}
+            onClick={() => fileInputRef.current?.click()}
           >
-            <option value="change_order">Change Order</option>
-            <option value="scope">Scope</option>
-            <option value="material">Material</option>
-            <option value="schedule">Schedule</option>
-            <option value="general">General</option>
-          </select>
+            {isUploading ? "Uploading..." : "Add attachments"}
+          </button>
 
-          <textarea
-            className="textarea"
-            placeholder="Summary / description"
-            value={description}
-            onChange={(e) => {
-              clearStatus();
-              setDescription(e.target.value);
-            }}
-          />
+          {attachments.length ? (
+            <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+              {attachments.map((attachment) => {
+                const isImage =
+                  attachment.mime_type?.startsWith("image/") ||
+                  (attachment.filename &&
+                    /\.(jpg|jpeg|png|webp)$/i.test(attachment.filename));
 
-          <input
-            className="input"
-            placeholder="Recipient name"
-            value={recipientName}
-            onChange={(e) => {
-              clearStatus();
-              setRecipientName(e.target.value);
-            }}
-          />
-
-          <input
-            className="input"
-            placeholder="Recipient email"
-            value={recipientEmail}
-            onChange={(e) => {
-              clearStatus();
-              setRecipientEmail(e.target.value);
-            }}
-          />
-
-          <input
-            className="input"
-            placeholder="Cost impact"
-            value={costDelta}
-            onChange={(e) => {
-              clearStatus();
-              const val = e.target.value;
-              if (/^\d*\.?\d*$/.test(val)) setCostDelta(val);
-            }}
-          />
-
-          <input
-            className="input"
-            placeholder="Schedule impact"
-            value={scheduleDelta}
-            onChange={(e) => {
-              clearStatus();
-              setScheduleDelta(e.target.value);
-            }}
-          />
-
-          <input
-            className="input"
-            type="datetime-local"
-            value={dueAt}
-            onChange={(e) => {
-              clearStatus();
-              setDueAt(e.target.value);
-            }}
-          />
-
-          <div
-            style={{
-              border: "1px solid rgba(15,23,42,0.08)",
-              borderRadius: 12,
-              padding: 10,
-            }}
-          >
-            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
-              Attachments
-            </div>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              style={{ display: "none" }}
-              onChange={(e) => void handleAttachmentChange(e.target.files)}
-            />
-
-            <button
-              className="btn"
-              type="button"
-              disabled={isUploading}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {isUploading ? "Uploading..." : "Add attachments"}
-            </button>
-
-            {attachments.length ? (
-              <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                {attachments.map((attachment) => {
-                  const isImage =
-                    attachment.mime_type?.startsWith("image/") ||
-                    (attachment.filename &&
-                      /\.(jpg|jpeg|png|webp)$/i.test(attachment.filename));
-
-                  return (
+                return (
+                  <div
+                    key={attachment.id}
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      alignItems: "center",
+                      border: "1px solid rgba(15,23,42,0.08)",
+                      borderRadius: 10,
+                      padding: 8,
+                      minWidth: 0,
+                    }}
+                  >
                     <div
-                      key={attachment.id}
                       style={{
-                        display: "flex",
-                        gap: 10,
-                        alignItems: "center",
-                        border: "1px solid rgba(15,23,42,0.08)",
-                        borderRadius: 10,
-                        padding: 8,
-                        minWidth: 0,
+                        width: 56,
+                        height: 56,
+                        borderRadius: 8,
+                        overflow: "hidden",
+                        background: "#f1f5f9",
+                        flex: "0 0 56px",
                       }}
                     >
-                      <div
-                        style={{
-                          width: 56,
-                          height: 56,
-                          borderRadius: 8,
-                          overflow: "hidden",
-                          background: "#f1f5f9",
-                          flex: "0 0 56px",
-                        }}
-                      >
-                        {isImage ? (
-                          <img
-                            src={`/api/attachments/open?id=${attachment.id}&kind=approval`}
-                            alt={attachment.filename || "attachment"}
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "cover",
-                            }}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              fontSize: 12,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              height: "100%",
-                              opacity: 0.6,
-                            }}
-                          >
-                            FILE
-                          </div>
-                        )}
-                      </div>
-
-                      <div
-                        style={{
-                          flex: 1,
-                          minWidth: 0,
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 8,
-                        }}
-                      >
-                        <a
-                          href={`/api/attachments/open?id=${attachment.id}&kind=approval`}
-                          target="_blank"
-                          rel="noreferrer"
+                      {isImage ? (
+                        <img
+                          src={`/api/attachments/open?id=${attachment.id}&kind=approval`}
+                          alt={attachment.filename || "attachment"}
                           style={{
-                            fontSize: 13,
-                            fontWeight: 600,
-                            display: "block",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            minWidth: 0,
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            fontSize: 12,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            height: "100%",
+                            opacity: 0.6,
                           }}
                         >
-                          {attachment.filename || "Attachment"}
-                        </a>
-
-                        <div>
-                          <button
-                            className="btn btnDanger"
-                            type="button"
-                            onClick={() => void handleRemoveAttachment(attachment.id)}
-                            style={{
-                              padding: "4px 8px",
-                              fontSize: 12,
-                              borderRadius: 6,
-                            }}
-                          >
-                            Remove
-                          </button>
+                          FILE
                         </div>
+                      )}
+                    </div>
+
+                    <div
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 8,
+                      }}
+                    >
+                      <a
+                        href={`/api/attachments/open?id=${attachment.id}&kind=approval`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 600,
+                          display: "block",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          minWidth: 0,
+                        }}
+                      >
+                        {attachment.filename || "Attachment"}
+                      </a>
+
+                      <div>
+                        <button
+                          className="btn btnDanger"
+                          type="button"
+                          onClick={() => void handleRemoveAttachment(attachment.id)}
+                          style={{
+                            padding: "4px 8px",
+                            fontSize: 12,
+                            borderRadius: 6,
+                          }}
+                        >
+                          Remove
+                        </button>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            ) : null}
-          </div>
-
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button
-              type="button"
-              className="btn"
-              onClick={handleSaveDraft}
-              disabled={isUploading || hasSyncedOfflineDraft || sendQueuedOffline}
-            >
-              {sendQueuedOffline
-                ? "Queued to Send"
-                : hasSyncedOfflineDraft
-                  ? "Already Synced"
-                  : hasSavedOfflineDraft
-                    ? "Saved Offline"
-                    : "Save Draft"}
-            </button>
-
-            <button
-              type="button"
-              className="btn btnPrimary"
-              onClick={handleSendApproval}
-              disabled={isUploading || isQueueingSend || sendQueuedOffline}
-            >
-              {sendQueuedOffline
-                ? "Queued to Send"
-                : isQueueingSend
-                  ? "Queueing..."
-                  : "Send Approval"}
-            </button>
-          </div>
-
-          {status ? <div className="sub">{status}</div> : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
+
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="btn"
+            onClick={handleSaveDraft}
+            disabled={isUploading || hasSyncedOfflineDraft || sendQueuedOffline}
+          >
+            {sendQueuedOffline
+              ? "Queued to Send"
+              : hasSyncedOfflineDraft
+                ? "Already Synced"
+                : hasSavedOfflineDraft
+                  ? "Saved Offline"
+                  : "Save Draft"}
+          </button>
+
+          <button
+            type="button"
+            className="btn btnPrimary"
+            onClick={handleSendApproval}
+            disabled={isUploading || isQueueingSend || sendQueuedOffline}
+          >
+            {sendQueuedOffline
+              ? "Queued to Send"
+              : isQueueingSend
+                ? "Queueing..."
+                : "Send Approval"}
+          </button>
+        </div>
+
+        {status ? <div className="sub">{status}</div> : null}
       </div>
-    );
-  }
+    </div>
+  );
+}
