@@ -63,13 +63,7 @@ export async function POST(req: Request) {
         const expectedAttachmentCount = Number(body?.expectedAttachmentCount ?? 0);
         const actualAttachmentCount = Array.isArray(attachments) ? attachments.length : 0;
 
-                console.error("[approvals/send] attachment-check", {
-            approvalId: approval.id,
-            status: approval.status,
-            expectedAttachmentCount,
-            actualAttachmentCount,
-            at: new Date().toISOString(),
-        });
+            
 
         if (expectedAttachmentCount > 0 && actualAttachmentCount < expectedAttachmentCount) {
             return NextResponse.json(
@@ -285,12 +279,7 @@ export async function POST(req: Request) {
 
         const sentAt = new Date().toISOString();
 
-                console.error("[approvals/send] promoting-to-pending", {
-            approvalId: approval.id,
-            expectedAttachmentCount,
-            actualAttachmentCount,
-            sentAt,
-        });
+                
 
         const { data: updatedApproval, error: updateError } = await supabaseServer
             .from("approval_requests")
