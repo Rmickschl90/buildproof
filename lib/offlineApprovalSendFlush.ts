@@ -105,7 +105,7 @@ export async function flushOfflineApprovalSendOutbox(
 
         await markOfflineApprovalSendProcessing(record.id);
 
-        const response = await fetch("/api/approvals/send", {
+                const response = await fetch("/api/approvals/send", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -114,6 +114,7 @@ export async function flushOfflineApprovalSendOutbox(
           body: JSON.stringify({
             approvalId: record.approvalId,
             idempotencyKey: record.sendIdempotencyKey,
+            expectedAttachmentCount: record.expectedAttachmentCount,
           }),
         });
 

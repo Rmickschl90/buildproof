@@ -857,7 +857,7 @@ export default function ApprovalComposer({
 
       const token = await getAccessToken();
 
-      const sendRes = await fetch("/api/approvals/send", {
+            const sendRes = await fetch("/api/approvals/send", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -866,6 +866,12 @@ export default function ApprovalComposer({
         body: JSON.stringify({
           approvalId,
           idempotencyKey: createApprovalSendIdempotencyKey(),
+          expectedAttachmentCount: await getExpectedApprovalAttachmentCount({
+            approvalId:
+              approvalId && !approvalId.startsWith("offline-") ? approvalId : null,
+            offlineApprovalId:
+              approvalId && approvalId.startsWith("offline-") ? approvalId : null,
+          }),
         }),
       });
 
