@@ -18,6 +18,10 @@ import {
   type OfflineProofRecord,
 } from "@/lib/offlineProofOutbox";
 import OfflineAttachmentBootstrap from "../components/OfflineAttachmentBootstrap";
+import {
+  loadCachedDashboardProject,
+  saveCachedDashboardProject,
+} from "@/lib/offlineDashboardCache";
 
 type Project = {
   id: string;
@@ -79,6 +83,10 @@ function isArchivedProof(p: Proof) {
 
 function isOfflineProof(p: TimelineProof): p is OfflineProofRecord & { isOffline: true } {
   return "isOffline" in p;
+}
+
+function isOffline() {
+  return typeof navigator !== "undefined" && !navigator.onLine;
 }
 
 export default function DashboardPage() {
@@ -162,6 +170,24 @@ export default function DashboardPage() {
   const [onboardingCongrats, setOnboardingCongrats] = useState("");
   const [showAttachmentStep, setShowAttachmentStep] = useState(false);
   const [dashboardReady, setDashboardReady] = useState(false);
+    function cacheProjectSnapshot(args: {
+    project?: Project | null;
+    proofs?: Proof[];
+    approvals?: Approval[];
+  }) {
+    const project = args.project ?? selectedProject;
+    if (!project) return;
+
+    const nextProofs = args.proofs ?? proofs;
+    const nextApprovals = args.approvals ?? approvals;
+
+    saveCachedDashboardProject({
+      project,
+      proofs: nextProofs,
+      approvals: nextApprovals,
+      cachedAt: new Date().toISOString(),
+    });
+  }
 
   // ---------------- AUTH BOOT ----------------
   useEffect(() => {
@@ -179,20 +205,31 @@ export default function DashboardPage() {
         await flushOfflineProofs();
         await loadActiveProjects(data.user.id);
 
-        // ✅ Restore project from URL
+                // ✅ Restore project from URL
         const projectIdFromUrl = new URLSearchParams(window.location.search).get("project");
 
         if (projectIdFromUrl) {
-          const { data: project } = await supabase
-            .from("projects")
-            .select("*")
-            .eq("id", projectIdFromUrl)
-            .single();
+          if (isOffline()) {
+            const cached = loadCachedDashboardProject(projectIdFromUrl);
 
-          if (project) {
-            setSelectedProject(project);
-            await loadProofs(project.id, false);
-            await loadApprovals(project.id);
+            if (cached) {
+              setSelectedProject(cached.project);
+              setProofs(cached.proofs);
+              setApprovals(cached.approvals);
+              await refreshOfflineProofs(cached.project.id);
+            }
+          } else {
+            const { data: project } = await supabase
+              .from("projects")
+              .select("*")
+              .eq("id", projectIdFromUrl)
+              .single();
+
+            if (project) {
+              setSelectedProject(project);
+              await loadProofs(project.id, false);
+              await loadApprovals(project.id);
+            }
           }
         }
 
@@ -614,7 +651,8 @@ export default function DashboardPage() {
       return;
     }
 
-    setProjects((data ?? []) as Project[]);
+        const nextProjects = (data ?? []) as Project[];
+    setProjects(nextProjects);
     setStatus("");
   }
 
@@ -647,7 +685,9 @@ export default function DashboardPage() {
       return;
     }
 
-    setProofs((data ?? []) as Proof[]);
+        const nextProofs = (data ?? []) as Proof[];
+    setProofs(nextProofs);
+    cacheProjectSnapshot({ proofs: nextProofs });
     await refreshOfflineProofs(projectId);
     setProofStatus("");
   }
@@ -688,7 +728,9 @@ export default function DashboardPage() {
         return;
       }
 
-      setApprovals((json?.approvals ?? []) as Approval[]);
+            const nextApprovals = (json?.approvals ?? []) as Approval[];
+      setApprovals(nextApprovals);
+      cacheProjectSnapshot({ approvals: nextApprovals });
     } catch (err: any) {
       const message = String(err?.message || "Failed to load approvals.");
 
@@ -742,8 +784,11 @@ export default function DashboardPage() {
 
       if (error) throw error;
 
-      setSelectedProject((p) => (p ? { ...p, title: next } : p));
+            const updatedProject = { ...selectedProject, title: next };
+
+      setSelectedProject(updatedProject);
       setProjects((list) => list.map((p) => (p.id === selectedProject.id ? { ...p, title: next } : p)));
+      cacheProjectSnapshot({ project: updatedProject });
 
       setStatus("Project renamed ✅");
       renameInputRef.current?.blur();
@@ -1241,10 +1286,13 @@ export default function DashboardPage() {
         }
       }
 
-      setSelectedProject((p) => (p ? { ...p, ...payload } : p));
+            const updatedProject = { ...selectedProject, ...payload };
+
+      setSelectedProject(updatedProject);
       setProjects((list) =>
         list.map((p) => (p.id === selectedProject.id ? { ...p, ...payload } : p))
       );
+      cacheProjectSnapshot({ project: updatedProject });
 
       setStatus(
         previousEmail !== nextEmail
@@ -1647,8 +1695,9 @@ export default function DashboardPage() {
                   <button
                     key={p.id}
                     className={`projectBtn ${selectedProjectId === p.id ? "projectBtnActive" : ""}`}
-                    onClick={() => {
+                                        onClick={() => {
                       setSelectedProject(p);
+                      cacheProjectSnapshot({ project: p, proofs: [], approvals: [] });
 
                       // ✅ Update URL
                       router.replace(`/dashboard?project=${p.id}`);
