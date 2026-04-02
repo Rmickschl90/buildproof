@@ -7,17 +7,18 @@ export type OfflineApprovalSendStatus =
     | "failed";
 
 export type OfflineApprovalSendRecord = {
-    id: string;
-    approvalId: string | null;
-    offlineApprovalId: string | null;
-    projectId: string;
-    createdAt: string;
-    updatedAt: string;
-    status: OfflineApprovalSendStatus;
-    syncAttemptCount: number;
-    lastSyncAttemptAt: string | null;
-    lastError: string | null;
-    sendIdempotencyKey: string;
+  id: string;
+  approvalId: string | null;
+  offlineApprovalId: string | null;
+  projectId: string;
+  expectedAttachmentCount: number;
+  createdAt: string;
+  updatedAt: string;
+  status: OfflineApprovalSendStatus;
+  syncAttemptCount: number;
+  lastSyncAttemptAt: string | null;
+  lastError: string | null;
+  sendIdempotencyKey: string;
 };
 
 function openDb(): Promise<IDBDatabase> {
