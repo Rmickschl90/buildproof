@@ -1,3 +1,4 @@
+import { hasPendingOfflineApprovalAttachments } from "@/lib/offlineApprovalAttachmentOutbox";
 import {
   getPendingOfflineApprovalSends,
   markOfflineApprovalSendFailed,
@@ -5,8 +6,6 @@ import {
   markOfflineApprovalSendProcessing,
   removeOfflineApprovalSend,
 } from "@/lib/offlineApprovalSendOutbox";
-
-import { getPendingOfflineApprovalAttachments } from "@/lib/offlineApprovalAttachmentOutbox";
 
 function isOnline(): boolean {
   if (typeof navigator === "undefined") return true;
@@ -27,27 +26,25 @@ export async function flushOfflineApprovalSendOutbox(
     const pending = await getPendingOfflineApprovalSends();
 
     for (const record of pending) {
-      // 🚨 BLOCK SEND UNTIL ALL RELATED ATTACHMENTS ARE DONE
-      const pendingAttachments = await getPendingOfflineApprovalAttachments();
-
-      const relatedPending = pendingAttachments.filter((a) => {
-        if (record.approvalId && a.approvalId === record.approvalId) return true;
-        if (record.offlineApprovalId && a.offlineApprovalId === record.offlineApprovalId) return true;
-        return false;
-      });
-
-      if (relatedPending.length > 0) {
-        await markOfflineApprovalSendPending(
-          record.id,
-          "Waiting for approval attachments to finish syncing."
-        );
-        continue;
-      }
-
       if (!record.approvalId) {
         await markOfflineApprovalSendPending(
           record.id,
           "Approval is not synced yet."
+        );
+        continue;
+      }
+
+      const stillHasRelatedAttachments = await hasPendingOfflineApprovalAttachments(
+        {
+          approvalId: record.approvalId,
+          offlineApprovalId: record.offlineApprovalId,
+        }
+      );
+
+      if (stillHasRelatedAttachments) {
+        await markOfflineApprovalSendPending(
+          record.id,
+          "Waiting for approval attachments to finish syncing."
         );
         continue;
       }
