@@ -1,4 +1,3 @@
-import { hasPendingOfflineApprovalAttachments } from "@/lib/offlineApprovalAttachmentOutbox";
 import {
   getPendingOfflineApprovalSends,
   markOfflineApprovalSendFailed,
@@ -34,25 +33,61 @@ export async function flushOfflineApprovalSendOutbox(
         continue;
       }
 
-      const stillUploadingAttachments = await hasPendingOfflineApprovalAttachments(
-        {
-          approvalId: record.approvalId,
-          offlineApprovalId: record.offlineApprovalId,
-        }
-      );
-
-      if (stillUploadingAttachments) {
-        await markOfflineApprovalSendPending(
-          record.id,
-          "Waiting for approval attachments to finish uploading."
-        );
-        continue;
-      }
-
-      await markOfflineApprovalSendProcessing(record.id);
-
       try {
         const accessToken = await getAccessToken();
+
+        const listResponse = await fetch("/api/approvals/list", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            projectId: record.projectId,
+            includeArchived: true,
+          }),
+        });
+
+        let listData: any = null;
+        try {
+          listData = await listResponse.json();
+        } catch {}
+
+        if (!listResponse.ok) {
+          const message =
+            listData?.error ||
+            listData?.message ||
+            `Approval list refresh failed (${listResponse.status})`;
+
+          await markOfflineApprovalSendPending(record.id, message);
+          continue;
+        }
+
+        const matchedApproval = (listData?.approvals || []).find(
+          (item: any) => item.id === record.approvalId
+        );
+
+        if (!matchedApproval) {
+          await markOfflineApprovalSendPending(
+            record.id,
+            "Waiting for approval to appear on server."
+          );
+          continue;
+        }
+
+        const serverAttachmentCount = Array.isArray(matchedApproval.attachments)
+          ? matchedApproval.attachments.length
+          : 0;
+
+        if (serverAttachmentCount < record.expectedAttachmentCount) {
+          await markOfflineApprovalSendPending(
+            record.id,
+            "Waiting for approval attachments to finish syncing."
+          );
+          continue;
+        }
+
+        await markOfflineApprovalSendProcessing(record.id);
 
         const response = await fetch("/api/approvals/send", {
           method: "POST",

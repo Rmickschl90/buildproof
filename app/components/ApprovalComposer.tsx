@@ -326,6 +326,8 @@ export default function ApprovalComposer({
     approvalId: string | null;
     offlineApprovalId: string | null;
     projectId: string;
+    expectedAttachmentCount: number;
+    
   }) {
     const alreadyQueued = await hasPendingOfflineApprovalSend({
       approvalId: args.approvalId,
@@ -345,6 +347,7 @@ export default function ApprovalComposer({
       approvalId: args.approvalId,
       offlineApprovalId: args.offlineApprovalId,
       projectId: args.projectId,
+      expectedAttachmentCount: args.expectedAttachmentCount,
       createdAt: now,
       updatedAt: now,
       status: "pending",
@@ -827,6 +830,7 @@ export default function ApprovalComposer({
           approvalId: approvalId.startsWith("offline-") ? null : approvalId,
           offlineApprovalId: approvalId.startsWith("offline-") ? approvalId : null,
           projectId,
+                    expectedAttachmentCount: attachments.length,
         });
         return;
       }
@@ -859,6 +863,8 @@ export default function ApprovalComposer({
             approvalId: approvalId.startsWith("offline-") ? null : approvalId,
             offlineApprovalId: approvalId.startsWith("offline-") ? approvalId : null,
             projectId,
+              expectedAttachmentCount: attachments.length,
+
           });
           return;
         }
@@ -909,6 +915,8 @@ export default function ApprovalComposer({
               ? currentApprovalId
               : null,
           projectId,
+              expectedAttachmentCount: attachments.length,
+
         });
       } else {
         setStatus(message);
