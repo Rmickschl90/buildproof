@@ -59,6 +59,17 @@ export async function POST(req: Request) {
             .select("id, filename, approval_id")
             .eq("approval_id", approval.id);
 
+        // 🚨 HARD BLOCK: do not allow send until attachments are fully synced
+        const expectedAttachmentCount = Number(body?.expectedAttachmentCount ?? 0);
+        const actualAttachmentCount = Array.isArray(attachments) ? attachments.length : 0;
+
+        if (expectedAttachmentCount > 0 && actualAttachmentCount < expectedAttachmentCount) {
+            return NextResponse.json(
+                { error: "Attachments still syncing. Please retry." },
+                { status: 409 }
+            );
+        }
+
         if (attachmentsError) {
             console.error("[approvals/send] attachments fetch error", attachmentsError);
             return NextResponse.json(
