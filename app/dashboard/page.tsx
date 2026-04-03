@@ -107,8 +107,12 @@ export default function DashboardPage() {
   const [proofs, setProofs] = useState<Proof[]>([]);
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [offlineProofs, setOfflineProofs] = useState<OfflineProofRecord[]>([]);
+  const [isBrowserOnline, setIsBrowserOnline] = useState(
+    typeof navigator === "undefined" ? true : navigator.onLine
+  );
   const selectedProjectId = selectedProject ? selectedProject.id : null;
   const [editingApproval, setEditingApproval] = useState<any | null>(null);
+
 
   // ---------------- INPUTS ----------------
   const [newProjectTitle, setNewProjectTitle] = useState("");
@@ -270,6 +274,33 @@ export default function DashboardPage() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typeof navigator !== "undefined" ? navigator.onLine : true]);
+
+  useEffect(() => {
+    function handleConnectionChange() {
+      setIsBrowserOnline(navigator.onLine);
+    }
+
+    window.addEventListener("online", handleConnectionChange);
+    window.addEventListener("offline", handleConnectionChange);
+
+    return () => {
+      window.removeEventListener("online", handleConnectionChange);
+      window.removeEventListener("offline", handleConnectionChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isBrowserOnline) return;
+    if (!selectedProject) return;
+    if (offlineProofs.length === 0) return;
+
+    void (async () => {
+      setProofStatus("Connection restored — syncing offline entries...");
+      await flushOfflineProofs();
+      await loadProofs(selectedProject.id, showArchivedEntries);
+      await refreshOfflineProofs(selectedProject.id);
+    })();
+  }, [isBrowserOnline, selectedProject, offlineProofs.length, showArchivedEntries]);
 
   useEffect(() => {
     if (!isOffline()) return;
