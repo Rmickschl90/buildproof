@@ -133,45 +133,7 @@ export default function DashboardPage() {
   const [attachmentsRefreshKey, setAttachmentsRefreshKey] = useState(0);
 
   const [showArchivedEntries, setShowArchivedEntries] = useState(false);
-  useEffect(() => {
-    async function handleOnline() {
-      if (!selectedProject?.id) return;
-
-      try {
-        // 🔥 flush proofs
-        await flushOfflineProofs();
-
-        // 🔥 flush attachments
-        const { flushOfflineAttachmentOutbox } = await import(
-          "@/lib/offlineAttachmentFlush"
-        );
-
-        const { supabase } = await import("@/lib/supabase");
-
-        const getAccessToken = async () => {
-          const { data, error } = await supabase.auth.getSession();
-          if (error) throw error;
-          const token = data.session?.access_token;
-          if (!token) throw new Error("Not logged in");
-          return token;
-        };
-
-        await flushOfflineAttachmentOutbox(getAccessToken);
-
-        // 🔄 reload
-        await loadProofs(selectedProject.id, showArchivedEntries);
-        await refreshOfflineProofs(selectedProject.id);
-      } catch (err) {
-        console.error("Reconnect flush failed", err);
-      }
-    }
-
-    window.addEventListener("online", handleOnline);
-
-    return () => {
-      window.removeEventListener("online", handleOnline);
-    };
-  }, [selectedProject?.id, showArchivedEntries]);
+  
 
   // Send mode focus
   const [isSendMode, setIsSendMode] = useState(false);
@@ -401,29 +363,7 @@ export default function DashboardPage() {
     setSendCloseSignal((k) => k + 1);
   }, [selectedProject?.id]);
 
-  useEffect(() => {
-    function syncOfflineProofsNow() {
-      void flushOfflineProofs();
-    }
-
-    function handleOnline() {
-      syncOfflineProofsNow();
-    }
-
-    function handleVisibilityChange() {
-      if (document.visibilityState === "visible" && navigator.onLine) {
-        syncOfflineProofsNow();
-      }
-    }
-
-    window.addEventListener("online", handleOnline);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [selectedProject?.id, showArchivedEntries]);
+  
 
   useEffect(() => {
     function handleBuildProofDataChanged() {
@@ -701,77 +641,68 @@ export default function DashboardPage() {
   }
 
   async function flushOfflineProofs() {
-    if (isFlushingOfflineProofsRef.current) return;
-    isFlushingOfflineProofsRef.current = true;
+  if (isFlushingOfflineProofsRef.current) return;
+  isFlushingOfflineProofsRef.current = true;
 
-    try {
-      const {
-        listPendingOfflineProofs,
-        markOfflineProofSyncing,
-        markOfflineProofFailed,
-        deleteOfflineProof,
-      } = await import("@/lib/offlineProofOutbox");
+  try {
+    const {
+      listPendingOfflineProofs,
+      markOfflineProofSyncing,
+      markOfflineProofFailed,
+      deleteOfflineProof,
+    } = await import("@/lib/offlineProofOutbox");
 
-      const pending = await listPendingOfflineProofs();
+    const pending = await listPendingOfflineProofs();
 
-      if (pending.length === 0) {
-        if (selectedProject?.id) {
-          await refreshOfflineProofs(selectedProject.id);
-        }
-        return;
-      }
-
-      for (const p of pending) {
-        try {
-          await markOfflineProofSyncing(p.id);
-
-          const { data, error } = await supabase
-            .from("proofs")
-            .insert({
-              content: p.content,
-              project_id: p.projectId,
-            })
-            .select("id")
-            .single();
-
-          if (error) {
-            await markOfflineProofFailed(p.id, error.message);
-            continue;
-          }
-
-          if (data?.id) {
-            const { attachOfflineAttachmentsToProof } = await import("@/lib/offlineAttachmentOutbox");
-            const { flushOfflineAttachmentOutbox } = await import("@/lib/offlineAttachmentFlush");
-
-            await attachOfflineAttachmentsToProof(p.id, data.id);
-
-            // 🔒 allow IndexedDB transaction to fully commit
-            await new Promise((resolve) => setTimeout(resolve, 50));
-
-            // 🔥 first flush
-            await flushOfflineAttachmentOutbox(getAccessToken);
-
-            // 🔁 second pass safety (captures late-visible records)
-            await new Promise((resolve) => setTimeout(resolve, 50));
-            await flushOfflineAttachmentOutbox(getAccessToken);
-          }
-
-          await deleteOfflineProof(p.id);
-        } catch (err) {
-          console.error("Offline proof flush failed", err);
-        } finally {
-          isFlushingOfflineProofsRef.current = false;
-        }
-      }
-
+    if (pending.length === 0) {
       if (selectedProject?.id) {
-        await loadProofs(selectedProject.id, showArchivedEntries);
         await refreshOfflineProofs(selectedProject.id);
       }
-    } catch (err) {
-      console.error("Offline proof flush failed", err);
+      return;
     }
+
+    for (const p of pending) {
+      try {
+        await markOfflineProofSyncing(p.id);
+
+        const { data, error } = await supabase
+          .from("proofs")
+          .insert({
+            content: p.content,
+            project_id: p.projectId,
+          })
+          .select("id")
+          .single();
+
+        if (error) {
+          await markOfflineProofFailed(p.id, error.message);
+          continue;
+        }
+
+        if (data?.id) {
+          const { attachOfflineAttachmentsToProof } = await import("@/lib/offlineAttachmentOutbox");
+          const { flushOfflineAttachmentOutbox } = await import("@/lib/offlineAttachmentFlush");
+
+          await attachOfflineAttachmentsToProof(p.id, data.id);
+          await flushOfflineAttachmentOutbox(getAccessToken);
+        }
+
+        await deleteOfflineProof(p.id);
+      } catch (err) {
+        console.error("Offline proof flush failed", err);
+      }
+    }
+
+    if (selectedProject?.id) {
+      await loadProofs(selectedProject.id, showArchivedEntries);
+      await refreshOfflineProofs(selectedProject.id);
+    }
+  } catch (err) {
+    console.error("Offline proof flush failed", err);
+  } finally {
+    isFlushingOfflineProofsRef.current = false;
   }
+}
 
   async function loadActiveProjects(uid: string) {
     if (typeof navigator !== "undefined" && !navigator.onLine) {
