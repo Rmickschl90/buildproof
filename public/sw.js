@@ -1,4 +1,4 @@
-const CACHE_NAME = "buildproof-app-shell-v1";
+const CACHE_NAME = "buildproof-app-shell-v2";
 const APP_SHELL_URLS = [
   "/",
   "/dashboard",
@@ -41,16 +41,25 @@ self.addEventListener("fetch", (event) => {
   if (request.mode === "navigate") {
     event.respondWith(
       (async () => {
+        const cache = await caches.open(CACHE_NAME);
+
         try {
           const fresh = await fetch(request);
-          const cache = await caches.open(CACHE_NAME);
-          cache.put("/dashboard", fresh.clone());
+          cache.put(request, fresh.clone());
           return fresh;
         } catch {
-          const cachedDashboard = await caches.match("/dashboard");
+          const exactMatch = await cache.match(request, {
+            ignoreSearch: false,
+          });
+          if (exactMatch) return exactMatch;
+
+          const pathOnlyMatch = await cache.match(url.pathname);
+          if (pathOnlyMatch) return pathOnlyMatch;
+
+          const cachedDashboard = await cache.match("/dashboard");
           if (cachedDashboard) return cachedDashboard;
 
-          const cachedRoot = await caches.match("/");
+          const cachedRoot = await cache.match("/");
           if (cachedRoot) return cachedRoot;
 
           throw new Error("Offline and no cached app shell available.");
