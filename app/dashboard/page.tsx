@@ -744,6 +744,15 @@ export default function DashboardPage() {
             const { flushOfflineAttachmentOutbox } = await import("@/lib/offlineAttachmentFlush");
 
             await attachOfflineAttachmentsToProof(p.id, data.id);
+
+            // 🔒 allow IndexedDB transaction to fully commit
+            await new Promise((resolve) => setTimeout(resolve, 50));
+
+            // 🔥 first flush
+            await flushOfflineAttachmentOutbox(getAccessToken);
+
+            // 🔁 second pass safety (captures late-visible records)
+            await new Promise((resolve) => setTimeout(resolve, 50));
             await flushOfflineAttachmentOutbox(getAccessToken);
           }
 
