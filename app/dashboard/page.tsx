@@ -1762,7 +1762,10 @@ export default function DashboardPage() {
                       }
 
                       // ✅ Update URL (safe both modes)
-                      router.replace(`/dashboard?project=${p.id}`);
+                      // ✅ Only navigate when online
+                      if (navigator.onLine) {
+                        router.replace(`/dashboard?project=${p.id}`);
+                      }
 
                       // 🧹 UI reset (same as before)
                       setOpenProofId(null);
