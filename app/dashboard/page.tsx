@@ -258,7 +258,14 @@ export default function DashboardPage() {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [typeof navigator !== "undefined" ? navigator.onLine : true]);
+
+  useEffect(() => {
+  if (!isOffline()) return;
+
+  const recent = getRecentProjects();
+  console.log("🧱 Offline recent projects:", recent);
+}, []);
 
   useEffect(() => {
     if (!selectedProject) {
