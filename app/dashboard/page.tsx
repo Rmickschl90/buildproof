@@ -1761,7 +1761,7 @@ export default function DashboardPage() {
                         loadApprovals(p.id);
                       }
 
-                      // ✅ Update URL (safe both modes)
+                      
                       // ✅ Only navigate when online
                       if (navigator.onLine) {
                         router.replace(`/dashboard?project=${p.id}`);
