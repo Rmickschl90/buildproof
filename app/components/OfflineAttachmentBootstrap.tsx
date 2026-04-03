@@ -54,18 +54,11 @@ export default function OfflineAttachmentBootstrap() {
 
     void runFlush();
 
-    const interval = window.setInterval(() => {
-      if (document.visibilityState === "visible" && navigator.onLine) {
-        void runFlush();
-      }
-    }, 2000);
-
     window.addEventListener("online", handleOnline);
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
-      window.clearInterval(interval);
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibility);
