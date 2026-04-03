@@ -170,7 +170,7 @@ export default function DashboardPage() {
   const [onboardingCongrats, setOnboardingCongrats] = useState("");
   const [showAttachmentStep, setShowAttachmentStep] = useState(false);
   const [dashboardReady, setDashboardReady] = useState(false);
-    function cacheProjectSnapshot(args: {
+  function cacheProjectSnapshot(args: {
     project?: Project | null;
     proofs?: Proof[];
     approvals?: Approval[];
@@ -193,6 +193,29 @@ export default function DashboardPage() {
   useEffect(() => {
     (async () => {
       try {
+        const projectIdFromUrl = new URLSearchParams(window.location.search).get("project");
+
+        if (isOffline()) {
+          if (projectIdFromUrl) {
+            const cached = loadCachedDashboardProject(projectIdFromUrl);
+
+            if (cached) {
+              setSelectedProject(cached.project);
+              setProofs(cached.proofs);
+              setApprovals(cached.approvals);
+              setUserId(cached.project.user_id);
+              await refreshOfflineProofs(cached.project.id);
+            }
+          }
+
+          const done = window.localStorage.getItem("buildproof_onboarding_complete");
+          if (done === "true") {
+            setOnboardingComplete(true);
+          }
+
+          return;
+        }
+
         const { data, error } = await supabase.auth.getUser();
         if (error || !data.user) {
           router.push("/login");
@@ -205,31 +228,17 @@ export default function DashboardPage() {
         await flushOfflineProofs();
         await loadActiveProjects(data.user.id);
 
-                // ✅ Restore project from URL
-        const projectIdFromUrl = new URLSearchParams(window.location.search).get("project");
-
         if (projectIdFromUrl) {
-          if (isOffline()) {
-            const cached = loadCachedDashboardProject(projectIdFromUrl);
+          const { data: project } = await supabase
+            .from("projects")
+            .select("*")
+            .eq("id", projectIdFromUrl)
+            .single();
 
-            if (cached) {
-              setSelectedProject(cached.project);
-              setProofs(cached.proofs);
-              setApprovals(cached.approvals);
-              await refreshOfflineProofs(cached.project.id);
-            }
-          } else {
-            const { data: project } = await supabase
-              .from("projects")
-              .select("*")
-              .eq("id", projectIdFromUrl)
-              .single();
-
-            if (project) {
-              setSelectedProject(project);
-              await loadProofs(project.id, false);
-              await loadApprovals(project.id);
-            }
+          if (project) {
+            setSelectedProject(project);
+            await loadProofs(project.id, false);
+            await loadApprovals(project.id);
           }
         }
 
@@ -651,7 +660,7 @@ export default function DashboardPage() {
       return;
     }
 
-        const nextProjects = (data ?? []) as Project[];
+    const nextProjects = (data ?? []) as Project[];
     setProjects(nextProjects);
     setStatus("");
   }
@@ -685,7 +694,7 @@ export default function DashboardPage() {
       return;
     }
 
-        const nextProofs = (data ?? []) as Proof[];
+    const nextProofs = (data ?? []) as Proof[];
     setProofs(nextProofs);
     cacheProjectSnapshot({ proofs: nextProofs });
     await refreshOfflineProofs(projectId);
@@ -728,7 +737,7 @@ export default function DashboardPage() {
         return;
       }
 
-            const nextApprovals = (json?.approvals ?? []) as Approval[];
+      const nextApprovals = (json?.approvals ?? []) as Approval[];
       setApprovals(nextApprovals);
       cacheProjectSnapshot({ approvals: nextApprovals });
     } catch (err: any) {
@@ -784,7 +793,7 @@ export default function DashboardPage() {
 
       if (error) throw error;
 
-            const updatedProject = { ...selectedProject, title: next };
+      const updatedProject = { ...selectedProject, title: next };
 
       setSelectedProject(updatedProject);
       setProjects((list) => list.map((p) => (p.id === selectedProject.id ? { ...p, title: next } : p)));
@@ -1286,7 +1295,7 @@ export default function DashboardPage() {
         }
       }
 
-            const updatedProject = { ...selectedProject, ...payload };
+      const updatedProject = { ...selectedProject, ...payload };
 
       setSelectedProject(updatedProject);
       setProjects((list) =>
@@ -1695,7 +1704,7 @@ export default function DashboardPage() {
                   <button
                     key={p.id}
                     className={`projectBtn ${selectedProjectId === p.id ? "projectBtnActive" : ""}`}
-                                        onClick={() => {
+                    onClick={() => {
                       setSelectedProject(p);
                       cacheProjectSnapshot({ project: p, proofs: [], approvals: [] });
 
