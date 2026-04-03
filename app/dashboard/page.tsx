@@ -93,6 +93,23 @@ function isOffline() {
   return typeof navigator !== "undefined" && !navigator.onLine;
 }
 
+const LAST_OPEN_PROJECT_KEY = "buildproof_last_open_project_id";
+
+function saveLastOpenProjectId(projectId: string) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(LAST_OPEN_PROJECT_KEY, projectId);
+}
+
+function getLastOpenProjectId(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(LAST_OPEN_PROJECT_KEY);
+}
+
+function clearLastOpenProjectId() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(LAST_OPEN_PROJECT_KEY);
+}
+
 export default function DashboardPage() {
   const router = useRouter();
 
@@ -133,7 +150,7 @@ export default function DashboardPage() {
   const [attachmentsRefreshKey, setAttachmentsRefreshKey] = useState(0);
 
   const [showArchivedEntries, setShowArchivedEntries] = useState(false);
-  
+
 
   // Send mode focus
   const [isSendMode, setIsSendMode] = useState(false);
@@ -215,13 +232,14 @@ export default function DashboardPage() {
     (async () => {
       try {
         const projectIdFromUrl = new URLSearchParams(window.location.search).get("project");
+        const restoreProjectId = projectIdFromUrl || getLastOpenProjectId();
 
         if (isOffline()) {
           // 🔍 DEBUG — confirm recent projects cache
           const recent = getRecentProjects();
           console.log("🧱 Offline recent projects:", recent);
-          if (projectIdFromUrl) {
-            const cached = loadCachedDashboardProject(projectIdFromUrl);
+          if (restoreProjectId) {
+            const cached = loadCachedDashboardProject(restoreProjectId);
 
             if (cached) {
               setSelectedProject(cached.project);
@@ -363,7 +381,7 @@ export default function DashboardPage() {
     setSendCloseSignal((k) => k + 1);
   }, [selectedProject?.id]);
 
-  
+
 
   useEffect(() => {
     function handleBuildProofDataChanged() {
@@ -641,68 +659,68 @@ export default function DashboardPage() {
   }
 
   async function flushOfflineProofs() {
-  if (isFlushingOfflineProofsRef.current) return;
-  isFlushingOfflineProofsRef.current = true;
+    if (isFlushingOfflineProofsRef.current) return;
+    isFlushingOfflineProofsRef.current = true;
 
-  try {
-    const {
-      listPendingOfflineProofs,
-      markOfflineProofSyncing,
-      markOfflineProofFailed,
-      deleteOfflineProof,
-    } = await import("@/lib/offlineProofOutbox");
+    try {
+      const {
+        listPendingOfflineProofs,
+        markOfflineProofSyncing,
+        markOfflineProofFailed,
+        deleteOfflineProof,
+      } = await import("@/lib/offlineProofOutbox");
 
-    const pending = await listPendingOfflineProofs();
+      const pending = await listPendingOfflineProofs();
 
-    if (pending.length === 0) {
+      if (pending.length === 0) {
+        if (selectedProject?.id) {
+          await refreshOfflineProofs(selectedProject.id);
+        }
+        return;
+      }
+
+      for (const p of pending) {
+        try {
+          await markOfflineProofSyncing(p.id);
+
+          const { data, error } = await supabase
+            .from("proofs")
+            .insert({
+              content: p.content,
+              project_id: p.projectId,
+            })
+            .select("id")
+            .single();
+
+          if (error) {
+            await markOfflineProofFailed(p.id, error.message);
+            continue;
+          }
+
+          if (data?.id) {
+            const { attachOfflineAttachmentsToProof } = await import("@/lib/offlineAttachmentOutbox");
+            const { flushOfflineAttachmentOutbox } = await import("@/lib/offlineAttachmentFlush");
+
+            await attachOfflineAttachmentsToProof(p.id, data.id);
+            await flushOfflineAttachmentOutbox(getAccessToken);
+          }
+
+          await deleteOfflineProof(p.id);
+        } catch (err) {
+          console.error("Offline proof flush failed", err);
+        }
+      }
+
       if (selectedProject?.id) {
+        await loadProofs(selectedProject.id, showArchivedEntries);
         await refreshOfflineProofs(selectedProject.id);
       }
-      return;
+    } catch (err) {
+      console.error("Offline proof flush failed", err);
+    } finally {
+      isFlushingOfflineProofsRef.current = false;
     }
-
-    for (const p of pending) {
-      try {
-        await markOfflineProofSyncing(p.id);
-
-        const { data, error } = await supabase
-          .from("proofs")
-          .insert({
-            content: p.content,
-            project_id: p.projectId,
-          })
-          .select("id")
-          .single();
-
-        if (error) {
-          await markOfflineProofFailed(p.id, error.message);
-          continue;
-        }
-
-        if (data?.id) {
-          const { attachOfflineAttachmentsToProof } = await import("@/lib/offlineAttachmentOutbox");
-          const { flushOfflineAttachmentOutbox } = await import("@/lib/offlineAttachmentFlush");
-
-          await attachOfflineAttachmentsToProof(p.id, data.id);
-          await flushOfflineAttachmentOutbox(getAccessToken);
-        }
-
-        await deleteOfflineProof(p.id);
-      } catch (err) {
-        console.error("Offline proof flush failed", err);
-      }
-    }
-
-    if (selectedProject?.id) {
-      await loadProofs(selectedProject.id, showArchivedEntries);
-      await refreshOfflineProofs(selectedProject.id);
-    }
-  } catch (err) {
-    console.error("Offline proof flush failed", err);
-  } finally {
-    isFlushingOfflineProofsRef.current = false;
   }
-}
 
   async function loadActiveProjects(uid: string) {
     if (typeof navigator !== "undefined" && !navigator.onLine) {
@@ -930,6 +948,8 @@ export default function DashboardPage() {
   }
 
   function closeProjectView() {
+    clearLastOpenProjectId();
+    
     if (navigator.onLine) {
       router.replace("/dashboard");
     }
@@ -1804,6 +1824,17 @@ export default function DashboardPage() {
                         client_phone: p.client_phone ?? null,
                         project_address: p.project_address ?? null,
                       });
+
+                      saveRecentProject({
+                        id: p.id,
+                        title: p.title,
+                        client_name: p.client_name ?? null,
+                        client_email: p.client_email ?? null,
+                        client_phone: p.client_phone ?? null,
+                        project_address: p.project_address ?? null,
+                      });
+
+                      saveLastOpenProjectId(p.id);
 
                       // 🔌 OFFLINE MODE — load from cache ONLY
                       if (!navigator.onLine) {
