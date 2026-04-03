@@ -200,6 +200,9 @@ export default function DashboardPage() {
         const projectIdFromUrl = new URLSearchParams(window.location.search).get("project");
 
         if (isOffline()) {
+          // 🔍 DEBUG — confirm recent projects cache
+          const recent = getRecentProjects();
+          console.log("🧱 Offline recent projects:", recent);
           if (projectIdFromUrl) {
             const cached = loadCachedDashboardProject(projectIdFromUrl);
 
