@@ -77,6 +77,31 @@ export default function AttachmentList({ proofId, lockedAt }: Props) {
 
   useEffect(() => {
     load();
+
+    function handleAttachmentComplete() {
+      load();
+    }
+
+    function handleOnline() {
+      load();
+    }
+
+    function handleFocus() {
+      load();
+    }
+
+    window.addEventListener("buildproof-attachment-complete", handleAttachmentComplete as EventListener);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      window.removeEventListener(
+        "buildproof-attachment-complete",
+        handleAttachmentComplete as EventListener
+      );
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("focus", handleFocus);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [proofId]);
 
