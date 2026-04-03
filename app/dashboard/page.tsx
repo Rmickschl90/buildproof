@@ -110,6 +110,7 @@ export default function DashboardPage() {
   const [isBrowserOnline, setIsBrowserOnline] = useState(
     typeof navigator === "undefined" ? true : navigator.onLine
   );
+  const isFlushingOfflineProofsRef = useRef(false);
   const selectedProjectId = selectedProject ? selectedProject.id : null;
   const [editingApproval, setEditingApproval] = useState<any | null>(null);
 
@@ -302,12 +303,7 @@ export default function DashboardPage() {
     })();
   }, [isBrowserOnline, selectedProject, offlineProofs.length, showArchivedEntries]);
 
-  useEffect(() => {
-    if (!isOffline()) return;
-
-    const recent = getRecentProjects();
-    console.log("🧱 Offline recent projects:", recent);
-  }, []);
+  
 
   useEffect(() => {
     if (!selectedProject) {
@@ -534,19 +530,7 @@ export default function DashboardPage() {
     }
   }, [status]);
 
-  useEffect(() => {
-    if (!selectedProject || offlineProofs.length === 0) return;
-
-    const interval = window.setInterval(() => {
-      if (navigator.onLine) {
-        void flushOfflineProofs();
-      }
-    }, 4000);
-
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [selectedProject?.id, offlineProofs.length, showArchivedEntries]);
+  
 
   async function getAccessToken() {
     const { data, error } = await supabase.auth.getSession();
@@ -656,6 +640,9 @@ export default function DashboardPage() {
   }
 
   async function flushOfflineProofs() {
+    if (isFlushingOfflineProofsRef.current) return;
+    isFlushingOfflineProofsRef.current = true;
+
     try {
       const {
         listPendingOfflineProofs,
@@ -700,8 +687,10 @@ export default function DashboardPage() {
           }
 
           await deleteOfflineProof(p.id);
-        } catch (err: any) {
-          await markOfflineProofFailed(p.id, err?.message || "Unknown error");
+        } catch (err) {
+          console.error("Offline proof flush failed", err);
+        } finally {
+          isFlushingOfflineProofsRef.current = false;
         }
       }
 
