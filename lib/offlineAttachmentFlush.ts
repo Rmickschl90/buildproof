@@ -19,6 +19,9 @@ export async function flushOfflineAttachmentOutbox(
 
   for (const record of records) {
     try {
+      // 🔒 HARD GUARD — skip if already being processed
+      if (record.status === "uploading") continue;
+
       if (!record.proofId) {
         continue;
       }
