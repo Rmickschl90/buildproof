@@ -133,6 +133,45 @@ export default function DashboardPage() {
   const [attachmentsRefreshKey, setAttachmentsRefreshKey] = useState(0);
 
   const [showArchivedEntries, setShowArchivedEntries] = useState(false);
+  useEffect(() => {
+    async function handleOnline() {
+      if (!selectedProject?.id) return;
+
+      try {
+        // 🔥 flush proofs
+        await flushOfflineProofs();
+
+        // 🔥 flush attachments
+        const { flushOfflineAttachmentOutbox } = await import(
+          "@/lib/offlineAttachmentFlush"
+        );
+
+        const { supabase } = await import("@/lib/supabase");
+
+        const getAccessToken = async () => {
+          const { data, error } = await supabase.auth.getSession();
+          if (error) throw error;
+          const token = data.session?.access_token;
+          if (!token) throw new Error("Not logged in");
+          return token;
+        };
+
+        await flushOfflineAttachmentOutbox(getAccessToken);
+
+        // 🔄 reload
+        await loadProofs(selectedProject.id, showArchivedEntries);
+        await refreshOfflineProofs(selectedProject.id);
+      } catch (err) {
+        console.error("Reconnect flush failed", err);
+      }
+    }
+
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [selectedProject?.id, showArchivedEntries]);
 
   // Send mode focus
   const [isSendMode, setIsSendMode] = useState(false);
@@ -291,39 +330,39 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-  if (!isBrowserOnline) return;
-  if (!selectedProject?.id) return;
+    if (!isBrowserOnline) return;
+    if (!selectedProject?.id) return;
 
-  void (async () => {
-    await refreshOfflineProofs(selectedProject.id);
+    void (async () => {
+      await refreshOfflineProofs(selectedProject.id);
 
-    setProofStatus("Connection restored — syncing offline entries...");
+      setProofStatus("Connection restored — syncing offline entries...");
 
-    // 🔥 proofs
-    await flushOfflineProofs();
+      // 🔥 proofs
+      await flushOfflineProofs();
 
-    // 🔥 attachments (NEW)
-    const { flushOfflineAttachmentOutbox } = await import(
-      "@/lib/offlineAttachmentFlush"
-    );
+      // 🔥 attachments (NEW)
+      const { flushOfflineAttachmentOutbox } = await import(
+        "@/lib/offlineAttachmentFlush"
+      );
 
-    const { supabase } = await import("@/lib/supabase");
+      const { supabase } = await import("@/lib/supabase");
 
-    const getAccessToken = async () => {
-      const { data, error } = await supabase.auth.getSession();
-      if (error) throw error;
-      const token = data.session?.access_token;
-      if (!token) throw new Error("Not logged in");
-      return token;
-    };
+      const getAccessToken = async () => {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        const token = data.session?.access_token;
+        if (!token) throw new Error("Not logged in");
+        return token;
+      };
 
-    await flushOfflineAttachmentOutbox(getAccessToken);
+      await flushOfflineAttachmentOutbox(getAccessToken);
 
-    // 🔄 reload everything
-    await loadProofs(selectedProject.id, showArchivedEntries);
-    await refreshOfflineProofs(selectedProject.id);
-  })();
-}, [isBrowserOnline, selectedProject?.id, showArchivedEntries]);
+      // 🔄 reload everything
+      await loadProofs(selectedProject.id, showArchivedEntries);
+      await refreshOfflineProofs(selectedProject.id);
+    })();
+  }, [isBrowserOnline, selectedProject?.id, showArchivedEntries]);
 
 
 
