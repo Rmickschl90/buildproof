@@ -630,19 +630,30 @@ export default function DashboardPage() {
 
   // ---------------- DATA LOADERS ----------------
   async function refreshOfflineProofs(projectId?: string | null) {
-    if (!projectId) {
-      setOfflineProofs([]);
-      return;
-    }
-
-    try {
-      const records = await listOfflineProofsForProject(projectId);
-      setOfflineProofs(records);
-    } catch (error) {
-      console.error("Failed to load offline proofs", error);
-      setOfflineProofs([]);
-    }
+  if (!projectId) {
+    setOfflineProofs([]);
+    return;
   }
+
+  try {
+    const records = await listOfflineProofsForProject(projectId);
+
+    const serverContentSet = new Set(
+      proofs
+        .filter((p) => p.project_id === projectId)
+        .map((p) => (p.content || "").trim().toLowerCase())
+    );
+
+    const filtered = records.filter(
+      (record) => !serverContentSet.has((record.content || "").trim().toLowerCase())
+    );
+
+    setOfflineProofs(filtered);
+  } catch (error) {
+    console.error("Failed to load offline proofs", error);
+    setOfflineProofs([]);
+  }
+}
 
   async function flushOfflineProofs() {
     try {
