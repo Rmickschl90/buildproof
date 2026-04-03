@@ -688,7 +688,11 @@ export default function DashboardPage() {
     setStatus("");
   }
 
-  async function loadProofs(projectId: string, includeArchived = showArchivedEntries) {
+  async function loadProofs(
+    projectId: string,
+    includeArchived = showArchivedEntries,
+    projectOverride?: Project
+  ) {
     const source = includeArchived ? "proofs" : "proofs_active";
 
     // 🔒 Prevent fetch while offline
@@ -719,12 +723,19 @@ export default function DashboardPage() {
 
     const nextProofs = (data ?? []) as Proof[];
     setProofs(nextProofs);
-    cacheProjectSnapshot({ proofs: nextProofs });
+    cacheProjectSnapshot({
+      project: projectOverride ?? selectedProject,
+      proofs: nextProofs,
+    });
     await refreshOfflineProofs(projectId);
     setProofStatus("");
   }
 
-  async function loadApprovals(projectId: string, includeArchived = showArchivedEntries) {
+  async function loadApprovals(
+    projectId: string,
+    includeArchived = showArchivedEntries,
+    projectOverride?: Project
+  ) {
     try {
       // 🔒 Prevent fetch while offline
       if (typeof navigator !== "undefined" && !navigator.onLine) {
@@ -762,7 +773,10 @@ export default function DashboardPage() {
 
       const nextApprovals = (json?.approvals ?? []) as Approval[];
       setApprovals(nextApprovals);
-      cacheProjectSnapshot({ approvals: nextApprovals });
+      cacheProjectSnapshot({
+        project: projectOverride ?? selectedProject,
+        approvals: nextApprovals,
+      });
     } catch (err: any) {
       const message = String(err?.message || "Failed to load approvals.");
 
@@ -873,7 +887,9 @@ export default function DashboardPage() {
   }
 
   function closeProjectView() {
-    router.replace("/dashboard");
+    if (navigator.onLine) {
+      router.replace("/dashboard");
+    }
     setSelectedProject(null);
     setProofs([]);
     setApprovals([]);
@@ -1757,11 +1773,11 @@ export default function DashboardPage() {
 
                         cacheProjectSnapshot({ project: p, proofs: [], approvals: [] });
 
-                        loadProofs(p.id, false);
-                        loadApprovals(p.id);
+                        loadProofs(p.id, false, p);
+                        loadApprovals(p.id, false, p);
                       }
 
-                      
+
                       // ✅ Only navigate when online
                       if (navigator.onLine) {
                         router.replace(`/dashboard?project=${p.id}`);
