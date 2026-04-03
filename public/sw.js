@@ -1,7 +1,17 @@
-const CACHE_NAME = "buildproof-static-v1";
+const CACHE_NAME = "buildproof-static-v2";
+const APP_SHELL_URLS = [
+  "/dashboard",
+  "/buildproof-logo.png",
+];
 
 self.addEventListener("install", (event) => {
-  self.skipWaiting();
+  event.waitUntil(
+    (async () => {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.addAll(APP_SHELL_URLS);
+      await self.skipWaiting();
+    })()
+  );
 });
 
 self.addEventListener("activate", (event) => {
@@ -29,25 +39,48 @@ self.addEventListener("fetch", (event) => {
 
   if (request.method !== "GET") return;
 
-  // Do NOT intercept document/navigation requests.
+  // Handle full page navigations (offline app shell)
   if (request.mode === "navigate") {
+    event.respondWith(
+      (async () => {
+        try {
+          const response = await fetch(request);
+          const cache = await caches.open(CACHE_NAME);
+          cache.put("/dashboard", response.clone());
+          return response;
+        } catch {
+          const cachedDashboard = await caches.match("/dashboard");
+          if (cachedDashboard) return cachedDashboard;
+
+          const cachedRoot = await caches.match("/");
+          if (cachedRoot) return cachedRoot;
+
+          return new Response("Offline", {
+            status: 503,
+            statusText: "Offline",
+            headers: { "Content-Type": "text/plain" },
+          });
+        }
+      })()
+    );
     return;
   }
 
   if (url.origin === self.location.origin) {
     event.respondWith(
-      caches.match(request).then((cached) => {
-        return (
-          cached ||
-          fetch(request)
-            .then((response) => {
-              const copy = response.clone();
-              caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-              return response;
-            })
-            .catch(() => cached)
-        );
-      })
+      (async () => {
+        const cached = await caches.match(request);
+        if (cached) return cached;
+
+        try {
+          const response = await fetch(request);
+          const cache = await caches.open(CACHE_NAME);
+          cache.put(request, response.clone());
+          return response;
+        } catch {
+          return cached;
+        }
+      })()
     );
   }
 });
