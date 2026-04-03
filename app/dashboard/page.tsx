@@ -630,30 +630,30 @@ export default function DashboardPage() {
 
   // ---------------- DATA LOADERS ----------------
   async function refreshOfflineProofs(projectId?: string | null) {
-  if (!projectId) {
-    setOfflineProofs([]);
-    return;
+    if (!projectId) {
+      setOfflineProofs([]);
+      return;
+    }
+
+    try {
+      const records = await listOfflineProofsForProject(projectId);
+
+      const serverContentSet = new Set(
+        proofs
+          .filter((p) => p.project_id === projectId)
+          .map((p) => (p.content || "").trim().toLowerCase())
+      );
+
+      const filtered = records.filter(
+        (record) => !serverContentSet.has((record.content || "").trim().toLowerCase())
+      );
+
+      setOfflineProofs(filtered);
+    } catch (error) {
+      console.error("Failed to load offline proofs", error);
+      setOfflineProofs([]);
+    }
   }
-
-  try {
-    const records = await listOfflineProofsForProject(projectId);
-
-    const serverContentSet = new Set(
-      proofs
-        .filter((p) => p.project_id === projectId)
-        .map((p) => (p.content || "").trim().toLowerCase())
-    );
-
-    const filtered = records.filter(
-      (record) => !serverContentSet.has((record.content || "").trim().toLowerCase())
-    );
-
-    setOfflineProofs(filtered);
-  } catch (error) {
-    console.error("Failed to load offline proofs", error);
-    setOfflineProofs([]);
-  }
-}
 
   async function flushOfflineProofs() {
     try {
@@ -1598,12 +1598,20 @@ export default function DashboardPage() {
   }, [projects, projectSearch, projectSortMode]);
 
   const filteredProofs = useMemo<TimelineProof[]>(() => {
-    let list: TimelineProof[] = [
-      ...proofs,
-      ...offlineProofs.map((p) => ({
+    const serverContentSet = new Set(
+      proofs.map((p) => cleanText(p.content || ""))
+    );
+
+    const dedupedOfflineProofs = offlineProofs
+      .filter((p) => !serverContentSet.has(cleanText(p.content || "")))
+      .map((p) => ({
         ...p,
         isOffline: true as const,
-      })),
+      }));
+
+    let list: TimelineProof[] = [
+      ...proofs,
+      ...dedupedOfflineProofs,
     ];
 
     list =
