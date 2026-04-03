@@ -261,11 +261,11 @@ export default function DashboardPage() {
   }, [typeof navigator !== "undefined" ? navigator.onLine : true]);
 
   useEffect(() => {
-  if (!isOffline()) return;
+    if (!isOffline()) return;
 
-  const recent = getRecentProjects();
-  console.log("🧱 Offline recent projects:", recent);
-}, []);
+    const recent = getRecentProjects();
+    console.log("🧱 Offline recent projects:", recent);
+  }, []);
 
   useEffect(() => {
     if (!selectedProject) {
@@ -1738,6 +1738,9 @@ export default function DashboardPage() {
                         client_phone: p.client_phone ?? null,
                         project_address: p.project_address ?? null,
                       });
+
+                      const recent = getRecentProjects();
+                      console.log("🧱 AFTER SAVE recent projects:", recent);
                       cacheProjectSnapshot({ project: p, proofs: [], approvals: [] });
 
                       // ✅ Update URL
