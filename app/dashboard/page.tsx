@@ -1728,8 +1728,7 @@ export default function DashboardPage() {
                     key={p.id}
                     className={`projectBtn ${selectedProjectId === p.id ? "projectBtnActive" : ""}`}
                     onClick={() => {
-                      setSelectedProject(p);
-
+                      // 🧠 ALWAYS save recent (works online + offline)
                       saveRecentProject({
                         id: p.id,
                         title: p.title,
@@ -1739,15 +1738,33 @@ export default function DashboardPage() {
                         project_address: p.project_address ?? null,
                       });
 
-                      setTimeout(() => {
-                        const recent = getRecentProjects();
-                        console.log("🧱 AFTER SAVE recent projects:");
-                        console.table(recent);
-                      }, 100);
+                      // 🔌 OFFLINE MODE — load from cache ONLY
+                      if (!navigator.onLine) {
+                        const cached = loadCachedDashboardProject(p.id);
 
-                      // ✅ Update URL
+                        if (cached) {
+                          setSelectedProject(cached.project);
+                          setProofs(cached.proofs);
+                          setApprovals(cached.approvals);
+                          refreshOfflineProofs(cached.project.id);
+                        } else {
+                          setStatus("Project not available offline yet.");
+                          return;
+                        }
+                      } else {
+                        // 🌐 ONLINE — normal behavior
+                        setSelectedProject(p);
+
+                        cacheProjectSnapshot({ project: p, proofs: [], approvals: [] });
+
+                        loadProofs(p.id, false);
+                        loadApprovals(p.id);
+                      }
+
+                      // ✅ Update URL (safe both modes)
                       router.replace(`/dashboard?project=${p.id}`);
 
+                      // 🧹 UI reset (same as before)
                       setOpenProofId(null);
                       setProjectMenuOpen(false);
                       setRenaming(false);
@@ -1755,8 +1772,7 @@ export default function DashboardPage() {
                       setProofMenuOpenId(null);
                       setEditingProofId(null);
                       setEditDraftContent("");
-                      loadProofs(p.id, false);
-                      loadApprovals(p.id);
+
                       scrollBackToOnboarding(700);
                     }}
                   >
