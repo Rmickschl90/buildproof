@@ -1739,9 +1739,11 @@ export default function DashboardPage() {
                         project_address: p.project_address ?? null,
                       });
 
-                      const recent = getRecentProjects();
-                      console.log("🧱 AFTER SAVE recent projects:", recent);
-                      cacheProjectSnapshot({ project: p, proofs: [], approvals: [] });
+                      setTimeout(() => {
+                        const recent = getRecentProjects();
+                        console.log("🧱 AFTER SAVE recent projects:");
+                        console.table(recent);
+                      }, 100);
 
                       // ✅ Update URL
                       router.replace(`/dashboard?project=${p.id}`);
