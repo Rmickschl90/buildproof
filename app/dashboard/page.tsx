@@ -292,18 +292,19 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!isBrowserOnline) return;
-    if (!selectedProject) return;
-    if (offlineProofs.length === 0) return;
+    if (!selectedProject?.id) return;
 
     void (async () => {
+      await refreshOfflineProofs(selectedProject.id);
+
       setProofStatus("Connection restored — syncing offline entries...");
       await flushOfflineProofs();
       await loadProofs(selectedProject.id, showArchivedEntries);
       await refreshOfflineProofs(selectedProject.id);
     })();
-  }, [isBrowserOnline, selectedProject, offlineProofs.length, showArchivedEntries]);
+  }, [isBrowserOnline, selectedProject?.id, showArchivedEntries]);
 
-  
+
 
   useEffect(() => {
     if (!selectedProject) {
@@ -530,7 +531,7 @@ export default function DashboardPage() {
     }
   }, [status]);
 
-  
+
 
   async function getAccessToken() {
     const { data, error } = await supabase.auth.getSession();
