@@ -22,6 +22,10 @@ import {
   loadCachedDashboardProject,
   saveCachedDashboardProject,
 } from "@/lib/offlineDashboardCache";
+import {
+  saveRecentProject,
+  getRecentProjects,
+} from "@/lib/offlineRecentProjects";
 
 type Project = {
   id: string;
@@ -648,6 +652,15 @@ export default function DashboardPage() {
   }
 
   async function loadActiveProjects(uid: string) {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      const recent = getRecentProjects();
+
+      if (recent.length > 0) {
+        setProjects(recent as any);
+      }
+
+      return;
+    }
     const { data, error } = await supabase
       .from("projects")
       .select("id,title,user_id,client_name,client_email,client_phone,project_address,archived_at,created_at")
@@ -1706,6 +1719,15 @@ export default function DashboardPage() {
                     className={`projectBtn ${selectedProjectId === p.id ? "projectBtnActive" : ""}`}
                     onClick={() => {
                       setSelectedProject(p);
+
+                      saveRecentProject({
+                        id: p.id,
+                        title: p.title,
+                        client_name: p.client_name ?? null,
+                        client_email: p.client_email ?? null,
+                        client_phone: p.client_phone ?? null,
+                        project_address: p.project_address ?? null,
+                      });
                       cacheProjectSnapshot({ project: p, proofs: [], approvals: [] });
 
                       // ✅ Update URL
