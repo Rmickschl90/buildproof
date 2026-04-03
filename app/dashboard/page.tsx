@@ -193,6 +193,17 @@ export default function DashboardPage() {
     });
   }
 
+  useEffect(() => {
+    if (!selectedProject) return;
+
+    saveCachedDashboardProject({
+      project: selectedProject,
+      proofs,
+      approvals,
+      cachedAt: new Date().toISOString(),
+    });
+  }, [selectedProject, proofs, approvals]);
+
   // ---------------- AUTH BOOT ----------------
   useEffect(() => {
     (async () => {
