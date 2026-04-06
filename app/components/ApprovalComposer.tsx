@@ -511,6 +511,7 @@ export default function ApprovalComposer({
 
       if (showStatusMessage) {
         setStatus("Draft saved offline — will sync when connected.");
+        window.dispatchEvent(new CustomEvent("buildproof-data-changed"));
       }
 
       return approvalId;
@@ -841,6 +842,7 @@ export default function ApprovalComposer({
 
         setHasSavedOfflineDraft(true);
         setStatus("Draft saved offline — will sync when connected.");
+        window.dispatchEvent(new CustomEvent("buildproof-data-changed"));
       };
 
       setStatus("Saving draft...");
