@@ -308,8 +308,15 @@ export default function DashboardPage() {
 
           if (project) {
             setSelectedProject(project);
-            await loadProofs(project.id, false);
-            await loadApprovals(project.id);
+
+            cacheProjectSnapshot({
+              project,
+              proofs: [],
+              approvals: [],
+            });
+
+            await loadProofs(project.id, false, project);
+            await loadApprovals(project.id, false, project);
           }
         }
 
