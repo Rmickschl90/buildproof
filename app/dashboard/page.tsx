@@ -275,7 +275,20 @@ export default function DashboardPage() {
         }
 
         const { data, error } = await supabase.auth.getUser();
+
         if (error || !data.user) {
+          const message = String(error?.message || "").toLowerCase();
+
+          const looksOffline =
+            !navigator.onLine ||
+            message.includes("failed to fetch") ||
+            message.includes("network") ||
+            message.includes("fetch");
+
+          if (looksOffline) {
+            return;
+          }
+
           router.push("/login");
           return;
         }
