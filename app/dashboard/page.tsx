@@ -21,6 +21,7 @@ import {
   listOfflineApprovalsForProject,
   type OfflineApprovalRecord,
 } from "@/lib/offlineApprovalOutbox";
+import { getOfflineApprovalAttachmentsForApproval } from "@/lib/offlineApprovalAttachmentOutbox";
 import OfflineAttachmentBootstrap from "../components/OfflineAttachmentBootstrap";
 import {
   loadCachedDashboardProject,
@@ -1688,32 +1689,63 @@ export default function DashboardPage() {
     );
   }, [proofs, offlineProofs, entrySearch, entrySortMode]);
 
-  const visibleApprovals = useMemo<Approval[]>(() => {
+  const [visibleApprovals, setVisibleApprovals] = useState<Approval[]>([]);
+
+useEffect(() => {
+  let cancelled = false;
+
+  async function buildVisibleApprovals() {
     const serverIdSet = new Set(approvals.map((a) => a.id));
 
-    const normalizedOfflineApprovals: Approval[] = offlineApprovals
-      .filter((a) => !serverIdSet.has(a.id))
-      .map((a) => ({
-        id: a.id,
-        title: a.title,
-        approval_type: a.approvalType,
-        description: a.description,
-        status: "draft",
-        created_at: new Date(a.createdAt).toISOString(),
-        sent_at: null,
-        responded_at: null,
-        expired_at: null,
-        cost_delta: a.costDelta,
-        schedule_delta: a.scheduleDelta,
-        recipient_name: a.recipientName || null,
-        recipient_email: a.recipientEmail || "",
-        project_id: a.projectId,
-      }));
+    const normalizedOfflineApprovals = await Promise.all(
+      offlineApprovals
+        .filter((a) => !serverIdSet.has(a.id))
+        .map(async (a) => {
+          const queuedAttachments = await getOfflineApprovalAttachmentsForApproval({
+            approvalId: null,
+            offlineApprovalId: a.id,
+          });
 
-    return [...approvals, ...normalizedOfflineApprovals].sort((a, b) =>
+          return {
+            id: a.id,
+            title: a.title,
+            approval_type: a.approvalType,
+            description: a.description,
+            status: "draft" as const,
+            created_at: new Date(a.createdAt).toISOString(),
+            sent_at: null,
+            responded_at: null,
+            expired_at: null,
+            cost_delta: a.costDelta,
+            schedule_delta: a.scheduleDelta,
+            recipient_name: a.recipientName || null,
+            recipient_email: a.recipientEmail || "",
+            project_id: a.projectId,
+            attachments: queuedAttachments.map((item) => ({
+              id: item.id,
+              filename: item.fileName ?? null,
+              mime_type: item.mimeType ?? null,
+              path: "",
+            })),
+          };
+        })
+    );
+
+    const nextVisibleApprovals = [...approvals, ...normalizedOfflineApprovals].sort((a, b) =>
       a.created_at < b.created_at ? 1 : -1
     );
-  }, [approvals, offlineApprovals]);
+
+    if (!cancelled) {
+      setVisibleApprovals(nextVisibleApprovals);
+    }
+  }
+
+  void buildVisibleApprovals();
+
+  return () => {
+    cancelled = true;
+  };
+}, [approvals, offlineApprovals]);
 
   const draftApprovals = useMemo(() => {
     return visibleApprovals.filter(
