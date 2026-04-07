@@ -236,8 +236,8 @@ export default function DashboardPage() {
   }, [selectedProject, proofs, approvals]);
 
   useEffect(() => {
-  console.log("🧱 selectedProject changed:", selectedProject);
-}, [selectedProject]);
+    console.log("🧱 selectedProject changed:", selectedProject);
+  }, [selectedProject]);
 
   // ---------------- AUTH BOOT ----------------
   useEffect(() => {
@@ -260,15 +260,44 @@ export default function DashboardPage() {
             console.log("🧱 cached project found:", !!cached, cached);
 
             if (cached) {
+              const debugSteps: string[] = [];
+              debugSteps.push("found cached project");
+              debugSteps.push(`project id: ${cached.project.id}`);
+              debugSteps.push(`project title: ${cached.project.title}`);
+
               setSelectedProject(cached.project);
+              debugSteps.push("setSelectedProject done");
+
               setProofs(cached.proofs);
+              debugSteps.push(`setProofs done (${cached.proofs.length})`);
+
               setApprovals(cached.approvals);
+              debugSteps.push(`setApprovals done (${cached.approvals.length})`);
+
               setUserId(cached.project.user_id);
+              debugSteps.push("setUserId done");
+
               saveLastOpenProjectId(cached.project.id);
+              debugSteps.push("saveLastOpenProjectId done");
+
+              window.localStorage.setItem(
+                "buildproof_offline_boot_debug",
+                JSON.stringify(debugSteps)
+              );
+
               await refreshOfflineProofs(cached.project.id);
+              debugSteps.push("refreshOfflineProofs done");
+
               await refreshOfflineApprovals(cached.project.id);
-              setDashboardReady(true); // ✅ lock UI in restored state
-              
+              debugSteps.push("refreshOfflineApprovals done");
+
+              setDashboardReady(true);
+              debugSteps.push("setDashboardReady done");
+
+              window.localStorage.setItem(
+                "buildproof_offline_boot_debug",
+                JSON.stringify(debugSteps)
+              );
             } else {
               clearLastOpenProjectId();
             }
