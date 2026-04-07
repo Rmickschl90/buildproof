@@ -236,15 +236,21 @@ export default function DashboardPage() {
   }, [selectedProject, proofs, approvals]);
 
   useEffect(() => {
-  window.localStorage.setItem(
-    "buildproof_selected_project_debug",
-    JSON.stringify(
+    const existing = JSON.parse(
+      window.localStorage.getItem("buildproof_selected_project_debug_log") || "[]"
+    );
+
+    existing.push(
       selectedProject
         ? { id: selectedProject.id, title: selectedProject.title }
         : null
-    )
-  );
-}, [selectedProject]);
+    );
+
+    window.localStorage.setItem(
+      "buildproof_selected_project_debug_log",
+      JSON.stringify(existing)
+    );
+  }, [selectedProject]);
 
   useEffect(() => {
     console.log("🧱 selectedProject changed:", selectedProject);
