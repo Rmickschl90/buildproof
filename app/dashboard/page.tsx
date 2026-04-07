@@ -263,8 +263,8 @@ export default function DashboardPage() {
               saveLastOpenProjectId(cached.project.id);
               await refreshOfflineProofs(cached.project.id);
               await refreshOfflineApprovals(cached.project.id);
-
-              setDashboardReady(true);
+              setDashboardReady(true); // ✅ lock UI in restored state
+              
             } else {
               clearLastOpenProjectId();
             }
