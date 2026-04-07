@@ -17,6 +17,10 @@ import {
   listOfflineProofsForProject,
   type OfflineProofRecord,
 } from "@/lib/offlineProofOutbox";
+import {
+  listOfflineApprovalsForProject,
+  type OfflineApprovalRecord,
+} from "@/lib/offlineApprovalOutbox";
 import OfflineAttachmentBootstrap from "../components/OfflineAttachmentBootstrap";
 import {
   loadCachedDashboardProject,
@@ -66,6 +70,8 @@ type Approval = {
   recipient_email: string;
   project_id: string;
 };
+
+type TimelineApproval = Approval;
 
 type TimelineProof = Proof | (OfflineProofRecord & { isOffline: true });
 
@@ -123,6 +129,7 @@ export default function DashboardPage() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [proofs, setProofs] = useState<Proof[]>([]);
   const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [offlineApprovals, setOfflineApprovals] = useState<OfflineApprovalRecord[]>([]);
   const [offlineProofs, setOfflineProofs] = useState<OfflineProofRecord[]>([]);
   const [isBrowserOnline, setIsBrowserOnline] = useState(
     typeof navigator === "undefined" ? true : navigator.onLine
@@ -247,6 +254,7 @@ export default function DashboardPage() {
               setApprovals(cached.approvals);
               setUserId(cached.project.user_id);
               await refreshOfflineProofs(cached.project.id);
+              await refreshOfflineApprovals(cached.project.id);
             }
           }
 
@@ -349,10 +357,12 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!selectedProject) {
       setOfflineProofs([]);
+      setOfflineApprovals([]);
       return;
     }
 
     void refreshOfflineProofs(selectedProject.id);
+    void refreshOfflineApprovals(selectedProject.id);
 
     setClientNameDraft(selectedProject.client_name ?? "");
     setClientEmailDraft(selectedProject.client_email ?? "");
@@ -386,6 +396,12 @@ export default function DashboardPage() {
   useEffect(() => {
     function handleBuildProofDataChanged() {
       if (!selectedProject?.id) return;
+
+      if (!navigator.onLine) {
+        void refreshOfflineProofs(selectedProject.id);
+        void refreshOfflineApprovals(selectedProject.id);
+        return;
+      }
 
       void loadProofs(selectedProject.id, showArchivedEntries);
       void loadApprovals(selectedProject.id, showArchivedEntries);
@@ -658,6 +674,28 @@ export default function DashboardPage() {
     }
   }
 
+  async function refreshOfflineApprovals(projectId?: string | null) {
+    if (!projectId) {
+      setOfflineApprovals([]);
+      return;
+    }
+
+    try {
+      const records = await listOfflineApprovalsForProject(projectId);
+
+      const serverIdSet = new Set(approvals.map((a) => a.id));
+
+      const filtered = records.filter(
+        (record: OfflineApprovalRecord) => !serverIdSet.has(record.id)
+      );
+
+      setOfflineApprovals(filtered);
+    } catch (error) {
+      console.error("Failed to load offline approvals", error);
+      setOfflineApprovals([]);
+    }
+  }
+
   async function flushOfflineProofs() {
     if (isFlushingOfflineProofsRef.current) return;
     isFlushingOfflineProofsRef.current = true;
@@ -834,6 +872,7 @@ export default function DashboardPage() {
 
       const nextApprovals = (json?.approvals ?? []) as Approval[];
       setApprovals(nextApprovals);
+      await refreshOfflineApprovals(projectId);
       cacheProjectSnapshot({
         project: projectOverride ?? selectedProject,
         approvals: nextApprovals,
@@ -949,7 +988,7 @@ export default function DashboardPage() {
 
   function closeProjectView() {
     clearLastOpenProjectId();
-    
+
     if (navigator.onLine) {
       router.replace("/dashboard");
     }
@@ -1649,11 +1688,38 @@ export default function DashboardPage() {
     );
   }, [proofs, offlineProofs, entrySearch, entrySortMode]);
 
-  const draftApprovals = useMemo<Approval[]>(() => {
-    return approvals
-      .filter((a) => a.status === "draft")
-      .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-  }, [approvals]);
+  const visibleApprovals = useMemo<Approval[]>(() => {
+    const serverIdSet = new Set(approvals.map((a) => a.id));
+
+    const normalizedOfflineApprovals: Approval[] = offlineApprovals
+      .filter((a) => !serverIdSet.has(a.id))
+      .map((a) => ({
+        id: a.id,
+        title: a.title,
+        approval_type: a.approvalType,
+        description: a.description,
+        status: "draft",
+        created_at: new Date(a.createdAt).toISOString(),
+        sent_at: null,
+        responded_at: null,
+        expired_at: null,
+        cost_delta: a.costDelta,
+        schedule_delta: a.scheduleDelta,
+        recipient_name: a.recipientName || null,
+        recipient_email: a.recipientEmail || "",
+        project_id: a.projectId,
+      }));
+
+    return [...approvals, ...normalizedOfflineApprovals].sort((a, b) =>
+      a.created_at < b.created_at ? 1 : -1
+    );
+  }, [approvals, offlineApprovals]);
+
+  const draftApprovals = useMemo(() => {
+    return visibleApprovals.filter(
+      (a) => a.status === "draft" || a.status === "pending"
+    );
+  }, [visibleApprovals]);
 
   return (
     <>
@@ -1845,6 +1911,7 @@ export default function DashboardPage() {
                           setProofs(cached.proofs);
                           setApprovals(cached.approvals);
                           refreshOfflineProofs(cached.project.id);
+                          refreshOfflineApprovals(cached.project.id);
                         } else {
                           setStatus("Project not available offline yet.");
                           return;

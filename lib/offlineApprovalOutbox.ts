@@ -192,3 +192,20 @@ export async function removeOfflineApproval(id: string): Promise<void> {
         tx.onerror = () => reject(tx.error);
     });
 }
+
+export async function listOfflineApprovalsForProject(
+    projectId: string
+): Promise<OfflineApprovalRecord[]> {
+    const db = await openDb();
+
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readonly");
+        const store = tx.objectStore(STORE_NAME);
+        const index = store.index("projectId");
+
+        const req = index.getAll(projectId);
+
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+    });
+}
