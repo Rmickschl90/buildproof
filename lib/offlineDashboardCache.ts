@@ -45,8 +45,13 @@ function getKey(projectId: string) {
   return `${STORAGE_PREFIX}${projectId}`;
 }
 
-export function saveCachedDashboardProject(data: CachedDashboardProject) {
+export function saveCachedDashboardProject(data: CachedDashboardProject | null | undefined) {
   if (typeof window === "undefined") return;
+
+  if (!data || !data.project || !data.project.id) {
+    console.warn("Skipped invalid dashboard cache write", data);
+    return;
+  }
 
   try {
     window.localStorage.setItem(getKey(data.project.id), JSON.stringify(data));
