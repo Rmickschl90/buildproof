@@ -263,6 +263,8 @@ export default function DashboardPage() {
               saveLastOpenProjectId(cached.project.id);
               await refreshOfflineProofs(cached.project.id);
               await refreshOfflineApprovals(cached.project.id);
+
+              setDashboardReady(true);
             } else {
               clearLastOpenProjectId();
             }
