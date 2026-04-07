@@ -243,6 +243,8 @@ export default function DashboardPage() {
         const restoreProjectId = projectIdFromUrl || getLastOpenProjectId();
 
         if (isOffline()) {
+          console.log("🧱 OFFLINE BOOT PATH");
+
           // 🔍 DEBUG — confirm recent projects cache
           const recent = getRecentProjects();
           console.log("🧱 Offline recent projects:", recent);
