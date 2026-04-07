@@ -211,10 +211,10 @@ export default function DashboardPage() {
     approvals?: Approval[];
   }) {
     const project = args.project ?? selectedProject;
-    if (!project) return;
+    if (!project?.id) return;
 
-    const nextProofs = args.proofs ?? proofs;
-    const nextApprovals = args.approvals ?? approvals;
+    const nextProofs = Array.isArray(args.proofs) ? args.proofs : proofs;
+    const nextApprovals = Array.isArray(args.approvals) ? args.approvals : approvals;
 
     saveCachedDashboardProject({
       project,
