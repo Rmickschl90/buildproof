@@ -252,6 +252,8 @@ export default function DashboardPage() {
 
           if (restoreProjectId) {
             const cached = loadCachedDashboardProject(restoreProjectId);
+            console.log("🧱 restoreProjectId:", restoreProjectId);
+            console.log("🧱 cached project found:", !!cached, cached);
 
             if (cached) {
               setSelectedProject(cached.project);
