@@ -235,6 +235,10 @@ export default function DashboardPage() {
     });
   }, [selectedProject, proofs, approvals]);
 
+  useEffect(() => {
+  console.log("🧱 selectedProject changed:", selectedProject);
+}, [selectedProject]);
+
   // ---------------- AUTH BOOT ----------------
   useEffect(() => {
     (async () => {
