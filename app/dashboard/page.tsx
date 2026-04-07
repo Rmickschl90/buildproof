@@ -246,6 +246,8 @@ export default function DashboardPage() {
           // 🔍 DEBUG — confirm recent projects cache
           const recent = getRecentProjects();
           console.log("🧱 Offline recent projects:", recent);
+          setProjects(recent as any);
+
           if (restoreProjectId) {
             const cached = loadCachedDashboardProject(restoreProjectId);
 
@@ -254,8 +256,11 @@ export default function DashboardPage() {
               setProofs(cached.proofs);
               setApprovals(cached.approvals);
               setUserId(cached.project.user_id);
+              saveLastOpenProjectId(cached.project.id);
               await refreshOfflineProofs(cached.project.id);
               await refreshOfflineApprovals(cached.project.id);
+            } else {
+              clearLastOpenProjectId();
             }
           }
 
@@ -1691,61 +1696,61 @@ export default function DashboardPage() {
 
   const [visibleApprovals, setVisibleApprovals] = useState<Approval[]>([]);
 
-useEffect(() => {
-  let cancelled = false;
+  useEffect(() => {
+    let cancelled = false;
 
-  async function buildVisibleApprovals() {
-    const serverIdSet = new Set(approvals.map((a) => a.id));
+    async function buildVisibleApprovals() {
+      const serverIdSet = new Set(approvals.map((a) => a.id));
 
-    const normalizedOfflineApprovals = await Promise.all(
-      offlineApprovals
-        .filter((a) => !serverIdSet.has(a.id))
-        .map(async (a) => {
-          const queuedAttachments = await getOfflineApprovalAttachmentsForApproval({
-            approvalId: null,
-            offlineApprovalId: a.id,
-          });
+      const normalizedOfflineApprovals = await Promise.all(
+        offlineApprovals
+          .filter((a) => !serverIdSet.has(a.id))
+          .map(async (a) => {
+            const queuedAttachments = await getOfflineApprovalAttachmentsForApproval({
+              approvalId: null,
+              offlineApprovalId: a.id,
+            });
 
-          return {
-            id: a.id,
-            title: a.title,
-            approval_type: a.approvalType,
-            description: a.description,
-            status: "draft" as const,
-            created_at: new Date(a.createdAt).toISOString(),
-            sent_at: null,
-            responded_at: null,
-            expired_at: null,
-            cost_delta: a.costDelta,
-            schedule_delta: a.scheduleDelta,
-            recipient_name: a.recipientName || null,
-            recipient_email: a.recipientEmail || "",
-            project_id: a.projectId,
-            attachments: queuedAttachments.map((item) => ({
-              id: item.id,
-              filename: item.fileName ?? null,
-              mime_type: item.mimeType ?? null,
-              path: "",
-            })),
-          };
-        })
-    );
+            return {
+              id: a.id,
+              title: a.title,
+              approval_type: a.approvalType,
+              description: a.description,
+              status: "draft" as const,
+              created_at: new Date(a.createdAt).toISOString(),
+              sent_at: null,
+              responded_at: null,
+              expired_at: null,
+              cost_delta: a.costDelta,
+              schedule_delta: a.scheduleDelta,
+              recipient_name: a.recipientName || null,
+              recipient_email: a.recipientEmail || "",
+              project_id: a.projectId,
+              attachments: queuedAttachments.map((item) => ({
+                id: item.id,
+                filename: item.fileName ?? null,
+                mime_type: item.mimeType ?? null,
+                path: "",
+              })),
+            };
+          })
+      );
 
-    const nextVisibleApprovals = [...approvals, ...normalizedOfflineApprovals].sort((a, b) =>
-      a.created_at < b.created_at ? 1 : -1
-    );
+      const nextVisibleApprovals = [...approvals, ...normalizedOfflineApprovals].sort((a, b) =>
+        a.created_at < b.created_at ? 1 : -1
+      );
 
-    if (!cancelled) {
-      setVisibleApprovals(nextVisibleApprovals);
+      if (!cancelled) {
+        setVisibleApprovals(nextVisibleApprovals);
+      }
     }
-  }
 
-  void buildVisibleApprovals();
+    void buildVisibleApprovals();
 
-  return () => {
-    cancelled = true;
-  };
-}, [approvals, offlineApprovals]);
+    return () => {
+      cancelled = true;
+    };
+  }, [approvals, offlineApprovals]);
 
   const draftApprovals = useMemo(() => {
     return visibleApprovals.filter(
