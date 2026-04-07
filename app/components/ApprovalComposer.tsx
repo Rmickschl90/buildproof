@@ -701,6 +701,8 @@ export default function ApprovalComposer({
             mimeType: file.type || "application/octet-stream",
           });
         }
+
+        window.dispatchEvent(new CustomEvent("buildproof-data-changed"));
       }
 
       const tokenGetter = async () => {
