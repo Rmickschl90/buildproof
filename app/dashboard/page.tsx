@@ -128,6 +128,18 @@ export default function DashboardPage() {
   // ---------------- DATA ----------------
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  function setSelectedProjectWithTrace(
+    next: Project | null,
+    reason: string
+  ) {
+    console.log("🧱 setSelectedProjectWithTrace:", {
+      reason,
+      next,
+      stack: new Error().stack,
+    });
+
+    setSelectedProject(next);
+  }
   const [proofs, setProofs] = useState<Proof[]>([]);
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [offlineApprovals, setOfflineApprovals] = useState<OfflineApprovalRecord[]>([]);
@@ -282,7 +294,7 @@ export default function DashboardPage() {
               debugSteps.push(`project id: ${cached.project.id}`);
               debugSteps.push(`project title: ${cached.project.title}`);
 
-              setSelectedProject(cached.project);
+              setSelectedProjectWithTrace(cached.project, "offline boot restore");
               debugSteps.push("setSelectedProject done");
 
               setProofs(cached.proofs);
@@ -361,7 +373,7 @@ export default function DashboardPage() {
             .single();
 
           if (project) {
-            setSelectedProject(project);
+            setSelectedProjectWithTrace(project, "online boot restore from projectIdFromUrl");
 
             cacheProjectSnapshot({
               project,
@@ -437,23 +449,41 @@ export default function DashboardPage() {
 
 
   useEffect(() => {
-    if (selectedProject) return;
-    if (typeof navigator === "undefined" || navigator.onLine) return;
+    if (!selectedProject) {
+      setOfflineProofs([]);
+      setOfflineApprovals([]);
+      return;
+    }
 
-    const restoreProjectId = getLastOpenProjectId();
-    if (!restoreProjectId) return;
+    void refreshOfflineProofs(selectedProject.id);
+    void refreshOfflineApprovals(selectedProject.id);
 
-    const cached = loadCachedDashboardProject(restoreProjectId);
-    if (!cached) return;
+    setClientNameDraft(selectedProject.client_name ?? "");
+    setClientEmailDraft(selectedProject.client_email ?? "");
+    setClientPhoneDraft(selectedProject.client_phone ?? "");
+    setProjectAddressDraft(selectedProject.project_address ?? "");
 
-    setSelectedProject(cached.project);
-    setProofs(cached.proofs);
-    setApprovals(cached.approvals);
-    setUserId(cached.project.user_id);
+    const hasAnyClient =
+      !!(selectedProject.client_name && selectedProject.client_name.trim()) ||
+      !!(selectedProject.client_email && selectedProject.client_email.trim()) ||
+      !!(selectedProject.client_phone && selectedProject.client_phone.trim());
 
-    void refreshOfflineProofs(cached.project.id);
-    void refreshOfflineApprovals(cached.project.id);
-  }, [selectedProject]);
+    setClientEditing(!hasAnyClient);
+
+    setProjectMenuOpen(false);
+    setRenaming(false);
+    setRenameTitle(selectedProject.title || "");
+    setProofMenuOpenId(null);
+
+    setEditingProofId(null);
+    setEditDraftContent("");
+
+    setShowDeliveryHistory(false);
+    setShowArchivedEntries(false);
+
+    setIsSendMode(false);
+    setSendCloseSignal((k) => k + 1);
+  }, [selectedProject?.id]);
 
 
 
@@ -996,7 +1026,7 @@ export default function DashboardPage() {
 
       const updatedProject = { ...selectedProject, title: next };
 
-      setSelectedProject(updatedProject);
+      setSelectedProjectWithTrace(updatedProject, "project rename");
       setProjects((list) => list.map((p) => (p.id === selectedProject.id ? { ...p, title: next } : p)));
       cacheProjectSnapshot({ project: updatedProject });
 
@@ -1032,7 +1062,7 @@ export default function DashboardPage() {
       setStatus("Project archived ✅");
 
       setProjects((list) => list.filter((p) => p.id !== selectedProject.id));
-      setSelectedProject(null);
+      setSelectedProjectWithTrace(null, "archiveProject");
       setProofs([]);
 
       await loadActiveProjects(userId);
@@ -1056,7 +1086,7 @@ export default function DashboardPage() {
     if (navigator.onLine) {
       router.replace("/dashboard");
     }
-    setSelectedProject(null);
+    setSelectedProjectWithTrace(null, "closeProjectView");
     setProofs([]);
     setApprovals([]);
     setOpenProofId(null);
@@ -1502,7 +1532,7 @@ export default function DashboardPage() {
 
       const updatedProject = { ...selectedProject, ...payload };
 
-      setSelectedProject(updatedProject);
+      setSelectedProjectWithTrace(updatedProject, "client save");
       setProjects((list) =>
         list.map((p) => (p.id === selectedProject.id ? { ...p, ...payload } : p))
       );
@@ -2002,7 +2032,7 @@ export default function DashboardPage() {
                         const cached = loadCachedDashboardProject(p.id);
 
                         if (cached) {
-                          setSelectedProject(cached.project);
+                          setSelectedProjectWithTrace(cached.project, "offline null guard restore");
                           setProofs(cached.proofs);
                           setApprovals(cached.approvals);
                           refreshOfflineProofs(cached.project.id);
@@ -2013,7 +2043,7 @@ export default function DashboardPage() {
                         }
                       } else {
                         // 🌐 ONLINE — normal behavior
-                        setSelectedProject(p);
+                        setSelectedProjectWithTrace(p, "project list click online");
 
                         cacheProjectSnapshot({ project: p, proofs: [], approvals: [] });
 
