@@ -74,8 +74,12 @@ self.addEventListener("fetch", (event) => {
 
         try {
           const response = await fetch(request);
-          const cache = await caches.open(CACHE_NAME);
-          cache.put(request, response.clone());
+
+          if (url.pathname === "/dashboard") {
+            const cache = await caches.open(CACHE_NAME);
+            cache.put("/dashboard", response.clone());
+          }
+
           return response;
         } catch {
           return cached;
