@@ -437,41 +437,23 @@ export default function DashboardPage() {
 
 
   useEffect(() => {
-    if (!selectedProject) {
-      setOfflineProofs([]);
-      setOfflineApprovals([]);
-      return;
-    }
+    if (selectedProject) return;
+    if (typeof navigator === "undefined" || navigator.onLine) return;
 
-    void refreshOfflineProofs(selectedProject.id);
-    void refreshOfflineApprovals(selectedProject.id);
+    const restoreProjectId = getLastOpenProjectId();
+    if (!restoreProjectId) return;
 
-    setClientNameDraft(selectedProject.client_name ?? "");
-    setClientEmailDraft(selectedProject.client_email ?? "");
-    setClientPhoneDraft(selectedProject.client_phone ?? "");
-    setProjectAddressDraft(selectedProject.project_address ?? "");
+    const cached = loadCachedDashboardProject(restoreProjectId);
+    if (!cached) return;
 
-    const hasAnyClient =
-      !!(selectedProject.client_name && selectedProject.client_name.trim()) ||
-      !!(selectedProject.client_email && selectedProject.client_email.trim()) ||
-      !!(selectedProject.client_phone && selectedProject.client_phone.trim());
+    setSelectedProject(cached.project);
+    setProofs(cached.proofs);
+    setApprovals(cached.approvals);
+    setUserId(cached.project.user_id);
 
-    setClientEditing(!hasAnyClient);
-
-    setProjectMenuOpen(false);
-    setRenaming(false);
-    setRenameTitle(selectedProject.title || "");
-    setProofMenuOpenId(null);
-
-    setEditingProofId(null);
-    setEditDraftContent("");
-
-    setShowDeliveryHistory(false);
-    setShowArchivedEntries(false);
-
-    setIsSendMode(false);
-    setSendCloseSignal((k) => k + 1);
-  }, [selectedProject?.id]);
+    void refreshOfflineProofs(cached.project.id);
+    void refreshOfflineApprovals(cached.project.id);
+  }, [selectedProject]);
 
 
 
