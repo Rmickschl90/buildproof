@@ -236,6 +236,17 @@ export default function DashboardPage() {
   }, [selectedProject, proofs, approvals]);
 
   useEffect(() => {
+  window.localStorage.setItem(
+    "buildproof_selected_project_debug",
+    JSON.stringify(
+      selectedProject
+        ? { id: selectedProject.id, title: selectedProject.title }
+        : null
+    )
+  );
+}, [selectedProject]);
+
+  useEffect(() => {
     console.log("🧱 selectedProject changed:", selectedProject);
   }, [selectedProject]);
 
