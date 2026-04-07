@@ -67,6 +67,21 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (url.origin === self.location.origin) {
+    const accept = request.headers.get("accept") || "";
+    const isRscRequest =
+      url.searchParams.has("_rsc") ||
+      accept.includes("text/x-component");
+
+    const isStaticAsset =
+      request.destination === "style" ||
+      request.destination === "script" ||
+      request.destination === "image" ||
+      request.destination === "font";
+
+    if (!isStaticAsset || isRscRequest) {
+      return;
+    }
+
     event.respondWith(
       (async () => {
         const cached = await caches.match(request);
@@ -74,12 +89,8 @@ self.addEventListener("fetch", (event) => {
 
         try {
           const response = await fetch(request);
-
-          if (url.pathname === "/dashboard") {
-            const cache = await caches.open(CACHE_NAME);
-            cache.put("/dashboard", response.clone());
-          }
-
+          const cache = await caches.open(CACHE_NAME);
+          cache.put(request, response.clone());
           return response;
         } catch {
           return cached;
