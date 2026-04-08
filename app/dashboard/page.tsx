@@ -133,17 +133,17 @@ export default function DashboardPage() {
 
   // ---------------- AUTH ----------------
   const [userId, setUserId] = useState<string | null>(() => {
-  const cached = getInitialCachedProjectSnapshot();
-  return cached?.project.user_id ?? null;
-});
+    const cached = getInitialCachedProjectSnapshot();
+    return cached?.project.user_id ?? null;
+  });
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   // ---------------- DATA ----------------
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(() => {
-  const cached = getInitialCachedProjectSnapshot();
-  return cached?.project ?? null;
-});
+    const cached = getInitialCachedProjectSnapshot();
+    return cached?.project ?? null;
+  });
   function setSelectedProjectWithTrace(
     next: Project | null,
     reason: string
@@ -157,13 +157,13 @@ export default function DashboardPage() {
     setSelectedProject(next);
   }
   const [proofs, setProofs] = useState<Proof[]>(() => {
-  const cached = getInitialCachedProjectSnapshot();
-  return cached?.proofs ?? [];
-});
+    const cached = getInitialCachedProjectSnapshot();
+    return cached?.proofs ?? [];
+  });
   const [approvals, setApprovals] = useState<Approval[]>(() => {
-  const cached = getInitialCachedProjectSnapshot();
-  return cached?.approvals ?? [];
-});
+    const cached = getInitialCachedProjectSnapshot();
+    return cached?.approvals ?? [];
+  });
   const [offlineApprovals, setOfflineApprovals] = useState<OfflineApprovalRecord[]>([]);
   const [offlineProofs, setOfflineProofs] = useState<OfflineProofRecord[]>([]);
   const [isBrowserOnline, setIsBrowserOnline] = useState(
@@ -239,6 +239,7 @@ export default function DashboardPage() {
   const [onboardingCongrats, setOnboardingCongrats] = useState("");
   const [showAttachmentStep, setShowAttachmentStep] = useState(false);
   const [dashboardReady, setDashboardReady] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
   function cacheProjectSnapshot(args: {
     project?: Project | null;
     proofs?: Proof[];
@@ -289,6 +290,10 @@ export default function DashboardPage() {
   useEffect(() => {
     console.log("🧱 selectedProject changed:", selectedProject);
   }, [selectedProject]);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   // ---------------- AUTH BOOT ----------------
   useEffect(() => {
@@ -1867,6 +1872,8 @@ export default function DashboardPage() {
       (a) => a.status === "draft" || a.status === "pending"
     );
   }, [visibleApprovals]);
+
+  if (!hasMounted) return null;
 
   return (
     <>
