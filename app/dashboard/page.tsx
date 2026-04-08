@@ -117,17 +117,33 @@ function clearLastOpenProjectId() {
   window.localStorage.removeItem(LAST_OPEN_PROJECT_KEY);
 }
 
+function getInitialCachedProjectSnapshot() {
+  if (typeof window === "undefined") return null;
+
+  const projectIdFromUrl = new URLSearchParams(window.location.search).get("project");
+  const restoreProjectId = projectIdFromUrl || getLastOpenProjectId();
+  if (!restoreProjectId) return null;
+
+  return loadCachedDashboardProject(restoreProjectId);
+}
+
 export default function DashboardPage() {
   const router = useRouter();
 
 
   // ---------------- AUTH ----------------
-  const [userId, setUserId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(() => {
+  const cached = getInitialCachedProjectSnapshot();
+  return cached?.project.user_id ?? null;
+});
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   // ---------------- DATA ----------------
   const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(() => {
+  const cached = getInitialCachedProjectSnapshot();
+  return cached?.project ?? null;
+});
   function setSelectedProjectWithTrace(
     next: Project | null,
     reason: string
@@ -140,8 +156,14 @@ export default function DashboardPage() {
 
     setSelectedProject(next);
   }
-  const [proofs, setProofs] = useState<Proof[]>([]);
-  const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [proofs, setProofs] = useState<Proof[]>(() => {
+  const cached = getInitialCachedProjectSnapshot();
+  return cached?.proofs ?? [];
+});
+  const [approvals, setApprovals] = useState<Approval[]>(() => {
+  const cached = getInitialCachedProjectSnapshot();
+  return cached?.approvals ?? [];
+});
   const [offlineApprovals, setOfflineApprovals] = useState<OfflineApprovalRecord[]>([]);
   const [offlineProofs, setOfflineProofs] = useState<OfflineProofRecord[]>([]);
   const [isBrowserOnline, setIsBrowserOnline] = useState(
