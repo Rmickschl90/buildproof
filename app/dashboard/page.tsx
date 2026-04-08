@@ -2732,10 +2732,10 @@ export default function DashboardPage() {
                     </div>
                   ) : null}
 
-                  {approvals.filter((a) => a.status !== "draft").length > 0 ? (
+                  {approvals.filter((a) => a.status !== "draft" && a.status !== "pending").length > 0 ? (
                     <div className="list" style={{ marginTop: 14, display: "grid", gap: 14 }}>
                       {approvals
-                        .filter((a) => a.status !== "draft")
+                        .filter((a) => a.status !== "draft" && a.status !== "pending")
                         .map((approval) => (
                           <ApprovalCard
                             key={approval.id}
