@@ -209,6 +209,40 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
     }
   }
 
+  async function restoreApproval() {
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) throw error;
+
+      const token = data.session?.access_token;
+      if (!token) throw new Error("Missing bearer token");
+
+      const res = await fetch("/api/approvals/archive", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          approvalId: approval.id,
+          restore: true,
+        }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        alert(json?.error || "Restore failed.");
+        return;
+      }
+
+      setMenuOpen(false);
+      await onUpdated?.();
+    } catch (err: any) {
+      alert(err?.message || "Restore failed.");
+    }
+  }
+
   async function deleteDraft() {
     try {
       const confirmed = window.confirm("Delete this draft approval?");
@@ -362,63 +396,65 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
               {isOpen ? "Hide" : "View"}
             </button>
 
-            {!isArchived ? (
-              <div style={{ position: "relative" }} ref={menuRef}>
-                <button
-                  className="btn"
-                  onClick={() => setMenuOpen((v) => !v)}
-                  title="Approval actions"
+            <div style={{ position: "relative" }} ref={menuRef}>
+              <button
+                className="btn"
+                onClick={() => setMenuOpen((v) => !v)}
+                title="Approval actions"
+              >
+                …
+              </button>
+
+              {menuOpen ? (
+                <div
+                  style={{
+                    position: "absolute",
+                    right: 0,
+                    top: 44,
+                    zIndex: 999,
+                    width: 220,
+                    maxWidth: "min(220px, 88vw)",
+                    border: "1px solid rgba(15,23,42,0.12)",
+                    borderRadius: 14,
+                    background: "white",
+                    padding: 10,
+                    boxShadow: "0 12px 30px rgba(15,23,42,0.10)",
+                    display: "grid",
+                    gap: 8,
+                  }}
                 >
-                  …
-                </button>
-
-                {menuOpen ? (
-                  <div
-                    style={{
-                      position: "absolute",
-                      right: 0,
-                      top: 44,
-                      zIndex: 999,
-                      width: 220,
-                      maxWidth: "min(220px, 88vw)",
-                      border: "1px solid rgba(15,23,42,0.12)",
-                      borderRadius: 14,
-                      background: "white",
-                      padding: 10,
-                      boxShadow: "0 12px 30px rgba(15,23,42,0.10)",
-                      display: "grid",
-                      gap: 8,
-                    }}
-                  >
-                    {approval.status === "draft" ? (
-                      <>
-                        <button className="btn btnPrimary" onClick={sendApproval}>
-                          Send Approval
-                        </button>
-
-                        <button
-                          className="btn"
-                          onClick={() => {
-                            setMenuOpen(false);
-                            onEdit?.(approval);
-                          }}
-                        >
-                          Edit Draft
-                        </button>
-
-                        <button className="btn btnDanger" onClick={deleteDraft}>
-                          Delete Draft
-                        </button>
-                      </>
-                    ) : (
-                      <button className="btn btnDanger" onClick={archiveApproval}>
-                        Archive
+                  {isArchived ? (
+                    <button className="btn" onClick={restoreApproval}>
+                      Restore
+                    </button>
+                  ) : approval.status === "draft" ? (
+                    <>
+                      <button className="btn btnPrimary" onClick={sendApproval}>
+                        Send Approval
                       </button>
-                    )}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
+
+                      <button
+                        className="btn"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          onEdit?.(approval);
+                        }}
+                      >
+                        Edit Draft
+                      </button>
+
+                      <button className="btn btnDanger" onClick={deleteDraft}>
+                        Delete Draft
+                      </button>
+                    </>
+                  ) : (
+                    <button className="btn btnDanger" onClick={archiveApproval}>
+                      Archive
+                    </button>
+                  )}
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
 
