@@ -34,10 +34,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Not authorized." }, { status: 403 });
     }
 
+    const restore = body?.restore === true;
+
     const { error: updateError } = await supabaseServer
       .from("approval_requests")
       .update({
-        archived_at: new Date().toISOString(),
+        archived_at: restore ? null : new Date().toISOString(),
       })
       .eq("id", approvalId);
 
