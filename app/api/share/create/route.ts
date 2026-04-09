@@ -18,6 +18,7 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({}));
     const projectId = String(body?.projectId || "").trim();
+    const createFresh = body?.createFresh === true;
 
     if (!projectId) {
       return NextResponse.json({ error: "Missing projectId" }, { status: 400 });
@@ -46,7 +47,7 @@ export async function POST(req: Request) {
       .limit(1)
       .maybeSingle();
 
-    if (!existingErr && existing?.token) {
+    if (!createFresh && !existingErr && existing?.token) {
       return NextResponse.json({
         ok: true,
         reused: true,

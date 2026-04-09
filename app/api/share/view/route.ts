@@ -24,24 +24,55 @@ export async function POST(req: Request) {
       .eq("id", share.project_id)
       .single();
 
-    if (projectErr || !project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    if (projectErr || !project) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
 
-    const { data: proofs, error: proofsErr } = await supabaseServer
+    const { data: sendJob } = await supabaseServer
+      .from("send_jobs")
+      .select("id, locked_entry_ids")
+      .eq("share_id", share.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const lockedEntryIds = Array.isArray(sendJob?.locked_entry_ids)
+      ? sendJob.locked_entry_ids
+        .map((id: any) => Number(id))
+        .filter((id: number) => Number.isFinite(id))
+      : [];
+
+    let proofsQuery = supabaseServer
       .from("proofs")
       .select("id,content,created_at,project_id")
       .eq("project_id", share.project_id)
       .order("created_at", { ascending: false });
 
-    if (proofsErr) return NextResponse.json({ error: proofsErr.message }, { status: 400 });
+    if (sendJob && lockedEntryIds.length > 0) {
+      proofsQuery = proofsQuery.in("id", lockedEntryIds);
+    }
 
-    // Attachments for all proofs in this project
-    const { data: attachments, error: attErr } = await supabaseServer
+    const { data: proofs, error: proofsErr } = await proofsQuery;
+
+    if (proofsErr) {
+      return NextResponse.json({ error: proofsErr.message }, { status: 400 });
+    }
+
+    let attachmentsQuery = supabaseServer
       .from("attachments")
       .select("id,proof_id,filename,mime_type,size_bytes,created_at,path")
       .eq("project_id", share.project_id)
       .order("created_at", { ascending: false });
 
-    if (attErr) return NextResponse.json({ error: attErr.message }, { status: 400 });
+    if (sendJob && lockedEntryIds.length > 0) {
+      attachmentsQuery = attachmentsQuery.in("proof_id", lockedEntryIds);
+    }
+
+    const { data: attachments, error: attErr } = await attachmentsQuery;
+
+    if (attErr) {
+      return NextResponse.json({ error: attErr.message }, { status: 400 });
+    }
 
     // Create signed URLs (short-lived) so the share page can open attachments safely
     const withUrls = await Promise.all(
