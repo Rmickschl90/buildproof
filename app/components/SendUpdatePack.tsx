@@ -1091,13 +1091,18 @@ export default function SendUpdatePack({
               disabled={workingLink}
               onClick={async () => {
                 try {
-                  const link = shareUrl && shareId ? shareUrl : await ensureShareLink();
+                  if (!shareUrl || !shareId) {
+                    await ensureShareLink();
+                    setHasActiveShare(true);
+                    setStatus("Link ready — tap Copy Share Link again.");
+                    return;
+                  }
 
                   try {
-                    await navigator.clipboard.writeText(link);
+                    await navigator.clipboard.writeText(shareUrl);
                   } catch {
                     const textarea = document.createElement("textarea");
-                    textarea.value = link;
+                    textarea.value = shareUrl;
                     textarea.setAttribute("readonly", "");
                     textarea.style.position = "fixed";
                     textarea.style.top = "0";
@@ -1118,7 +1123,6 @@ export default function SendUpdatePack({
                     }
                   }
 
-                  setHasActiveShare(true);
                   setStatus("Link copied");
                 } catch (e: any) {
                   setStatus(e?.message ?? "Copy failed");
