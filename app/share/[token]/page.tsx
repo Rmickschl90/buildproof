@@ -3,6 +3,52 @@ import { supabaseServer } from "../../../lib/supabaseServer";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+export async function generateMetadata(props: {
+  params: any;
+  searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>;
+}) {
+  const p = await resolveParams(props?.params);
+  const token = p?.token;
+
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
+  const logoUrl = appUrl ? `${appUrl}/buildproof-logo.png` : "/buildproof-logo.png";
+
+  let title = "BuildProof Project Journal";
+
+  if (token) {
+    const { data: share } = await supabaseServer
+      .from("project_shares")
+      .select("project_id, revoked_at")
+      .eq("token", token)
+      .maybeSingle();
+
+    if (share && !share.revoked_at) {
+      const { data: project } = await supabaseServer
+        .from("projects")
+        .select("title")
+        .eq("id", share.project_id)
+        .maybeSingle();
+
+      if (project?.title) {
+        title = `${project.title} | BuildProof`;
+      }
+    }
+  }
+
+  return {
+    title,
+    openGraph: {
+      title,
+      images: [logoUrl],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      images: [logoUrl],
+    },
+  };
+}
+
 type Proof = {
   id: number;
   content: string;
