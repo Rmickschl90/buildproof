@@ -1063,7 +1063,51 @@ export default function SendUpdatePack({
           ) : null}
         </div>
 
-        
+        <div
+          style={{
+            display: "grid",
+            gap: 10,
+            padding: 14,
+            borderRadius: 14,
+            border: "1px solid rgba(15,23,42,0.08)",
+            background: "#fff",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 800,
+              letterSpacing: 0.5,
+              textTransform: "uppercase",
+              opacity: 0.6,
+            }}
+          >
+            Share Project Timeline
+          </div>
+
+          {!hasActiveShare ? (
+            <button
+              className="btn"
+              onClick={async () => {
+                const link = await ensureShareLink();
+                await navigator.clipboard.writeText(link);
+                setHasActiveShare(true);
+                setStatus("Link copied");
+              }}
+            >
+              Copy Share Link
+            </button>
+          ) : (
+            <button
+              className="btn btnDanger"
+              onClick={revokeLink}
+            >
+              Revoke Link
+            </button>
+          )}
+        </div>
+
+
 
         {process.env.NODE_ENV === "development" ? (
           <SendDiagnosticsPanel projectId={projectId} />
