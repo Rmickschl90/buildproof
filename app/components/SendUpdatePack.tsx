@@ -1085,26 +1085,59 @@ export default function SendUpdatePack({
             Share Project Timeline
           </div>
 
-          {!hasActiveShare ? (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button
               className="btn"
+              disabled={workingLink}
               onClick={async () => {
-                const link = await ensureShareLink();
-                await navigator.clipboard.writeText(link);
-                setHasActiveShare(true);
-                setStatus("Link copied");
+                try {
+                  const link = shareUrl && shareId ? shareUrl : await ensureShareLink();
+
+                  try {
+                    await navigator.clipboard.writeText(link);
+                  } catch {
+                    const textarea = document.createElement("textarea");
+                    textarea.value = link;
+                    textarea.setAttribute("readonly", "");
+                    textarea.style.position = "fixed";
+                    textarea.style.top = "0";
+                    textarea.style.left = "0";
+                    textarea.style.opacity = "0";
+                    textarea.style.pointerEvents = "none";
+
+                    document.body.appendChild(textarea);
+                    textarea.focus();
+                    textarea.select();
+                    textarea.setSelectionRange(0, textarea.value.length);
+
+                    const ok = document.execCommand("copy");
+                    document.body.removeChild(textarea);
+
+                    if (!ok) {
+                      throw new Error("Copy failed");
+                    }
+                  }
+
+                  setHasActiveShare(true);
+                  setStatus("Link copied");
+                } catch (e: any) {
+                  setStatus(e?.message ?? "Copy failed");
+                }
               }}
             >
               Copy Share Link
             </button>
-          ) : (
-            <button
-              className="btn btnDanger"
-              onClick={revokeLink}
-            >
-              Revoke Link
-            </button>
-          )}
+
+            {hasActiveShare ? (
+              <button
+                className="btn btnDanger"
+                disabled={workingLink}
+                onClick={revokeLink}
+              >
+                Revoke Link
+              </button>
+            ) : null}
+          </div>
         </div>
 
 
