@@ -38,16 +38,41 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { data: existing, error: existingErr } = await supabaseServer
+    const { data: activeShares, error: activeSharesErr } = await supabaseServer
       .from("project_shares")
       .select("id, token, created_at")
       .eq("project_id", projectId)
       .is("revoked_at", null)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .order("created_at", { ascending: false });
 
-    if (!createFresh && !existingErr && existing?.token) {
+    if (activeSharesErr) {
+      return NextResponse.json({ error: activeSharesErr.message }, { status: 400 });
+    }
+
+    let existing: { id: string; token: string; created_at: string } | null = null;
+
+    if (!createFresh && activeShares && activeShares.length > 0) {
+      const activeShareIds = activeShares.map((s) => s.id);
+
+      const { data: sendShares, error: sendSharesErr } = await supabaseServer
+        .from("send_jobs")
+        .select("share_id")
+        .in("share_id", activeShareIds);
+
+      if (sendSharesErr) {
+        return NextResponse.json({ error: sendSharesErr.message }, { status: 400 });
+      }
+
+      const sendShareIdSet = new Set(
+        (sendShares ?? [])
+          .map((row: any) => row.share_id)
+          .filter(Boolean)
+      );
+
+      existing = activeShares.find((s) => !sendShareIdSet.has(s.id)) ?? null;
+    }
+
+    if (!createFresh && existing?.token) {
       return NextResponse.json({
         ok: true,
         reused: true,
