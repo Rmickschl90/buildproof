@@ -28,13 +28,29 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    const { data: sendJob } = await supabaseServer
+    let { data: sendJob } = await supabaseServer
       .from("send_jobs")
-      .select("id, locked_entry_ids")
+      .select("id, locked_entry_ids, share_id")
       .eq("share_id", share.id)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    // 🔒 Fallback: if not linked yet, try latest send for this project
+    if (!sendJob) {
+      const { data: fallbackJob } = await supabaseServer
+        .from("send_jobs")
+        .select("id, locked_entry_ids, share_id")
+        .eq("project_id", share.project_id)
+        .not("locked_entry_ids", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (fallbackJob && fallbackJob.share_id === share.id) {
+        sendJob = fallbackJob;
+      }
+    }
 
     const lockedEntryIds = Array.isArray(sendJob?.locked_entry_ids)
       ? sendJob.locked_entry_ids
