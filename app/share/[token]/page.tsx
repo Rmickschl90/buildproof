@@ -955,7 +955,18 @@ export default async function SharePage(props: {
                             : ""}
                         </div>
 
-                        <div className="badgeFinal">
+                        <div
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 900,
+                            padding: "6px 10px",
+                            borderRadius: 999,
+                            border: "1px solid rgba(37,99,235,0.18)",
+                            background: "rgba(37,99,235,0.10)",
+                            color: "#1d4ed8",
+                            textTransform: "lowercase",
+                          }}
+                        >
                           {approval.archived_at
                             ? `${approval.status || "approval"} • archived`
                             : approval.status || "approval"}
@@ -1061,7 +1072,22 @@ export default async function SharePage(props: {
                         <div className="badgeFinal" title={`Finalized ${formatDate(entry.locked_at)}`}>
                           ✅ Finalized
                         </div>
-                      ) : null}
+                      ) : (
+                        <div
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 900,
+                            padding: "6px 10px",
+                            borderRadius: 999,
+                            border: "1px solid rgba(245,158,11,0.22)",
+                            background: "rgba(245,158,11,0.12)",
+                            color: "#b45309",
+                            textTransform: "lowercase",
+                          }}
+                        >
+                          draft
+                        </div>
+                      )}
                     </div>
 
                     {entry.content ? <div className="content">{entry.content}</div> : null}
