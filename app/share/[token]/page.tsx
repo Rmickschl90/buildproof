@@ -174,13 +174,49 @@ export default async function SharePage(props: {
     );
   }
 
-  const proofsTable = includeArchived ? "proofs" : "proofs_active";
+  const { data: sendJob } = await supabaseServer
+  .from("send_jobs")
+  .select("locked_entry_ids")
+  .eq("share_id", token ? undefined : null) // placeholder, will override below
+  .limit(1)
+  .maybeSingle();
 
-  const { data: proofs, error: proofsErr } = await supabaseServer
-    .from(proofsTable)
-    .select("id,content,created_at,locked_at")
-    .eq("project_id", projectId)
-    .order("created_at", { ascending: false });
+// correct lookup by joining via project_shares
+let lockedEntryIds: number[] = [];
+
+const { data: shareRow } = await supabaseServer
+  .from("project_shares")
+  .select("id")
+  .eq("token", token)
+  .maybeSingle();
+
+if (shareRow?.id) {
+  const { data: job } = await supabaseServer
+    .from("send_jobs")
+    .select("locked_entry_ids")
+    .eq("share_id", shareRow.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (Array.isArray(job?.locked_entry_ids)) {
+    lockedEntryIds = job.locked_entry_ids
+      .map((id: any) => Number(id))
+      .filter((id: number) => Number.isFinite(id));
+  }
+}
+
+let proofsQuery = supabaseServer
+  .from(includeArchived ? "proofs" : "proofs_active")
+  .select("id,content,created_at,locked_at")
+  .eq("project_id", projectId)
+  .order("created_at", { ascending: false });
+
+if (lockedEntryIds.length > 0) {
+  proofsQuery = proofsQuery.in("id", lockedEntryIds);
+}
+
+const { data: proofs, error: proofsErr } = await proofsQuery;
 
   if (proofsErr) {
     return (
