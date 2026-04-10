@@ -2566,60 +2566,18 @@ export default function DashboardPage() {
 
                   <div
                     style={{
-                      display: "flex",
-                      gap: 8,
-                      flexWrap: "wrap",
-                      alignItems: "center",
-                      marginBottom: 8,
+                      fontSize: 14,
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.5,
+                      opacity: 0.58,
+                      paddingBottom: 6,
+                      borderBottom: "1px solid rgba(15,23,42,0.32)",
+                      marginBottom: 12,
+                      display: "inline-block",
                     }}
                   >
-                    <div
-                      style={{
-                        fontSize: 14,
-                        fontWeight: 800,
-                        textTransform: "uppercase",
-                        letterSpacing: 0.5,
-                        opacity: 0.58,
-                        paddingBottom: 6,
-                        borderBottom: "1px solid rgba(15,23,42,0.32)",
-                        marginBottom: 8,
-                        marginRight: 6,
-                      }}
-                    >
-                      Project Timeline
-                    </div>
-
-                    <button
-                      className="btn"
-                      onClick={() => {
-                        const next = !showArchivedEntries;
-                        setShowArchivedEntries(next);
-                        loadProofs(selectedProject.id, next);
-                        loadApprovals(selectedProject.id, next);
-                      }}
-                      title="Show/hide archived entries"
-                    >
-                      {showArchivedEntries ? "Hide archived" : "Show archived"}
-                    </button>
-
-                    <input
-                      className="input"
-                      placeholder="Search entries..."
-                      value={entrySearch}
-                      onChange={(e) => setEntrySearch(e.target.value)}
-                      style={{ minWidth: 180, flex: "1 1 220px" }}
-                    />
-
-                    <select
-                      className="input"
-                      value={entrySortMode}
-                      onChange={(e) => setEntrySortMode(e.target.value as any)}
-                      style={{ width: 160, flex: "0 0 auto" }}
-                      title="Sort entries"
-                    >
-                      <option value="newest">Newest first</option>
-                      <option value="oldest">Oldest first</option>
-                    </select>
+                    Project Timeline
                   </div>
 
                   <div
@@ -2695,6 +2653,43 @@ export default function DashboardPage() {
                       {addingProof ? "Saving..." : "Add Entry"}
                     </button>
 
+                    <div style={{ display: "grid", gap: 8, marginTop: 2 }}>
+                      <input
+                        className="input"
+                        placeholder="Search entries..."
+                        value={entrySearch}
+                        onChange={(e) => setEntrySearch(e.target.value)}
+                        style={{ width: "100%" }}
+                      />
+
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <select
+                          className="input"
+                          value={entrySortMode}
+                          onChange={(e) => setEntrySortMode(e.target.value as any)}
+                          style={{ flex: "1 1 180px", minWidth: 160 }}
+                          title="Sort entries"
+                        >
+                          <option value="newest">Newest first</option>
+                          <option value="oldest">Oldest first</option>
+                        </select>
+
+                        <button
+                          className="btn"
+                          onClick={() => {
+                            const next = !showArchivedEntries;
+                            setShowArchivedEntries(next);
+                            loadProofs(selectedProject.id, next);
+                            loadApprovals(selectedProject.id, next);
+                          }}
+                          title="Show/hide archived entries"
+                          style={{ flex: "1 1 180px", minWidth: 160 }}
+                        >
+                          {showArchivedEntries ? "Hide archived" : "Show archived"}
+                        </button>
+                      </div>
+                    </div>
+
                     {proofStatus ? (
                       <div className="sub" style={{ opacity: 0.85 }}>
                         {proofStatus}
@@ -2704,7 +2699,7 @@ export default function DashboardPage() {
 
                   {draftApprovals.length > 0 ? (
                     <div className="list" style={{ marginTop: 14, display: "grid", gap: 14 }}>
-                      
+
 
                       {draftApprovals.map((approval) => (
                         <ApprovalCard
