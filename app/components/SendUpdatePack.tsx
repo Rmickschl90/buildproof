@@ -1094,7 +1094,7 @@ export default function SendUpdatePack({
                   if (!shareUrl || !shareId) {
                     await ensureShareLink();
                     setHasActiveShare(true);
-                    setStatus("Link ready — tap Copy Share Link again.");
+                    setStatus("Link ready");
                     return;
                   }
 
@@ -1129,7 +1129,11 @@ export default function SendUpdatePack({
                 }
               }}
             >
-              Copy Share Link
+              {workingLink
+                ? "Creating Link..."
+                : !shareUrl || !shareId
+                  ? "Create Share Link"
+                  : "Copy Share Link"}
             </button>
 
             {hasActiveShare ? (
