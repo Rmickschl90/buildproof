@@ -2473,9 +2473,9 @@ export default function DashboardPage() {
                       }}
                       style={{
                         width: "100%",
-                        background: "rgba(22,163,74,0.24)",
-                        color: "#14532d",
-                        borderColor: "rgba(22,163,74,0.48)",
+                        background: "#16a34a",
+                        color: "white",
+                        borderColor: "#16a34a",
                         fontWeight: 800,
                       }}
                     >
@@ -2644,9 +2644,9 @@ export default function DashboardPage() {
                       onClick={addProof}
                       disabled={addingProof}
                       style={{
-                        background: "rgba(15,23,42,0.14)",
-                        color: "#020617",
-                        borderColor: "rgba(15,23,42,0.28)",
+                        background: "#0f172a",
+                        color: "white",
+                        borderColor: "#0f172a",
                         fontWeight: 700,
                       }}
                     >
