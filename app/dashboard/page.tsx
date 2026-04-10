@@ -2653,13 +2653,17 @@ export default function DashboardPage() {
                       {addingProof ? "Saving..." : "Add Entry"}
                     </button>
 
-                    <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
+                    <div style={{ display: "grid", gap: 4, marginTop: 4 }}>
                       <input
                         className="input"
                         placeholder="Search timeline..."
                         value={entrySearch}
                         onChange={(e) => setEntrySearch(e.target.value)}
-                        style={{ width: "100%" }}
+                        style={{
+                          width: "100%",
+                          height: 38,
+                          fontSize: 14,
+                        }}
                       />
 
                       <div
@@ -2674,12 +2678,11 @@ export default function DashboardPage() {
                           value={entrySortMode}
                           onChange={(e) => setEntrySortMode(e.target.value as any)}
                           style={{
-                            height: 36,
-                            fontSize: 13,
-                            padding: "4px 8px",
+                            height: 34,
+                            fontSize: 12,
+                            padding: "2px 8px",
                             flex: "1 1 auto",
                           }}
-                          title="Sort entries"
                         >
                           <option value="newest">Newest</option>
                           <option value="oldest">Oldest</option>
@@ -2694,12 +2697,12 @@ export default function DashboardPage() {
                             loadApprovals(selectedProject.id, next);
                           }}
                           style={{
-                            height: 36,
-                            fontSize: 13,
-                            padding: "4px 10px",
+                            height: 34,
+                            fontSize: 12,
+                            padding: "2px 10px",
+                            borderRadius: 999,
                             whiteSpace: "nowrap",
                           }}
-                          title="Show/hide archived entries"
                         >
                           {showArchivedEntries ? "Hide" : "Archived"}
                         </button>
