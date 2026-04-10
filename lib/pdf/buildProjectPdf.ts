@@ -1603,6 +1603,27 @@ function addCoverPage(opts: {
       integrityY -= 12;
     }
 
+    const timezoneNoteLines = wrapParagraphs(
+      "Times shown reflect the timezone at the time of export.",
+      font,
+      9,
+      recordW - 68
+    );
+
+    integrityY -= 6;
+
+    for (const line of timezoneNoteLines) {
+      page.drawText(line, {
+        x: recordX + 34,
+        y: integrityY,
+        size: 9,
+        font,
+        color: COLORS.faint,
+      });
+
+      integrityY -= 11;
+    }
+
     nextSectionTop = recordY - 24;
   }
 
