@@ -2673,20 +2673,24 @@ export default function DashboardPage() {
                           alignItems: "center",
                         }}
                       >
-                        <select
-                          className="input"
-                          value={entrySortMode}
-                          onChange={(e) => setEntrySortMode(e.target.value as any)}
+                        <button
+                          className="btn"
+                          onClick={() =>
+                            setEntrySortMode((current) =>
+                              current === "newest" ? "oldest" : "newest"
+                            )
+                          }
                           style={{
                             height: 34,
                             fontSize: 12,
-                            padding: "2px 8px",
-                            flex: "1 1 auto",
+                            padding: "2px 10px",
+                            borderRadius: 999,
+                            whiteSpace: "nowrap",
+                            flex: 1,
                           }}
                         >
-                          <option value="newest">Newest</option>
-                          <option value="oldest">Oldest</option>
-                        </select>
+                          {entrySortMode === "newest" ? "Newest" : "Oldest"}
+                        </button>
 
                         <button
                           className="btn"
@@ -2702,9 +2706,10 @@ export default function DashboardPage() {
                             padding: "2px 10px",
                             borderRadius: 999,
                             whiteSpace: "nowrap",
+                            flex: 1,
                           }}
                         >
-                          {showArchivedEntries ? "Hide" : "Archived"}
+                          {showArchivedEntries ? "Hide Archived" : "Show Archived"}
                         </button>
                       </div>
                     </div>
