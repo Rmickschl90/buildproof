@@ -2704,17 +2704,7 @@ export default function DashboardPage() {
 
                   {draftApprovals.length > 0 ? (
                     <div className="list" style={{ marginTop: 14, display: "grid", gap: 14 }}>
-                      <div
-                        style={{
-                          fontSize: 13,
-                          fontWeight: 800,
-                          textTransform: "uppercase",
-                          letterSpacing: 0.4,
-                          opacity: 0.65,
-                        }}
-                      >
-                        Draft Approvals
-                      </div>
+                      
 
                       {draftApprovals.map((approval) => (
                         <ApprovalCard
