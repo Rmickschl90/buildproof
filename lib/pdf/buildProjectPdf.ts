@@ -1606,22 +1606,22 @@ function addCoverPage(opts: {
     const timezoneNoteLines = wrapParagraphs(
       "Times shown reflect the timezone at the time of export.",
       font,
-      9,
+      9.5,
       recordW - 68
     );
 
-    integrityY -= 6;
+    integrityY -= 10;
 
     for (const line of timezoneNoteLines) {
       page.drawText(line, {
         x: recordX + 34,
         y: integrityY,
-        size: 9,
+        size: 9.5,
         font,
-        color: COLORS.faint,
+        color: COLORS.muted,
       });
 
-      integrityY -= 11;
+      integrityY -= 12;
     }
 
     nextSectionTop = recordY - 24;
