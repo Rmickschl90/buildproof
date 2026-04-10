@@ -1498,7 +1498,7 @@ function addCoverPage(opts: {
     const recordX = MARGIN;
     const recordY = PAGE_HEIGHT - 455;
     const recordW = CONTENT_WIDTH;
-    const recordH = 150;
+    const recordH = 172;
 
     page.drawRectangle({
       x: recordX,
@@ -1581,6 +1581,27 @@ function addCoverPage(opts: {
       font,
       color: COLORS.text,
     });
+
+    const recordIntegrityLines = wrapParagraphs(
+      "Entries and approvals are finalized at the time of sending and remain unchanged in the project record.",
+      font,
+      9.5,
+      recordW - 68
+    );
+
+    let integrityY = recordY + recordH - 154;
+
+    for (const line of recordIntegrityLines) {
+      page.drawText(line, {
+        x: recordX + 34,
+        y: integrityY,
+        size: 9.5,
+        font,
+        color: COLORS.muted,
+      });
+
+      integrityY -= 12;
+    }
 
     nextSectionTop = recordY - 24;
   }
