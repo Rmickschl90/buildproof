@@ -310,8 +310,12 @@ export async function buildProjectPdf(
         reportMode === "dispute" && latestResponse
           ? [
             `Decision: ${sanitizePdfText(latestResponse.decision || "Unknown")}`,
+            `Responded: ${sanitizePdfText(formatDateTime(latestResponse.responded_at || ""))}`,
+            ``,
+            `Response Metadata`,
             `IP Address: ${sanitizePdfText(latestResponse.ip_address || "Unknown")}`,
-            `User Agent: ${sanitizePdfText(latestResponse.user_agent || "Unknown")}`,
+            `Device: ${formatDevice(latestResponse.user_agent)}`,
+            `Browser: ${formatBrowser(latestResponse.user_agent)}`,
           ]
           : [];
 
@@ -493,16 +497,35 @@ export async function buildProjectPdf(
 
         detailY -= 12;
 
-        for (const line of disputeEvidenceLines) {
-          page.drawText(line, {
-            x: cardX + 22,
-            y: detailY,
-            size: 9.5,
-            font,
-            color: COLORS.muted,
-          });
+        page.drawText("Approval Response Details", {
+          x: cardX + 22,
+          y: detailY,
+          size: 10,
+          font: fontBold,
+          color: COLORS.text,
+        });
 
-          detailY -= 14;
+        detailY -= 16;
+
+        for (const line of disputeEvidenceLines) {
+          if (!line.trim()) {
+            detailY -= 4;
+            continue;
+          }
+
+          const wrappedLines = wrapParagraphs(line, font, 9.5, cardWidth - 40);
+
+          for (const wrappedLine of wrappedLines) {
+            page.drawText(wrappedLine, {
+              x: cardX + 22,
+              y: detailY,
+              size: 9.5,
+              font,
+              color: line === "Response Metadata" ? COLORS.text : COLORS.muted,
+            });
+
+            detailY -= 12;
+          }
         }
       }
 
@@ -1436,8 +1459,8 @@ function addCoverPage(opts: {
   const coverTitle = sanitizePdfText(projectTitle || "Project");
   const coverSubtitle = sanitizePdfText(
     reportMode === "dispute"
-      ? "Chronological record of project entries, approvals, attachments, official delivery history, and share access activity."
-      : "Documented timeline, job notes, photos, and attached files."
+      ? "Chronological record of project activity captured during the course of work. Entries, approvals, attachments, delivery history, and access records are preserved to reflect their original state."
+      : "Documented timeline of project entries, photos, and attached files."
   );
 
   const coverTitleLines = wrapParagraphs(coverTitle, fontBold, 27, CONTENT_WIDTH);
@@ -1918,6 +1941,14 @@ function addPoweredByFooter(
     });
   }
 
+  page.drawText("This document reflects the state of records at time of export.", {
+    x: MARGIN,
+    y: 12,
+    size: 8,
+    font,
+    color: COLORS.faint,
+  });
+
   page.drawText("buildproof.app", {
     x: PAGE_WIDTH - MARGIN - 78,
     y: 24,
@@ -2183,4 +2214,18 @@ function sanitizePdfText(input: string) {
 
 function sanitizePdfFilename(name: string) {
   return String(name || "BuildProof_Project").replace(/[^\w\-]+/g, "_");
+}
+
+function formatDevice(ua?: string | null) {
+  if (!ua) return "Unknown";
+  if (ua.includes("iPhone")) return "iPhone";
+  if (ua.includes("Android")) return "Android device";
+  return "Unknown device";
+}
+
+function formatBrowser(ua?: string | null) {
+  if (!ua) return "Unknown";
+  if (ua.includes("Safari")) return "Safari";
+  if (ua.includes("Chrome")) return "Chrome";
+  return "Unknown browser";
 }
