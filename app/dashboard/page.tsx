@@ -471,7 +471,7 @@ export default function DashboardPage() {
       await loadProofs(selectedProject.id, showArchivedEntries);
       await refreshOfflineProofs(selectedProject.id);
     })();
-  }, [isBrowserOnline, selectedProject?.id, showArchivedEntries]);
+  }, [isBrowserOnline, selectedProject?.id]);
 
 
 
