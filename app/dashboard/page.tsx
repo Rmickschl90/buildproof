@@ -2653,25 +2653,36 @@ export default function DashboardPage() {
                       {addingProof ? "Saving..." : "Add Entry"}
                     </button>
 
-                    <div style={{ display: "grid", gap: 8, marginTop: 2 }}>
+                    <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
                       <input
                         className="input"
-                        placeholder="Search entries..."
+                        placeholder="Search timeline..."
                         value={entrySearch}
                         onChange={(e) => setEntrySearch(e.target.value)}
                         style={{ width: "100%" }}
                       />
 
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 6,
+                          alignItems: "center",
+                        }}
+                      >
                         <select
                           className="input"
                           value={entrySortMode}
                           onChange={(e) => setEntrySortMode(e.target.value as any)}
-                          style={{ flex: "1 1 180px", minWidth: 160 }}
+                          style={{
+                            height: 36,
+                            fontSize: 13,
+                            padding: "4px 8px",
+                            flex: "1 1 auto",
+                          }}
                           title="Sort entries"
                         >
-                          <option value="newest">Newest first</option>
-                          <option value="oldest">Oldest first</option>
+                          <option value="newest">Newest</option>
+                          <option value="oldest">Oldest</option>
                         </select>
 
                         <button
@@ -2682,10 +2693,15 @@ export default function DashboardPage() {
                             loadProofs(selectedProject.id, next);
                             loadApprovals(selectedProject.id, next);
                           }}
+                          style={{
+                            height: 36,
+                            fontSize: 13,
+                            padding: "4px 10px",
+                            whiteSpace: "nowrap",
+                          }}
                           title="Show/hide archived entries"
-                          style={{ flex: "1 1 180px", minWidth: 160 }}
                         >
-                          {showArchivedEntries ? "Hide archived" : "Show archived"}
+                          {showArchivedEntries ? "Hide" : "Archived"}
                         </button>
                       </div>
                     </div>
