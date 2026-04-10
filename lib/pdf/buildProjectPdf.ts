@@ -1498,7 +1498,7 @@ function addCoverPage(opts: {
     const recordX = MARGIN;
     const recordY = PAGE_HEIGHT - 455;
     const recordW = CONTENT_WIDTH;
-    const recordH = 172;
+    const recordH = 188;
 
     page.drawRectangle({
       x: recordX,
@@ -1604,7 +1604,7 @@ function addCoverPage(opts: {
     }
 
     const timezoneNoteLines = wrapParagraphs(
-      "Times shown reflect the timezone at the time of export.",
+      "Times shown in Central Time.",
       font,
       9.5,
       recordW - 68
@@ -2167,28 +2167,26 @@ function getCounts(
   };
 }
 
-function formatDate(value?: string | null) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString("en-US", {
+    timeZone: "America/Chicago",
     year: "numeric",
     month: "short",
     day: "2-digit",
   });
 }
 
-function formatDateTime(value?: string | null) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-
+function formatDateTime(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleString("en-US", {
+    timeZone: "America/Chicago",
     year: "numeric",
     month: "short",
     day: "2-digit",
-    hour: "2-digit",
+    hour: "numeric",
     minute: "2-digit",
     timeZoneName: "short",
   });
