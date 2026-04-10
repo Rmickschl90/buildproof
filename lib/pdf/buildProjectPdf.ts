@@ -1459,7 +1459,7 @@ function addCoverPage(opts: {
   const coverTitle = sanitizePdfText(projectTitle || "Project");
   const coverSubtitle = sanitizePdfText(
     reportMode === "dispute"
-      ? "Chronological record of project activity captured during the course of work. Entries, approvals, attachments, delivery history, and access records are preserved to reflect their original state."
+      ? "Chronological record of project activity captured during the course of work. Entries, approvals, attachments, delivery history, and access records are preserved to reflect their original state. Entries and approvals are finalized at the time of sending and remain unchanged in the project record."
       : "Documented timeline of project entries, photos, and attached files."
   );
 
