@@ -896,16 +896,6 @@ export default function DashboardPage() {
             )
             .single();
 
-          console.log("🧱 offline proof sync compare", {
-            offlineProofId: p.id,
-            offlineCreatedAt: p.createdAt,
-            offlineCreatedTimezoneId: p.createdTimezoneId,
-            offlineCreatedTimezoneOffsetMinutes:
-              p.createdTimezoneOffsetMinutes,
-            serverProof: data,
-            insertError: error,
-          });
-
           if (error) {
             await markOfflineProofFailed(p.id, error.message);
             continue;
