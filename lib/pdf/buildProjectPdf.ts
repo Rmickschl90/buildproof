@@ -16,6 +16,8 @@ export type ProofRow = {
   content: string | null;
   created_at: string;
   locked_at: string | null;
+  created_timezone_id?: string | null;
+  created_timezone_offset_minutes?: number | null;
 };
 
 export type AttachmentRow = {
@@ -70,6 +72,8 @@ export type ApprovalRow = {
   archived_at: string | null;
   recipient_name: string | null;
   recipient_email: string | null;
+  created_timezone_id?: string | null;
+  created_timezone_offset_minutes?: number | null;
 };
 
 export type ApprovalResponseRow = {
@@ -287,9 +291,19 @@ export async function buildProjectPdf(
       const costImpact = approval.cost_delta != null ? `$${approval.cost_delta}` : "None";
       const scheduleImpact = sanitizePdfText(approval.schedule_delta || "None");
 
-      const sentAt = sanitizePdfText(formatDateTime(approval.sent_at || approval.created_at));
+      const sentAt = sanitizePdfText(
+        formatDateTime(
+          approval.sent_at || approval.created_at,
+          approval.created_timezone_offset_minutes
+        )
+      );
       const respondedAt = approval.responded_at
-        ? sanitizePdfText(formatDateTime(approval.responded_at))
+        ? sanitizePdfText(
+          formatDateTime(
+            approval.responded_at,
+            approval.created_timezone_offset_minutes
+          )
+        )
         : null;
 
       const statusLabel = approval.archived_at
@@ -310,7 +324,12 @@ export async function buildProjectPdf(
         reportMode === "dispute" && latestResponse
           ? [
             `Decision: ${sanitizePdfText(latestResponse.decision || "Unknown")}`,
-            `Responded: ${sanitizePdfText(formatDateTime(latestResponse.responded_at || ""))}`,
+            `Responded: ${sanitizePdfText(
+              formatDateTime(
+                latestResponse.responded_at || "",
+                approval.created_timezone_offset_minutes
+              )
+            )}`,
             ``,
             `Response Metadata`,
             `IP Address: ${sanitizePdfText(latestResponse.ip_address || "Unknown")}`,
@@ -748,13 +767,20 @@ export async function buildProjectPdf(
       color: COLORS.ink,
     });
 
-    page.drawText(sanitizePdfText(formatDateTime(proof.created_at)), {
-      x: cardX + 22,
-      y: top - 43,
-      size: 9.5,
-      font,
-      color: COLORS.muted,
-    });
+    page.drawText(
+      sanitizePdfText(
+        formatDateTime(
+          proof.created_at,
+          proof.created_timezone_offset_minutes
+        )
+      ),
+      {
+        x: cardX + 22,
+        y: top - 43,
+        size: 9.5,
+        font,
+        color: COLORS.muted,
+      });
 
     drawBadge({
       page,
@@ -1603,7 +1629,7 @@ function addCoverPage(opts: {
       integrityY -= 12;
     }
 
-        const timezoneNoteLines = wrapParagraphs(
+    const timezoneNoteLines = wrapParagraphs(
       "Times shown as recorded in the project record.",
       font,
       9.5,
@@ -2167,9 +2193,29 @@ function getCounts(
   };
 }
 
-function formatDate(iso: string) {
+function formatDate(
+  iso: string,
+  timezoneOffsetMinutes?: number | null
+) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
+
+  if (
+    typeof timezoneOffsetMinutes === "number" &&
+    !Number.isNaN(timezoneOffsetMinutes)
+  ) {
+    const wallClock = new Date(
+      d.getTime() - timezoneOffsetMinutes * 60000
+    );
+
+    return wallClock.toLocaleDateString("en-US", {
+      timeZone: "UTC",
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+    });
+  }
+
   return d.toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
@@ -2177,9 +2223,31 @@ function formatDate(iso: string) {
   });
 }
 
-function formatDateTime(iso: string) {
+function formatDateTime(
+  iso: string,
+  timezoneOffsetMinutes?: number | null
+) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
+
+  if (
+    typeof timezoneOffsetMinutes === "number" &&
+    !Number.isNaN(timezoneOffsetMinutes)
+  ) {
+    const wallClock = new Date(
+      d.getTime() - timezoneOffsetMinutes * 60000
+    );
+
+    return wallClock.toLocaleString("en-US", {
+      timeZone: "UTC",
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
+
   return d.toLocaleString("en-US", {
     year: "numeric",
     month: "short",
