@@ -886,6 +886,10 @@ export default function DashboardPage() {
             .insert({
               content: p.content,
               project_id: p.projectId,
+              created_at: p.createdAt,
+              created_timezone_id: p.createdTimezoneId,
+              created_timezone_offset_minutes:
+                p.createdTimezoneOffsetMinutes,
             })
             .select("id")
             .single();
