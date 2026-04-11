@@ -91,11 +91,18 @@ function formatWhen(
       typeof timezoneOffsetMinutes === "number" &&
       !Number.isNaN(timezoneOffsetMinutes)
     ) {
-      const adjusted = new Date(
-        utc.getTime() + timezoneOffsetMinutes * 60000
+      const wallClock = new Date(
+        utc.getTime() - timezoneOffsetMinutes * 60000
       );
 
-      return adjusted.toLocaleString();
+      return wallClock.toLocaleString("en-US", {
+        timeZone: "UTC",
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      });
     }
 
     return utc.toLocaleString();
