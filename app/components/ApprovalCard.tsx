@@ -67,7 +67,7 @@ function formatWhen(
       !Number.isNaN(timezoneOffsetMinutes)
     ) {
       const adjusted = new Date(
-        utc.getTime() - timezoneOffsetMinutes * 60000
+        utc.getTime() + timezoneOffsetMinutes * 60000
       );
 
       return adjusted.toLocaleString();
