@@ -881,7 +881,7 @@ export default function DashboardPage() {
         try {
           await markOfflineProofSyncing(p.id);
 
-          const { data, error } = await supabase
+                    const { data, error } = await supabase
             .from("proofs")
             .insert({
               content: p.content,
@@ -891,8 +891,20 @@ export default function DashboardPage() {
               created_timezone_offset_minutes:
                 p.createdTimezoneOffsetMinutes,
             })
-            .select("id")
+            .select(
+              "id, created_at, created_timezone_id, created_timezone_offset_minutes"
+            )
             .single();
+
+          console.log("🧱 offline proof sync compare", {
+            offlineProofId: p.id,
+            offlineCreatedAt: p.createdAt,
+            offlineCreatedTimezoneId: p.createdTimezoneId,
+            offlineCreatedTimezoneOffsetMinutes:
+              p.createdTimezoneOffsetMinutes,
+            serverProof: data,
+            insertError: error,
+          });
 
           if (error) {
             await markOfflineProofFailed(p.id, error.message);
