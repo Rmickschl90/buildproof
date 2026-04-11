@@ -532,23 +532,32 @@ export default function ApprovalComposer({
 
     let approvalId: string;
 
-    if (draftApprovalIdRef.current && !draftApprovalIdRef.current.startsWith("offline-")) {
-      try {
-        approvalId = await updateDraft(token);
-      } catch (err: any) {
-        const message = String(err?.message || "");
+    if (draftApprovalIdRef.current) {
+      if (draftApprovalIdRef.current.startsWith("offline-")) {
+        const offlineApprovalId = draftApprovalIdRef.current;
 
-        if (
-          message.toLowerCase().includes("approval not found") ||
-          message.toLowerCase().includes("missing draft id")
-        ) {
-          draftApprovalIdRef.current = null;
-          setDraftApprovalId(null);
-          window.localStorage.removeItem(draftStorageKey);
+        approvalId = await createDraft(token);
 
-          approvalId = await createDraft(token);
-        } else {
-          throw err;
+        const { removeOfflineApproval } = await import("@/lib/offlineApprovalOutbox");
+        await removeOfflineApproval(offlineApprovalId);
+      } else {
+        try {
+          approvalId = await updateDraft(token);
+        } catch (err: any) {
+          const message = String(err?.message || "");
+
+          if (
+            message.toLowerCase().includes("approval not found") ||
+            message.toLowerCase().includes("missing draft id")
+          ) {
+            draftApprovalIdRef.current = null;
+            setDraftApprovalId(null);
+            window.localStorage.removeItem(draftStorageKey);
+
+            approvalId = await createDraft(token);
+          } else {
+            throw err;
+          }
         }
       }
     } else {
