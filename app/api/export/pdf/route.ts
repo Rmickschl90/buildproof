@@ -45,7 +45,7 @@ export async function POST(req: Request) {
 
     const { data: proofs, error: proofsErr } = await supabaseServer
       .from(proofsSource)
-      .select("id,content,created_at,locked_at,project_id")
+      .select("id,content,created_at,locked_at,project_id,created_timezone_id,created_timezone_offset_minutes")
       .eq("project_id", projectId)
       .order("created_at", { ascending: true });
 
@@ -63,25 +63,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: attErr.message }, { status: 400 });
     }
 
-        let approvalsQuery = supabaseServer
+    let approvalsQuery = supabaseServer
       .from("approval_requests")
       .select(`
-        id,
-        project_id,
-        title,
-        approval_type,
-        description,
-        cost_delta,
-        schedule_delta,
-        status,
-        created_at,
-        sent_at,
-        responded_at,
-        expired_at,
-        archived_at,
-        recipient_name,
-        recipient_email
-      `)
+  id,
+  project_id,
+  title,
+  approval_type,
+  description,
+  cost_delta,
+  schedule_delta,
+  status,
+  created_at,
+  sent_at,
+  responded_at,
+  expired_at,
+  archived_at,
+  recipient_name,
+  recipient_email,
+  created_timezone_id,
+  created_timezone_offset_minutes
+`)
       .eq("project_id", projectId)
       .order("created_at", { ascending: true });
 
@@ -98,19 +100,19 @@ export async function POST(req: Request) {
     const approvalIds = (approvalBaseRows ?? []).map((row: any) => row.id);
     let approvalAttachmentsRows: any[] = [];
 
-if (approvalIds.length > 0) {
-  const { data: attRows, error: attErr } = await supabaseServer
-    .from("approval_attachments")
-    .select("id,approval_id,project_id,filename,mime_type,path,created_at")
-    .in("approval_id", approvalIds)
-    .order("created_at", { ascending: true });
+    if (approvalIds.length > 0) {
+      const { data: attRows, error: attErr } = await supabaseServer
+        .from("approval_attachments")
+        .select("id,approval_id,project_id,filename,mime_type,path,created_at")
+        .in("approval_id", approvalIds)
+        .order("created_at", { ascending: true });
 
-  if (attErr) {
-    return NextResponse.json({ error: attErr.message }, { status: 400 });
-  }
+      if (attErr) {
+        return NextResponse.json({ error: attErr.message }, { status: 400 });
+      }
 
-  approvalAttachmentsRows = attRows ?? [];
-}
+      approvalAttachmentsRows = attRows ?? [];
+    }
 
     let approvalResponsesRows: any[] = [];
 
@@ -134,14 +136,14 @@ if (approvalIds.length > 0) {
     }
 
     const approvals = (approvalBaseRows ?? []).map((approval: any) => ({
-  ...approval,
-  approval_responses: approvalResponsesRows.filter(
-    (response) => response.approval_request_id === approval.id
-  ),
-  attachments: approvalAttachmentsRows.filter(
-    (att) => att.approval_id === approval.id
-  ),
-}));
+      ...approval,
+      approval_responses: approvalResponsesRows.filter(
+        (response) => response.approval_request_id === approval.id
+      ),
+      attachments: approvalAttachmentsRows.filter(
+        (att) => att.approval_id === approval.id
+      ),
+    }));
 
     let deliveries: any[] = [];
     let contactEvents: any[] = [];
