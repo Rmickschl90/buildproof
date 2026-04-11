@@ -16,6 +16,8 @@ export type OfflineApprovalRecord = {
     dueAt: string | null;
     createdAt: number;
     updatedAt: number;
+    createdTimezoneId: string | null;
+    createdTimezoneOffsetMinutes: number | null;
     status: "pending" | "syncing" | "synced" | "failed";
 };
 
@@ -61,15 +63,28 @@ export function createTempApprovalId(): string {
 }
 
 export async function addOfflineApproval(
-    record: Omit<OfflineApprovalRecord, "createdAt" | "updatedAt" | "status">
+    record: Omit<
+        OfflineApprovalRecord,
+        "createdAt" | "updatedAt" | "createdTimezoneId" | "createdTimezoneOffsetMinutes" | "status"
+    >
 ): Promise<void> {
     const db = await openDb();
-    const now = Date.now();
+    const nowDate = new Date();
+    const now = nowDate.getTime();
+
+    const createdTimezoneId =
+        typeof Intl !== "undefined"
+            ? Intl.DateTimeFormat().resolvedOptions().timeZone || null
+            : null;
+
+    const createdTimezoneOffsetMinutes = nowDate.getTimezoneOffset();
 
     const fullRecord: OfflineApprovalRecord = {
         ...record,
         createdAt: now,
         updatedAt: now,
+        createdTimezoneId,
+        createdTimezoneOffsetMinutes,
         status: "pending",
     };
 

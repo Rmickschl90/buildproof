@@ -13,6 +13,8 @@ export type OfflineProofRecord = {
   content: string;
   createdAt: string;
   updatedAt: string;
+  createdTimezoneId: string | null;
+  createdTimezoneOffsetMinutes: number | null;
   status: OfflineProofStatus;
   syncAttemptCount: number;
   lastSyncAttemptAt: string | null;
@@ -91,7 +93,15 @@ export async function createOfflineProof(input: {
   projectId: string;
   content: string;
 }): Promise<OfflineProofRecord> {
-  const now = new Date().toISOString();
+  const nowDate = new Date();
+  const now = nowDate.toISOString();
+
+  const createdTimezoneId =
+    typeof Intl !== "undefined"
+      ? Intl.DateTimeFormat().resolvedOptions().timeZone || null
+      : null;
+
+  const createdTimezoneOffsetMinutes = nowDate.getTimezoneOffset();
 
   const record: OfflineProofRecord = {
     id: makeOfflineProofId(),
@@ -99,6 +109,8 @@ export async function createOfflineProof(input: {
     content: input.content,
     createdAt: now,
     updatedAt: now,
+    createdTimezoneId,
+    createdTimezoneOffsetMinutes,
     status: "pending",
     syncAttemptCount: 0,
     lastSyncAttemptAt: null,

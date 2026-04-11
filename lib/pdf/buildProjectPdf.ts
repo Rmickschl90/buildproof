@@ -1603,8 +1603,8 @@ function addCoverPage(opts: {
       integrityY -= 12;
     }
 
-    const timezoneNoteLines = wrapParagraphs(
-      "Times shown in Central Time.",
+        const timezoneNoteLines = wrapParagraphs(
+      "Times shown as recorded in the project record.",
       font,
       9.5,
       recordW - 68
@@ -2171,7 +2171,6 @@ function formatDate(iso: string) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString("en-US", {
-    timeZone: "America/Chicago",
     year: "numeric",
     month: "short",
     day: "2-digit",
@@ -2182,13 +2181,11 @@ function formatDateTime(iso: string) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleString("en-US", {
-    timeZone: "America/Chicago",
     year: "numeric",
     month: "short",
     day: "2-digit",
     hour: "numeric",
     minute: "2-digit",
-    timeZoneName: "short",
   });
 }
 

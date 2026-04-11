@@ -17,6 +17,16 @@ export async function POST(req: Request) {
 
     const body = await req.json();
 
+    const createdTimezoneId =
+      typeof body?.createdTimezoneId === "string"
+        ? body.createdTimezoneId
+        : null;
+
+    const createdTimezoneOffsetMinutes =
+      typeof body?.createdTimezoneOffsetMinutes === "number"
+        ? body.createdTimezoneOffsetMinutes
+        : null;
+
     const approvalId = String(body?.approvalId ?? "").trim();
     const projectId = String(body?.projectId ?? "").trim();
     const title = String(body?.title ?? "").trim();
@@ -98,6 +108,8 @@ export async function POST(req: Request) {
         schedule_delta: scheduleDelta,
         due_at: dueAt,
         status: "draft",
+        created_timezone_id: createdTimezoneId,
+        created_timezone_offset_minutes: createdTimezoneOffsetMinutes,
       })
       .select("*")
       .single();

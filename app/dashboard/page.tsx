@@ -53,6 +53,8 @@ type Proof = {
   deleted_at?: string | null;
   deleted_by?: string | null;
   updated_at?: string | null;
+  created_timezone_id?: string | null;
+  created_timezone_offset_minutes?: number | null;
 };
 
 type Approval = {
@@ -70,18 +72,48 @@ type Approval = {
   recipient_name: string | null;
   recipient_email: string;
   project_id: string;
+  created_timezone_id?: string | null;
+  created_timezone_offset_minutes?: number | null;
 };
 
 type TimelineApproval = Approval;
 
 type TimelineProof = Proof | (OfflineProofRecord & { isOffline: true });
 
-function formatWhen(iso: string) {
+function formatWhen(
+  iso: string,
+  timezoneOffsetMinutes?: number | null
+) {
   try {
-    return new Date(iso).toLocaleString();
+    const utc = new Date(iso);
+
+    if (
+      typeof timezoneOffsetMinutes === "number" &&
+      !Number.isNaN(timezoneOffsetMinutes)
+    ) {
+      const adjusted = new Date(
+        utc.getTime() - timezoneOffsetMinutes * 60000
+      );
+
+      return adjusted.toLocaleString();
+    }
+
+    return utc.toLocaleString();
   } catch {
     return iso;
   }
+}
+
+function getCurrentTimezoneSnapshot() {
+  const now = new Date();
+
+  return {
+    created_timezone_id:
+      typeof Intl !== "undefined"
+        ? Intl.DateTimeFormat().resolvedOptions().timeZone || null
+        : null,
+    created_timezone_offset_minutes: now.getTimezoneOffset(),
+  };
 }
 
 function cleanText(s: string) {
@@ -922,7 +954,7 @@ export default function DashboardPage() {
 
     const { data, error } = await supabase
       .from(source)
-      .select("id,content,created_at,project_id,locked_at,deleted_at,deleted_by,updated_at")
+      .select("id,content,created_at,project_id,locked_at,deleted_at,deleted_by,updated_at,created_timezone_id,created_timezone_offset_minutes")
       .eq("project_id", projectId);
 
     if (error) {
@@ -1271,9 +1303,17 @@ export default function DashboardPage() {
         | undefined;
 
       try {
+        const timezoneSnapshot = getCurrentTimezoneSnapshot();
+
         const response = await supabase
           .from("proofs")
-          .insert({ content: text, project_id: projectId })
+          .insert({
+            content: text,
+            project_id: projectId,
+            created_timezone_id: timezoneSnapshot.created_timezone_id,
+            created_timezone_offset_minutes:
+              timezoneSnapshot.created_timezone_offset_minutes,
+          })
           .select("id")
           .single();
 
@@ -1841,6 +1881,9 @@ export default function DashboardPage() {
               recipient_name: a.recipientName || null,
               recipient_email: a.recipientEmail || "",
               project_id: a.projectId,
+              created_timezone_id: a.createdTimezoneId ?? null,
+              created_timezone_offset_minutes:
+                a.createdTimezoneOffsetMinutes ?? null,
               attachments: queuedAttachments.map((item) => ({
                 id: item.id,
                 filename: item.fileName ?? null,
@@ -2858,7 +2901,12 @@ export default function DashboardPage() {
                                 }}
                               >
                                 <div className="sub" style={{ opacity: 0.75 }}>
-                                  {formatWhen(offline ? proof.createdAt : proof.created_at)}
+                                  {formatWhen(
+                                    offline ? proof.createdAt : proof.created_at,
+                                    offline
+                                      ? proof.createdTimezoneOffsetMinutes
+                                      : (proof as any).created_timezone_offset_minutes
+                                  )}
                                 </div>
 
                                 <div

@@ -27,6 +27,8 @@ type Approval = {
   schedule_delta: string | null;
   recipient_name: string | null;
   recipient_email: string;
+  created_timezone_id?: string | null;
+  created_timezone_offset_minutes?: number | null;
   attachments?: ApprovalAttachment[];
 };
 
@@ -51,11 +53,28 @@ function formatApprovalType(value: string) {
   }
 }
 
-function formatWhen(value: string | null) {
+function formatWhen(
+  value: string | null,
+  timezoneOffsetMinutes?: number | null
+) {
   if (!value) return null;
 
   try {
-    return new Date(value).toLocaleString();
+    const utc = new Date(value);
+
+    if (
+      typeof timezoneOffsetMinutes === "number" &&
+      !Number.isNaN(timezoneOffsetMinutes)
+    ) {
+      const adjusted = new Date(
+        utc.getTime() - timezoneOffsetMinutes * 60000
+      );
+
+      return adjusted.toLocaleString();
+    }
+
+    // fallback (legacy records)
+    return utc.toLocaleString();
   } catch {
     return value;
   }
@@ -554,14 +573,27 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
           }}
         >
           <div className="sub" style={{ opacity: 0.75 }}>
-            Sent: {formatWhen(approval.sent_at) || "Not sent"}
+            Sent: {
+              formatWhen(
+                approval.sent_at,
+                approval.created_timezone_offset_minutes
+              ) || "Not sent"
+            }
           </div>
 
           <div className="sub" style={{ opacity: 0.75 }}>
             {approval.status === "approved" || approval.status === "declined"
-              ? `Responded: ${formatWhen(approval.responded_at) || "—"}`
+              ? `Responded: ${formatWhen(
+                approval.responded_at,
+                approval.created_timezone_offset_minutes
+              ) || "—"
+              }`
               : approval.status === "expired"
-                ? `Expired: ${formatWhen(approval.expired_at) || "—"}`
+                ? `Expired: ${formatWhen(
+                  approval.expired_at,
+                  approval.created_timezone_offset_minutes
+                ) || "—"
+                }`
                 : `Recipient: ${approval.recipient_name || approval.recipient_email}`}
           </div>
         </div>

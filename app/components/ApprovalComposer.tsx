@@ -381,6 +381,15 @@ export default function ApprovalComposer({
   }
 
   function buildApprovalPayload() {
+    const now = new Date();
+
+    const createdTimezoneId =
+      typeof Intl !== "undefined"
+        ? Intl.DateTimeFormat().resolvedOptions().timeZone || null
+        : null;
+
+    const createdTimezoneOffsetMinutes = now.getTimezoneOffset();
+
     return {
       approvalId: draftApprovalIdRef.current,
       projectId,
@@ -392,6 +401,8 @@ export default function ApprovalComposer({
       costDelta: costDelta === "" ? null : Number(costDelta),
       scheduleDelta,
       dueAt: dueAt || null,
+      createdTimezoneId,
+      createdTimezoneOffsetMinutes,
     };
   }
 
