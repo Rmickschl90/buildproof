@@ -553,7 +553,7 @@ export default function DashboardPage() {
 
 
 
-  useEffect(() => {
+    useEffect(() => {
     function handleBuildProofDataChanged() {
       if (!selectedProject?.id) return;
 
@@ -567,10 +567,30 @@ export default function DashboardPage() {
       void loadApprovals(selectedProject.id, showArchivedEntries);
     }
 
+    function handleOfflineApprovalSyncComplete() {
+      if (!selectedProject?.id) return;
+
+      if (!navigator.onLine) {
+        void refreshOfflineApprovals(selectedProject.id);
+        return;
+      }
+
+      void loadApprovals(selectedProject.id, showArchivedEntries);
+      void refreshOfflineApprovals(selectedProject.id);
+    }
+
     window.addEventListener("buildproof-data-changed", handleBuildProofDataChanged);
+    window.addEventListener(
+      "buildproof-offline-approval-sync-complete",
+      handleOfflineApprovalSyncComplete as EventListener
+    );
 
     return () => {
       window.removeEventListener("buildproof-data-changed", handleBuildProofDataChanged);
+      window.removeEventListener(
+        "buildproof-offline-approval-sync-complete",
+        handleOfflineApprovalSyncComplete as EventListener
+      );
     };
   }, [selectedProject?.id, showArchivedEntries]);
 
