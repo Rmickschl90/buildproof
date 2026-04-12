@@ -26,9 +26,11 @@ export async function POST(req: Request) {
 
     if (projectErr || !project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
-    const { data: proofs, error: proofsErr } = await supabaseServer
+        const { data: proofs, error: proofsErr } = await supabaseServer
       .from("proofs")
-      .select("id,content,created_at,project_id")
+      .select(
+        "id,content,created_at,project_id,locked_at,created_timezone_id,created_timezone_offset_minutes"
+      )
       .eq("project_id", share.project_id)
       .order("created_at", { ascending: false });
 
