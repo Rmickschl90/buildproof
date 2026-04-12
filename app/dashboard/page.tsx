@@ -2642,18 +2642,39 @@ export default function DashboardPage() {
 
                   <div
                     style={{
-                      fontSize: 14,
-                      fontWeight: 800,
-                      textTransform: "uppercase",
-                      letterSpacing: 0.5,
-                      opacity: 0.58,
-                      paddingBottom: 6,
-                      borderBottom: "1px solid rgba(15,23,42,0.32)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 12,
                       marginBottom: 12,
-                      display: "inline-block",
                     }}
                   >
-                    Project Timeline
+                    <div
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: 0.5,
+                        opacity: 0.58,
+                        paddingBottom: 6,
+                        borderBottom: "1px solid rgba(15,23,42,0.32)",
+                        display: "inline-block",
+                      }}
+                    >
+                      Project Timeline
+                    </div>
+
+                    <button
+                      type="button"
+                      className={`btn ${showTemplates ? "btnDanger" : ""}`}
+                      onClick={() => setShowTemplates((v) => !v)}
+                      style={{
+                        whiteSpace: "nowrap",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {showTemplates ? "Hide Templates" : "⚡ Templates"}
+                    </button>
                   </div>
 
                   <div
@@ -2671,37 +2692,16 @@ export default function DashboardPage() {
                       transition: "all 0.25s ease",
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                      <textarea
-                        id="new-entry-textarea"
-                        className={`textarea ${isTemplateText ? "templateText" : ""}`}
-                        placeholder="Add entry..."
-                        value={newProofContent}
-                        onChange={(e) => {
-                          setNewProofContent(e.target.value);
-                          setIsTemplateText(false);
-                        }}
-                        style={{ flex: 1 }}
-                      />
-
-                      <button
-                        type="button"
-                        onClick={() => setShowTemplates((v) => !v)}
-                        style={{
-                          height: 38,
-                          padding: "0 12px",
-                          borderRadius: 10,
-                          border: "1px solid rgba(15,23,42,0.1)",
-                          background: "#fff",
-                          fontWeight: 700,
-                          fontSize: 12,
-                          cursor: "pointer",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        ⚡ Templates
-                      </button>
-                    </div>
+                    <textarea
+                      id="new-entry-textarea"
+                      className={`textarea ${isTemplateText ? "templateText" : ""}`}
+                      placeholder="Add entry..."
+                      value={newProofContent}
+                      onChange={(e) => {
+                        setNewProofContent(e.target.value);
+                        setIsTemplateText(false);
+                      }}
+                    />
 
                     {showTemplates ? (
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
