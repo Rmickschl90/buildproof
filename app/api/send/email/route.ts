@@ -303,9 +303,37 @@ export async function POST(req: Request) {
       ),
     }));
 
+        // 🔥 Get locked entry ids for THIS send (so PDF matches update pack)
+    let lockedEntryIds: number[] = [];
+
+    if (sendJobId) {
+      const { data: job } = await supabaseServer
+        .from("send_jobs")
+        .select("locked_entry_ids")
+        .eq("id", sendJobId)
+        .maybeSingle();
+
+      if (Array.isArray(job?.locked_entry_ids)) {
+        lockedEntryIds = job.locked_entry_ids
+          .map((id: any) => Number(id))
+          .filter((id: number) => Number.isFinite(id));
+      }
+    }
+
+        // 🔥 Preview-finalize entries for PDF (do NOT touch DB)
+    const finalizedProofs = (proofs ?? []).map((p: any) => {
+      if (!p.locked_at && lockedEntryIds.includes(Number(p.id))) {
+        return {
+          ...p,
+          locked_at: new Date().toISOString(), // temporary for PDF only
+        };
+      }
+      return p;
+    });
+
     const { pdfBuffer, filename } = await buildProjectPdf({
       project: { id: project.id, title: project.title, created_at: project.created_at },
-      proofs: proofs ?? [],
+      proofs: finalizedProofs,
       attachments: atts ?? [],
       approvals,
       supabase: supabaseServer,
