@@ -200,7 +200,7 @@ export async function POST(req: Request) {
 
     const proofsQuery = supabaseServer
       .from(includeArchived ? "proofs" : "proofs_active")
-      .select("id,content,created_at,locked_at,project_id")
+      .select("id,content,created_at,locked_at,project_id,created_timezone_id,created_timezone_offset_minutes")
       .eq("project_id", projectId)
       .order("created_at", { ascending: false });
 
@@ -223,22 +223,24 @@ export async function POST(req: Request) {
     let approvalsQuery = supabaseServer
       .from("approval_requests")
       .select(`
-    id,
-    project_id,
-    title,
-    approval_type,
-    description,
-    cost_delta,
-    schedule_delta,
-    status,
-    created_at,
-    sent_at,
-    responded_at,
-    expired_at,
-    archived_at,
-    recipient_name,
-    recipient_email
-  `)
+  id,
+  project_id,
+  title,
+  approval_type,
+  description,
+  cost_delta,
+  schedule_delta,
+  status,
+  created_at,
+  sent_at,
+  responded_at,
+  expired_at,
+  archived_at,
+  recipient_name,
+  recipient_email,
+  created_timezone_id,
+  created_timezone_offset_minutes
+`)
       .eq("project_id", projectId)
       .order("created_at", { ascending: true });
 
