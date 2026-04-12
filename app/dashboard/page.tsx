@@ -553,7 +553,7 @@ export default function DashboardPage() {
 
 
 
-    useEffect(() => {
+  useEffect(() => {
     function handleBuildProofDataChanged() {
       if (!selectedProject?.id) return;
 
@@ -901,7 +901,7 @@ export default function DashboardPage() {
         try {
           await markOfflineProofSyncing(p.id);
 
-                    const { data, error } = await supabase
+          const { data, error } = await supabase
             .from("proofs")
             .insert({
               content: p.content,
@@ -2671,23 +2671,35 @@ export default function DashboardPage() {
                       transition: "all 0.25s ease",
                     }}
                   >
-                    <textarea
-                      id="new-entry-textarea"
-                      className={`textarea ${isTemplateText ? "templateText" : ""}`}
-                      placeholder="Add update or note..."
-                      value={newProofContent}
-                      onChange={(e) => {
-                        setNewProofContent(e.target.value);
-                        setIsTemplateText(false);
-                      }}
-                    />
-                    <div style={{ display: "flex", justifyContent: "flex-start" }}>
+                    <div style={{ position: "relative" }}>
+                      <textarea
+                        id="new-entry-textarea"
+                        className={`textarea ${isTemplateText ? "templateText" : ""}`}
+                        placeholder="Add entry..."
+                        value={newProofContent}
+                        onChange={(e) => {
+                          setNewProofContent(e.target.value);
+                          setIsTemplateText(false);
+                        }}
+                      />
+
                       <button
                         type="button"
-                        className={`btn ${showTemplates ? "btnDanger" : ""}`}
                         onClick={() => setShowTemplates((v) => !v)}
+                        style={{
+                          position: "absolute",
+                          top: 10,
+                          right: 10,
+                          padding: "6px 10px",
+                          borderRadius: 10,
+                          border: "1px solid rgba(15,23,42,0.1)",
+                          background: "#fff",
+                          fontWeight: 700,
+                          fontSize: 12,
+                          cursor: "pointer",
+                        }}
                       >
-                        {showTemplates ? "Hide Templates" : "⚡ Quick Templates"}
+                        ⚡ Templates
                       </button>
                     </div>
 
