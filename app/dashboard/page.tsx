@@ -2671,7 +2671,7 @@ export default function DashboardPage() {
                       transition: "all 0.25s ease",
                     }}
                   >
-                    <div style={{ position: "relative" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                       <textarea
                         id="new-entry-textarea"
                         className={`textarea ${isTemplateText ? "templateText" : ""}`}
@@ -2681,22 +2681,22 @@ export default function DashboardPage() {
                           setNewProofContent(e.target.value);
                           setIsTemplateText(false);
                         }}
+                        style={{ flex: 1 }}
                       />
 
                       <button
                         type="button"
                         onClick={() => setShowTemplates((v) => !v)}
                         style={{
-                          position: "absolute",
-                          top: 10,
-                          right: 10,
-                          padding: "6px 10px",
+                          height: 38,
+                          padding: "0 12px",
                           borderRadius: 10,
                           border: "1px solid rgba(15,23,42,0.1)",
                           background: "#fff",
                           fontWeight: 700,
                           fontSize: 12,
                           cursor: "pointer",
+                          whiteSpace: "nowrap",
                         }}
                       >
                         ⚡ Templates
