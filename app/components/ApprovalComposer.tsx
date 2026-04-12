@@ -75,7 +75,7 @@ export default function ApprovalComposer({
   const [recipientEmail, setRecipientEmail] = useState("");
   const [costDelta, setCostDelta] = useState("");
   const [scheduleDelta, setScheduleDelta] = useState("");
-  const [dueAt, setDueAt] = useState("");
+
   const [status, setStatus] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [draftApprovalId, setDraftApprovalId] = useState<string | null>(null);
@@ -129,7 +129,7 @@ export default function ApprovalComposer({
         : ""
     );
     setScheduleDelta(initialApproval.schedule_delta || "");
-    setDueAt(toDateTimeLocalValue(initialApproval.due_at));
+  
     setAttachments(initialApproval.attachments || []);
     setHasSavedOfflineDraft(false);
     setHasSyncedOfflineDraft(false);
@@ -254,7 +254,6 @@ export default function ApprovalComposer({
       setRecipientEmail("");
       setCostDelta("");
       setScheduleDelta("");
-      setDueAt("");
       setStatus("Approval sent.");
 
       draftApprovalIdRef.current = null;
@@ -310,7 +309,6 @@ export default function ApprovalComposer({
       !!recipientEmail.trim() ||
       costDelta !== "" ||
       !!scheduleDelta.trim() ||
-      !!dueAt ||
       attachments.length > 0
     );
   }
@@ -400,7 +398,6 @@ export default function ApprovalComposer({
       recipientEmail,
       costDelta: costDelta === "" ? null : Number(costDelta),
       scheduleDelta,
-      dueAt: dueAt || null,
       createdTimezoneId,
       createdTimezoneOffsetMinutes,
     };
@@ -456,7 +453,6 @@ export default function ApprovalComposer({
         recipientEmail,
         costDelta: costDelta === "" ? null : Number(costDelta),
         scheduleDelta,
-        dueAt: dueAt || null,
       }),
     });
 
@@ -497,7 +493,6 @@ export default function ApprovalComposer({
           recipientEmail,
           costDelta: costDelta === "" ? null : Number(costDelta),
           scheduleDelta,
-          dueAt: dueAt || null,
         });
 
         draftApprovalIdRef.current = approvalId;
@@ -514,7 +509,6 @@ export default function ApprovalComposer({
           recipientEmail,
           costDelta: costDelta === "" ? null : Number(costDelta),
           scheduleDelta,
-          dueAt: dueAt || null,
         });
       }
 
@@ -830,7 +824,6 @@ export default function ApprovalComposer({
             recipientEmail,
             costDelta: costDelta === "" ? null : Number(costDelta),
             scheduleDelta: scheduleDelta || null,
-            dueAt: dueAt || null,
           });
 
           draftApprovalIdRef.current = approvalId;
@@ -845,7 +838,6 @@ export default function ApprovalComposer({
             recipientEmail,
             costDelta: costDelta === "" ? null : Number(costDelta),
             scheduleDelta: scheduleDelta || null,
-            dueAt: dueAt || null,
           });
         } else {
           await addOfflineApproval({
@@ -858,7 +850,6 @@ export default function ApprovalComposer({
             recipientEmail,
             costDelta: costDelta === "" ? null : Number(costDelta),
             scheduleDelta: scheduleDelta || null,
-            dueAt: dueAt || null,
           });
         }
 
@@ -1011,7 +1002,6 @@ export default function ApprovalComposer({
       setRecipientEmail("");
       setCostDelta("");
       setScheduleDelta("");
-      setDueAt("");
 
       if (fileInputRef.current) fileInputRef.current.value = "";
 
@@ -1150,15 +1140,6 @@ export default function ApprovalComposer({
           }}
         />
 
-        <input
-          className="input"
-          type="datetime-local"
-          value={dueAt}
-          onChange={(e) => {
-            clearStatus();
-            setDueAt(e.target.value);
-          }}
-        />
 
         <div
           style={{

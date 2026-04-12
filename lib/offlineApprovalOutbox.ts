@@ -13,7 +13,7 @@ export type OfflineApprovalRecord = {
     recipientEmail: string;
     costDelta: number | null;
     scheduleDelta: string | null;
-    dueAt: string | null;
+    dueAt?: string | null;
     createdAt: number;
     updatedAt: number;
     createdTimezoneId: string | null;
