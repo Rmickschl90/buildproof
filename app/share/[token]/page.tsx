@@ -54,6 +54,8 @@ type Proof = {
   content: string;
   created_at: string;
   locked_at: string | null;
+  created_timezone_id?: string | null;
+  created_timezone_offset_minutes?: number | null;
 };
 
 type ApprovalAttachment = {
@@ -82,6 +84,8 @@ type Approval = {
   archived_at: string | null;
   recipient_name: string | null;
   recipient_email: string | null;
+  created_timezone_id?: string | null;
+  created_timezone_offset_minutes?: number | null;
   attachments?: ApprovalAttachment[] | null;
 };
 
@@ -102,9 +106,32 @@ type AttachmentView = AttachmentRow & {
 const ATTACHMENTS_BUCKET = "attachments";
 const SIGNED_URL_TTL_SECONDS = 60 * 60;
 
-function formatDate(iso: string) {
+function formatDate(
+  iso: string,
+  timezoneOffsetMinutes?: number | null
+) {
   try {
-    return new Date(iso).toLocaleString();
+    const utc = new Date(iso);
+
+    if (
+      typeof timezoneOffsetMinutes === "number" &&
+      !Number.isNaN(timezoneOffsetMinutes)
+    ) {
+      const wallClock = new Date(
+        utc.getTime() - timezoneOffsetMinutes * 60000
+      );
+
+      return wallClock.toLocaleString("en-US", {
+        timeZone: "UTC",
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    }
+
+    return utc.toLocaleString();
   } catch {
     return iso;
   }
@@ -254,7 +281,7 @@ export default async function SharePage(props: {
 
   let proofsQuery = supabaseServer
     .from(includeArchived ? "proofs" : "proofs_active")
-    .select("id,content,created_at,locked_at")
+    .select("id,content,created_at,locked_at,created_timezone_id,created_timezone_offset_minutes")
     .eq("project_id", projectId)
     .order("created_at", { ascending: false });
 
@@ -275,7 +302,7 @@ export default async function SharePage(props: {
 
   let approvalsQuery = supabaseServer
     .from("approval_requests")
-    .select(`
+        .select(`
       id,
       title,
       approval_type,
@@ -286,7 +313,9 @@ export default async function SharePage(props: {
       created_at,
       sent_at,
       responded_at,
-      archived_at
+      archived_at,
+      created_timezone_id,
+      created_timezone_offset_minutes
     `)
     .eq("project_id", projectId)
     .order("created_at", { ascending: false });
@@ -927,14 +956,47 @@ export default async function SharePage(props: {
           <div className="heroPills">
             <div className="heroPill">Created {createdAt || "—"}</div>
             <div className="heroPill">
-              Last updated {formatDate(
+                            Last updated {formatDate(
                 [
-                  proofs[0]?.created_at,
-                  approvals[0]?.created_at,
-                  approvals[0]?.responded_at,
+                  {
+                    iso: proofs[0]?.created_at,
+                    offset: proofs[0]?.created_timezone_offset_minutes,
+                  },
+                  {
+                    iso: approvals[0]?.created_at,
+                    offset: approvals[0]?.created_timezone_offset_minutes,
+                  },
+                  {
+                    iso: approvals[0]?.responded_at,
+                    offset: approvals[0]?.created_timezone_offset_minutes,
+                  },
                 ]
-                  .filter(Boolean)
-                  .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || project.created_at
+                  .filter((item) => !!item.iso)
+                  .sort(
+                    (a, b) =>
+                      new Date(String(b.iso)).getTime() -
+                      new Date(String(a.iso)).getTime()
+                  )[0]?.iso || project.created_at,
+                [
+                  {
+                    iso: proofs[0]?.created_at,
+                    offset: proofs[0]?.created_timezone_offset_minutes,
+                  },
+                  {
+                    iso: approvals[0]?.created_at,
+                    offset: approvals[0]?.created_timezone_offset_minutes,
+                  },
+                  {
+                    iso: approvals[0]?.responded_at,
+                    offset: approvals[0]?.created_timezone_offset_minutes,
+                  },
+                ]
+                  .filter((item) => !!item.iso)
+                  .sort(
+                    (a, b) =>
+                      new Date(String(b.iso)).getTime() -
+                      new Date(String(a.iso)).getTime()
+                  )[0]?.offset
               )}
             </div>
             <div className="heroPill">{list.length} entries</div>
@@ -996,8 +1058,11 @@ export default async function SharePage(props: {
                     <div className="entryBody">
                       <div className="entryTop">
                         <div className="entryDate">
-                          {approval.sent_at || approval.created_at
-                            ? formatDate(approval.sent_at || approval.created_at)
+                                                    {approval.sent_at || approval.created_at
+                            ? formatDate(
+                                approval.sent_at || approval.created_at,
+                                approval.created_timezone_offset_minutes
+                              )
                             : ""}
                         </div>
 
@@ -1090,7 +1155,10 @@ export default async function SharePage(props: {
                               marginTop: 6,
                             }}
                           >
-                            Responded: {formatDate(approval.responded_at)}
+                                                        Responded: {formatDate(
+                              approval.responded_at,
+                              approval.created_timezone_offset_minutes
+                            )}
                           </div>
                         ) : null}
                       </div>
@@ -1111,11 +1179,22 @@ export default async function SharePage(props: {
                   <div className="entryBody">
                     <div className="entryTop">
                       <div className="entryDate">
-                        {entry.created_at ? formatDate(entry.created_at) : ""}
+                                                {entry.created_at
+                          ? formatDate(
+                              entry.created_at,
+                              entry.created_timezone_offset_minutes
+                            )
+                          : ""}
                       </div>
 
                       {entry.locked_at ? (
-                        <div className="badgeFinal" title={`Finalized ${formatDate(entry.locked_at)}`}>
+                                                <div
+                          className="badgeFinal"
+                          title={`Finalized ${formatDate(
+                            entry.locked_at,
+                            entry.created_timezone_offset_minutes
+                          )}`}
+                        >
                           ✅ Finalized
                         </div>
                       ) : (
