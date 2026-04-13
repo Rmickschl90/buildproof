@@ -579,11 +579,27 @@ export default function DashboardPage() {
       void refreshOfflineApprovals(selectedProject.id);
     }
 
+    async function handleSendComplete() {
+      if (!selectedProject?.id) return;
+
+      setIsSendMode(false);
+      setSendCloseSignal((k) => k + 1);
+      setShowDeliveryHistory(true);
+
+      if (!navigator.onLine) return;
+
+      await loadProofs(selectedProject.id, showArchivedEntries);
+      await loadApprovals(selectedProject.id, showArchivedEntries);
+      await refreshOfflineProofs(selectedProject.id);
+      await refreshOfflineApprovals(selectedProject.id);
+    }
+
     window.addEventListener("buildproof-data-changed", handleBuildProofDataChanged);
     window.addEventListener(
       "buildproof-offline-approval-sync-complete",
       handleOfflineApprovalSyncComplete as EventListener
     );
+    window.addEventListener("buildproof-send-complete", handleSendComplete);
 
     return () => {
       window.removeEventListener("buildproof-data-changed", handleBuildProofDataChanged);
@@ -591,6 +607,7 @@ export default function DashboardPage() {
         "buildproof-offline-approval-sync-complete",
         handleOfflineApprovalSyncComplete as EventListener
       );
+      window.removeEventListener("buildproof-send-complete", handleSendComplete);
     };
   }, [selectedProject?.id, showArchivedEntries]);
 
