@@ -2611,7 +2611,10 @@ export default function DashboardPage() {
                       clientName={selectedProject.client_name ?? undefined}
                       clientEmail={selectedProject.client_email ?? undefined}
                       clientPhone={selectedProject.client_phone ?? undefined}
-                      entryCount={proofs.filter((p) => !p.locked_at && !p.deleted_at).length}
+                      entryCount={
+                        proofs.filter((p) => !p.locked_at && !p.deleted_at).length +
+                        offlineProofs.length
+                      }
                       archivedEntryCount={proofs.filter((p) => !!p.deleted_at).length}
                       onSendSuccess={async () => {
                         finishOnboarding();
