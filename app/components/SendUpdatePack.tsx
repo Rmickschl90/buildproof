@@ -692,10 +692,33 @@ export default function SendUpdatePack({
       return;
     }
 
+    const isOffline =
+      typeof navigator !== "undefined" && !navigator.onLine;
+
     try {
       setSending(true);
 
-      // 🔴 STEP 2 FIX: check for existing active job BEFORE creating new one
+      // ✅ HANDLE OFFLINE FIRST (no fetch calls)
+      if (isOffline) {
+        const idempotencyKey = createSendIdempotencyKey();
+
+        await createOfflineSendRecord({
+          projectId,
+          toEmail: officialEmail,
+          includeArchived,
+          idempotencyKey,
+        });
+
+        setUiStatus(
+          "queued_offline",
+          "Update saved — will send automatically when connection returns."
+        );
+
+        setSending(false);
+        return;
+      }
+
+      // 🔴 ONLY NOW do we touch network
       const token = await getAccessToken();
 
       const activeRes = await fetch(`/api/send/active-job?projectId=${projectId}`, {
