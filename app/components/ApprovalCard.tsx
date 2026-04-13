@@ -2,6 +2,12 @@
 
 import { useRef, useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import {
+  createApprovalSendIdempotencyKey,
+  createOfflineApprovalSendId,
+  hasPendingOfflineApprovalSend,
+  putOfflineApprovalSend,
+} from "@/lib/offlineApprovalSendOutbox";
 
 type ApprovalStatus = "draft" | "pending" | "approved" | "declined" | "expired";
 
@@ -27,6 +33,7 @@ type Approval = {
   schedule_delta: string | null;
   recipient_name: string | null;
   recipient_email: string;
+  project_id: string;
   created_timezone_id?: string | null;
   created_timezone_offset_minutes?: number | null;
   attachments?: ApprovalAttachment[];
@@ -168,8 +175,51 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
     };
   }, [menuOpen]);
 
+  async function queueApprovalSendOffline() {
+    const alreadyQueued = await hasPendingOfflineApprovalSend({
+      approvalId: approval.id,
+      offlineApprovalId: null,
+    });
+
+    if (alreadyQueued) {
+      alert("Approval already queued — will send when connected.");
+      setMenuOpen(false);
+      return;
+    }
+
+    const now = new Date().toISOString();
+
+    await putOfflineApprovalSend({
+      id: createOfflineApprovalSendId(),
+      approvalId: approval.id,
+      offlineApprovalId: null,
+      projectId: approval.project_id,
+      expectedAttachmentCount: approval.attachments?.length || 0,
+      createdAt: now,
+      updatedAt: now,
+      status: "pending",
+      syncAttemptCount: 0,
+      lastSyncAttemptAt: null,
+      lastError: null,
+      sendIdempotencyKey: createApprovalSendIdempotencyKey(),
+    });
+
+    window.dispatchEvent(new CustomEvent("buildproof-data-changed"));
+    alert("Approval queued — will send when connected.");
+    setMenuOpen(false);
+    await onUpdated?.();
+  }
+
   async function sendApproval() {
     try {
+      const isOffline =
+        typeof navigator !== "undefined" && !navigator.onLine;
+
+      if (isOffline) {
+        await queueApprovalSendOffline();
+        return;
+      }
+
       const { data, error } = await supabase.auth.getSession();
       if (error) throw error;
 
@@ -184,20 +234,44 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
         },
         body: JSON.stringify({
           approvalId: approval.id,
+          idempotencyKey: createApprovalSendIdempotencyKey(),
+          expectedAttachmentCount: approval.attachments?.length || 0,
         }),
       });
 
       const json = await res.json();
 
       if (!res.ok) {
-        alert(json?.error || "Send failed.");
+        const message = String(json?.error || "Send failed.");
+        const looksOffline =
+          message.toLowerCase().includes("failed to fetch") ||
+          message.toLowerCase().includes("network") ||
+          message.toLowerCase().includes("fetch");
+
+        if (looksOffline) {
+          await queueApprovalSendOffline();
+          return;
+        }
+
+        alert(message);
         return;
       }
 
       setMenuOpen(false);
       await onUpdated?.();
     } catch (err: any) {
-      alert(err?.message || "Send failed.");
+      const message = String(err?.message || "Send failed.");
+      const looksOffline =
+        message.toLowerCase().includes("failed to fetch") ||
+        message.toLowerCase().includes("network") ||
+        message.toLowerCase().includes("fetch");
+
+      if (looksOffline) {
+        await queueApprovalSendOffline();
+        return;
+      }
+
+      alert(message);
     }
   }
 
