@@ -312,15 +312,41 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    if (!selectedProject) return;
+  if (!selectedProject) return;
 
-    saveCachedDashboardProject({
-      project: selectedProject,
-      proofs,
-      approvals,
-      cachedAt: new Date().toISOString(),
-    });
-  }, [selectedProject, proofs, approvals]);
+  const existingCached = loadCachedDashboardProject(selectedProject.id);
+
+  const isOnlineServerProject =
+    typeof navigator !== "undefined" &&
+    navigator.onLine &&
+    !selectedProject.id.startsWith("offline-project-");
+
+  const nextProofs = proofs;
+  const nextApprovals = approvals;
+
+  const wouldWriteEmptySnapshot =
+    isOnlineServerProject &&
+    nextProofs.length === 0 &&
+    nextApprovals.length === 0;
+
+  const existingHasData =
+    !!existingCached &&
+    (
+      (existingCached.proofs?.length ?? 0) > 0 ||
+      (existingCached.approvals?.length ?? 0) > 0
+    );
+
+  if (wouldWriteEmptySnapshot && existingHasData) {
+    return;
+  }
+
+  saveCachedDashboardProject({
+    project: selectedProject,
+    proofs: nextProofs,
+    approvals: nextApprovals,
+    cachedAt: new Date().toISOString(),
+  });
+}, [selectedProject, proofs, approvals]);
 
   useEffect(() => {
     const existing = JSON.parse(
