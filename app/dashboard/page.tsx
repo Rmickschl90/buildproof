@@ -491,7 +491,7 @@ export default function DashboardPage() {
     };
   }, []);
 
-    useEffect(() => {
+  useEffect(() => {
     if (!isBrowserOnline) return;
     if (!selectedProject?.id) return;
 
@@ -532,6 +532,12 @@ export default function DashboardPage() {
 
       await flushOfflineAttachmentOutbox(getAccessToken);
       await flushOfflineApprovalOutbox(getAccessToken);
+
+      const { flushOfflineApprovalAttachmentOutbox } = await import(
+        "@/lib/offlineApprovalAttachmentFlush"
+      );
+
+      await flushOfflineApprovalAttachmentOutbox(getAccessToken);
 
       // 🔄 reload everything
       if (!currentProjectId.startsWith("offline-project-")) {
