@@ -240,7 +240,6 @@ export default function DashboardPage() {
   const [workingProofId, setWorkingProofId] = useState<number | string | null>(null);
   const [openProofId, setOpenProofId] = useState<string | number | null>(null);
   const [attachmentsRefreshKey, setAttachmentsRefreshKey] = useState(0);
-  const [approvalAttachmentsRefreshKey, setApprovalAttachmentsRefreshKey] = useState(0);
 
   const [showArchivedEntries, setShowArchivedEntries] = useState(false);
 
@@ -595,7 +594,6 @@ export default function DashboardPage() {
   useEffect(() => {
     function handleBuildProofDataChanged() {
       void refreshOfflineProjects();
-      setApprovalAttachmentsRefreshKey((k) => k + 1);
 
       if (!selectedProject?.id) return;
 
@@ -2180,8 +2178,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [approvals, offlineApprovals, approvalAttachmentsRefreshKey]);
-
+}, [approvals, offlineApprovals]);
   const draftApprovals = useMemo(() => {
     return visibleApprovals.filter(
       (a) => a.status === "draft" || a.status === "pending"
