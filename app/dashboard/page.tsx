@@ -15,10 +15,12 @@ import ApprovalCard from "../components/ApprovalCard";
 import {
   createOfflineProof,
   listOfflineProofsForProject,
+  remapOfflineProofProjectId,
   type OfflineProofRecord,
 } from "@/lib/offlineProofOutbox";
 import {
   listOfflineApprovalsForProject,
+  remapOfflineApprovalProjectId,
   type OfflineApprovalRecord,
 } from "@/lib/offlineApprovalOutbox";
 import {
@@ -488,19 +490,26 @@ export default function DashboardPage() {
     };
   }, []);
 
-  useEffect(() => {
+    useEffect(() => {
     if (!isBrowserOnline) return;
     if (!selectedProject?.id) return;
 
     void (async () => {
-      await refreshOfflineProofs(selectedProject.id);
+      await syncOfflineProjects();
+
+      const currentProjectId =
+        selectedProject.id.startsWith("offline-project-")
+          ? getLastOpenProjectId() || selectedProject.id
+          : selectedProject.id;
+
+      await refreshOfflineProofs(currentProjectId);
 
       setProofStatus("Connection restored — syncing offline entries...");
 
       // 🔥 proofs
       await flushOfflineProofs();
 
-      // 🔥 attachments (NEW)
+      // 🔥 attachments
       const { flushOfflineAttachmentOutbox } = await import(
         "@/lib/offlineAttachmentFlush"
       );
@@ -518,8 +527,13 @@ export default function DashboardPage() {
       await flushOfflineAttachmentOutbox(getAccessToken);
 
       // 🔄 reload everything
-      await loadProofs(selectedProject.id, showArchivedEntries);
-      await refreshOfflineProofs(selectedProject.id);
+      if (!currentProjectId.startsWith("offline-project-")) {
+        await loadProofs(currentProjectId, showArchivedEntries);
+        await loadApprovals(currentProjectId, showArchivedEntries);
+      }
+
+      await refreshOfflineProofs(currentProjectId);
+      await refreshOfflineApprovals(currentProjectId);
     })();
   }, [isBrowserOnline, selectedProject?.id]);
 
@@ -913,6 +927,63 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("Failed to load offline projects", error);
       setOfflineProjects([]);
+    }
+  }
+
+    async function syncOfflineProjects() {
+    if (!navigator.onLine || !userId) return;
+
+    try {
+      const records = await getAllOfflineProjects();
+      const pendingProjects = records.filter((p) => p.status === "pending");
+
+      for (const record of pendingProjects) {
+        const { data, error } = await supabase
+          .from("projects")
+          .insert({
+            title: record.name,
+            user_id: userId,
+            client_name: record.clientName,
+            client_email: record.clientEmail,
+            client_phone: record.clientPhone,
+          })
+          .select("id,title,user_id,client_name,client_email,client_phone,project_address,archived_at,created_at")
+          .single();
+
+        if (error || !data?.id) {
+          console.error("Offline project sync failed", error);
+          continue;
+        }
+
+        await remapOfflineProofProjectId(record.id, data.id);
+        await remapOfflineApprovalProjectId(record.id, data.id);
+        await removeOfflineProject(record.id);
+
+        const syncedProject = data as Project;
+
+        if (selectedProject?.id === record.id) {
+          setSelectedProjectWithTrace(
+            syncedProject,
+            "offline project sync remap"
+          );
+          saveLastOpenProjectId(syncedProject.id);
+          cacheProjectSnapshot({
+            project: syncedProject,
+            proofs: [],
+            approvals: [],
+          });
+        }
+      }
+
+      await refreshOfflineProjects();
+      await loadActiveProjects(userId);
+
+      if (selectedProject?.id && !selectedProject.id.startsWith("offline-project-")) {
+        await loadProofs(selectedProject.id, showArchivedEntries);
+        await loadApprovals(selectedProject.id, showArchivedEntries);
+      }
+    } catch (error) {
+      console.error("Failed to sync offline projects", error);
     }
   }
 
