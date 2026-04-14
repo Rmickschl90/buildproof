@@ -457,12 +457,6 @@ export default function DashboardPage() {
           if (project) {
             setSelectedProjectWithTrace(project, "online boot restore from projectIdFromUrl");
 
-            cacheProjectSnapshot({
-              project,
-              proofs: [],
-              approvals: [],
-            });
-
             await loadProofs(project.id, false, project);
             await loadApprovals(project.id, false, project);
           }
@@ -2450,8 +2444,6 @@ export default function DashboardPage() {
                       } else {
                         // 🌐 ONLINE — normal behavior
                         setSelectedProjectWithTrace(p, "project list click online");
-
-                        cacheProjectSnapshot({ project: p, proofs: [], approvals: [] });
 
                         loadProofs(p.id, false, p);
                         loadApprovals(p.id, false, p);
