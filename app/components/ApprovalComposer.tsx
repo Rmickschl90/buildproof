@@ -808,6 +808,11 @@ export default function ApprovalComposer({
         return;
       }
 
+            if (!recipientEmail.trim()) {
+        setStatus("Add recipient email before saving approval.");
+        return;
+      }
+
       const saveOffline = async () => {
         let approvalId = draftApprovalIdRef.current;
 
@@ -905,6 +910,11 @@ export default function ApprovalComposer({
 
       if (!title.trim() || !description.trim()) {
         setStatus("Add title and description before sending approval.");
+        return;
+      }
+
+            if (!recipientEmail.trim()) {
+        setStatus("Add recipient email before sending approval.");
         return;
       }
 
