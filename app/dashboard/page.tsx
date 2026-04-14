@@ -2109,9 +2109,9 @@ export default function DashboardPage() {
       const normalizedOfflineApprovals = await Promise.all(
         offlineApprovals.map(async (a) => {
           const queuedAttachments = await getOfflineApprovalAttachmentsForApproval({
-            approvalId: a.id.startsWith("offline-") ? null : a.id,
-            offlineApprovalId: a.id.startsWith("offline-") ? a.id : null,
-          });
+  approvalId: a.id.startsWith("offline-") ? null : a.id,
+  offlineApprovalId: a.id.startsWith("offline-") ? a.id : null,
+});
 
           return {
             id: a.id,
