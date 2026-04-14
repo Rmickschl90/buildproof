@@ -887,56 +887,31 @@ export default function DashboardPage() {
 
   // ---------------- DATA LOADERS ----------------
   async function refreshOfflineProofs(projectId?: string | null) {
-    if (!projectId) {
-      setOfflineProofs([]);
-      return;
-    }
-
-    try {
-      const records = await listOfflineProofsForProject(projectId);
-
-      const serverContentSet = new Set(
-        proofs
-          .filter((p) => p.project_id === projectId)
-          .map((p) => (p.content || "").trim().toLowerCase())
-      );
-
-      const filtered = records.filter(
-        (record) => !serverContentSet.has((record.content || "").trim().toLowerCase())
-      );
-
-      setOfflineProofs(filtered);
-
-      if (!navigator.onLine) {
-        setProofs((current) => {
-          const existingIds = new Set(current.map((p) => String(p.id)));
-
-          const mappedOfflineProofs = filtered.map((record) => ({
-            id: record.id as any,
-            content: record.content,
-            created_at: record.createdAt,
-            project_id: record.projectId,
-            locked_at: null,
-            deleted_at: null,
-            deleted_by: null,
-            updated_at: record.updatedAt,
-            created_timezone_id: record.createdTimezoneId,
-            created_timezone_offset_minutes: record.createdTimezoneOffsetMinutes,
-          }));
-
-          const merged = [
-            ...mappedOfflineProofs.filter((p) => !existingIds.has(String(p.id))),
-            ...current,
-          ];
-
-          return merged;
-        });
-      }
-    } catch (error) {
-      console.error("Failed to load offline proofs", error);
-      setOfflineProofs([]);
-    }
+  if (!projectId) {
+    setOfflineProofs([]);
+    return;
   }
+
+  try {
+    const records = await listOfflineProofsForProject(projectId);
+
+    const serverContentSet = new Set(
+      proofs
+        .filter((p) => p.project_id === projectId)
+        .map((p) => (p.content || "").trim().toLowerCase())
+    );
+
+    const filtered = records.filter(
+      (record) =>
+        !serverContentSet.has((record.content || "").trim().toLowerCase())
+    );
+
+    setOfflineProofs(filtered);
+  } catch (error) {
+    console.error("Failed to load offline proofs", error);
+    setOfflineProofs([]);
+  }
+}
 
   async function refreshOfflineApprovals(projectId?: string | null) {
     if (!projectId) {
