@@ -71,11 +71,23 @@ export default function AttachmentList({ proofId, lockedAt }: Props) {
       .order("created_at", { ascending: false });
 
     if (error) {
-      // 🔥 CRITICAL: do NOT wipe attachments if offline
-      setError(error.message);
-      setLoading(false);
-      return;
-    }
+  const message = String(error.message || "").toLowerCase();
+
+  const looksOffline =
+    message.includes("failed to fetch") ||
+    message.includes("network") ||
+    message.includes("fetch");
+
+  // 🔥 CRITICAL: keep current attachments and suppress offline noise
+  if (looksOffline) {
+    setLoading(false);
+    return;
+  }
+
+  setError(error.message);
+  setLoading(false);
+  return;
+}
 
     setAttachments((data as Attachment[]) ?? []);
     setLoading(false);
