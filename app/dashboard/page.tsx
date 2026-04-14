@@ -971,16 +971,32 @@ export default function DashboardPage() {
 
         const syncedProject = data as Project;
 
-        if (selectedProject?.id === record.id) {
+                if (selectedProject?.id === record.id) {
           setSelectedProjectWithTrace(
             syncedProject,
             "offline project sync remap"
           );
           saveLastOpenProjectId(syncedProject.id);
+
+          saveRecentProject({
+            id: syncedProject.id,
+            title: syncedProject.title,
+            client_name: syncedProject.client_name ?? null,
+            client_email: syncedProject.client_email ?? null,
+            client_phone: syncedProject.client_phone ?? null,
+            project_address: syncedProject.project_address ?? null,
+          });
+
           cacheProjectSnapshot({
             project: syncedProject,
-            proofs: [],
-            approvals: [],
+            proofs: proofs.filter((p) => p.project_id === record.id).map((p) => ({
+              ...p,
+              project_id: syncedProject.id,
+            })),
+            approvals: approvals.filter((a) => a.project_id === record.id).map((a) => ({
+              ...a,
+              project_id: syncedProject.id,
+            })),
           });
         }
       }
