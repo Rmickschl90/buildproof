@@ -82,7 +82,7 @@ self.addEventListener("fetch", (event) => {
       return;
     }
 
-    event.respondWith(
+        event.respondWith(
       (async () => {
         const cached = await caches.match(request);
         if (cached) return cached;
@@ -93,7 +93,11 @@ self.addEventListener("fetch", (event) => {
           cache.put(request, response.clone());
           return response;
         } catch {
-          return cached;
+          return new Response("Offline", {
+            status: 503,
+            statusText: "Offline",
+            headers: { "Content-Type": "text/plain" },
+          });
         }
       })()
     );
