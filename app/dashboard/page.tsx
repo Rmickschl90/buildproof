@@ -221,6 +221,7 @@ export default function DashboardPage() {
     typeof navigator === "undefined" ? true : navigator.onLine
   );
   const isFlushingOfflineProofsRef = useRef(false);
+  const hasInitializedOnlineStateRef = useRef(false);
   const selectedProjectId = selectedProject ? selectedProject.id : null;
   const [editingApproval, setEditingApproval] = useState<any | null>(null);
 
@@ -493,6 +494,12 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    // 🚨 Prevent running on initial mount
+    if (!hasInitializedOnlineStateRef.current) {
+      hasInitializedOnlineStateRef.current = true;
+      return;
+    }
+
     if (!isBrowserOnline) return;
     if (!selectedProject?.id) return;
 
@@ -887,31 +894,31 @@ export default function DashboardPage() {
 
   // ---------------- DATA LOADERS ----------------
   async function refreshOfflineProofs(projectId?: string | null) {
-  if (!projectId) {
-    setOfflineProofs([]);
-    return;
+    if (!projectId) {
+      setOfflineProofs([]);
+      return;
+    }
+
+    try {
+      const records = await listOfflineProofsForProject(projectId);
+
+      const serverContentSet = new Set(
+        proofs
+          .filter((p) => p.project_id === projectId)
+          .map((p) => (p.content || "").trim().toLowerCase())
+      );
+
+      const filtered = records.filter(
+        (record) =>
+          !serverContentSet.has((record.content || "").trim().toLowerCase())
+      );
+
+      setOfflineProofs(filtered);
+    } catch (error) {
+      console.error("Failed to load offline proofs", error);
+      setOfflineProofs([]);
+    }
   }
-
-  try {
-    const records = await listOfflineProofsForProject(projectId);
-
-    const serverContentSet = new Set(
-      proofs
-        .filter((p) => p.project_id === projectId)
-        .map((p) => (p.content || "").trim().toLowerCase())
-    );
-
-    const filtered = records.filter(
-      (record) =>
-        !serverContentSet.has((record.content || "").trim().toLowerCase())
-    );
-
-    setOfflineProofs(filtered);
-  } catch (error) {
-    console.error("Failed to load offline proofs", error);
-    setOfflineProofs([]);
-  }
-}
 
   async function refreshOfflineApprovals(projectId?: string | null) {
     if (!projectId) {
@@ -971,7 +978,7 @@ export default function DashboardPage() {
 
         const syncedProject = data as Project;
 
-                if (selectedProject?.id === record.id) {
+        if (selectedProject?.id === record.id) {
           setSelectedProjectWithTrace(
             syncedProject,
             "offline project sync remap"
