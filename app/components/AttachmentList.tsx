@@ -2,7 +2,10 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
-
+import {
+  loadCachedAttachments,
+  saveCachedAttachments,
+} from "../../lib/offlineAttachmentCache";
 type Attachment = {
   id: string;
   proof_id: number;
@@ -57,27 +60,25 @@ function fileIcon(kind: string) {
 
 export default function AttachmentList({ proofId, lockedAt }: Props) {
   const [loading, setLoading] = useState(true);
-  const [attachments, setAttachments] = useState<Attachment[]>(() => {
-    if (typeof window === "undefined") return [];
-
-    try {
-      const raw = window.localStorage.getItem(getAttachmentCacheKey(proofId));
-      if (!raw) return [];
-      return JSON.parse(raw) as Attachment[];
-    } catch {
-      return [];
-    }
-  });
-  const [error, setError] = useState("");
-  const [busyId, setBusyId] = useState("");
-  const [isMobile, setIsMobile] = useState(false);
+const [attachments, setAttachments] = useState<Attachment[]>(() =>
+  loadCachedAttachments(proofId) as Attachment[]
+);
+const [error, setError] = useState("");
+const [busyId, setBusyId] = useState("");
+const [isMobile, setIsMobile] = useState(false);
 
   const isLocked = !!lockedAt;
 
-  async function load() {
+    async function load() {
     setError("");
 
-    const hasCachedAttachments = attachments.length > 0;
+    const cached = loadCachedAttachments(proofId) as Attachment[];
+    const hasCachedAttachments = cached.length > 0;
+
+    if (hasCachedAttachments) {
+      setAttachments(cached);
+    }
+
     setLoading(!hasCachedAttachments);
 
     const { data, error } = await supabase
@@ -94,7 +95,6 @@ export default function AttachmentList({ proofId, lockedAt }: Props) {
         message.includes("network") ||
         message.includes("fetch");
 
-      // 🔥 CRITICAL: keep current attachments and suppress offline noise
       if (looksOffline) {
         setLoading(false);
         return;
@@ -107,16 +107,7 @@ export default function AttachmentList({ proofId, lockedAt }: Props) {
 
     const nextAttachments = (data as Attachment[]) ?? [];
     setAttachments(nextAttachments);
-
-    if (typeof window !== "undefined") {
-      try {
-        window.localStorage.setItem(
-          getAttachmentCacheKey(proofId),
-          JSON.stringify(nextAttachments)
-        );
-      } catch { }
-    }
-
+    saveCachedAttachments(proofId, nextAttachments);
     setLoading(false);
   }
 
