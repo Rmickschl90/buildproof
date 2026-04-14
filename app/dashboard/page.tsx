@@ -2842,7 +2842,7 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {isApprovalMode && (
+                            {isApprovalMode && (
                 <ApprovalComposer
                   projectId={selectedProject.id}
                   initialApproval={editingApproval}
@@ -2850,7 +2850,14 @@ export default function DashboardPage() {
                     window.localStorage.removeItem(`approval-draft:${selectedProject.id}`);
                     setIsApprovalMode(false);
                     setEditingApproval(null);
+
+                    if (!navigator.onLine) {
+                      await refreshOfflineApprovals(selectedProject.id);
+                      return;
+                    }
+
                     await loadApprovals(selectedProject.id);
+                    await refreshOfflineApprovals(selectedProject.id);
                   }}
                 />
               )}
