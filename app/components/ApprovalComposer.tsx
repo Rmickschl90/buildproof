@@ -861,12 +861,19 @@ export default function ApprovalComposer({
 
       setStatus("Saving draft...");
 
-      try {
+            try {
         const isOffline =
           typeof navigator !== "undefined" && !navigator.onLine;
 
-        if (isOffline) {
+        const missingRecipientEmail = !recipientEmail.trim();
+
+        if (isOffline || missingRecipientEmail) {
           await saveOffline();
+
+          if (missingRecipientEmail) {
+            setStatus("Draft saved locally — add recipient email before syncing or sending.");
+          }
+
           return;
         }
 
