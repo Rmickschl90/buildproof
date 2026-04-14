@@ -206,7 +206,7 @@ export default function DashboardPage() {
     const cached = getInitialCachedProjectSnapshot();
     return cached?.proofs ?? [];
   });
-    const [approvals, setApprovals] = useState<Approval[]>(() => {
+  const [approvals, setApprovals] = useState<Approval[]>(() => {
     const cached = getInitialCachedProjectSnapshot();
     return cached?.approvals ?? [];
   });
@@ -349,7 +349,7 @@ export default function DashboardPage() {
         const projectIdFromUrl = new URLSearchParams(window.location.search).get("project");
         const restoreProjectId = projectIdFromUrl || getLastOpenProjectId();
 
-                if (isOffline()) {
+        if (isOffline()) {
           console.log("🧱 OFFLINE BOOT PATH");
 
           await refreshOfflineProjects();
@@ -438,6 +438,7 @@ export default function DashboardPage() {
         setUserId(data.user.id);
         setUserEmail(data.user.email ?? null);
 
+        await refreshOfflineProjects();
         await flushOfflineProofs();
         await loadActiveProjects(data.user.id);
 
@@ -564,7 +565,7 @@ export default function DashboardPage() {
 
 
   useEffect(() => {
-        function handleBuildProofDataChanged() {
+    function handleBuildProofDataChanged() {
       void refreshOfflineProjects();
 
       if (!selectedProject?.id) return;
@@ -905,7 +906,7 @@ export default function DashboardPage() {
     }
   }
 
-    async function refreshOfflineProjects() {
+  async function refreshOfflineProjects() {
     try {
       const records = await getAllOfflineProjects();
       setOfflineProjects(records);
@@ -1012,7 +1013,7 @@ export default function DashboardPage() {
     setStatus("");
   }
 
-    async function loadProofs(
+  async function loadProofs(
     projectId: string,
     includeArchived = showArchivedEntries,
     projectOverride?: Project
@@ -1059,7 +1060,7 @@ export default function DashboardPage() {
     setProofStatus("");
   }
 
-    async function loadApprovals(
+  async function loadApprovals(
     projectId: string,
     includeArchived = showArchivedEntries,
     projectOverride?: Project
@@ -1126,7 +1127,7 @@ export default function DashboardPage() {
   }
 
   // ---------------- PROJECT CRUD ----------------
-    async function addProject() {
+  async function addProject() {
     const title = newProjectTitle.trim();
     if (!title) return;
 
@@ -1936,7 +1937,7 @@ export default function DashboardPage() {
     return bits.length ? bits.join(" • ") : "No client saved";
   }, [selectedProject]);
 
-    const filteredProjects = useMemo<Project[]>(() => {
+  const filteredProjects = useMemo<Project[]>(() => {
     const q = cleanText(projectSearch);
 
     const normalizedOfflineProjects: Project[] = offlineProjects.map((p) => ({
