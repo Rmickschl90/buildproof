@@ -21,6 +21,13 @@ import {
   listOfflineApprovalsForProject,
   type OfflineApprovalRecord,
 } from "@/lib/offlineApprovalOutbox";
+import {
+  createOfflineProjectId,
+  getAllOfflineProjects,
+  putOfflineProject,
+  removeOfflineProject,
+  type OfflineProjectRecord,
+} from "@/lib/offlineProjectOutbox";
 import { getOfflineApprovalAttachmentsForApproval } from "@/lib/offlineApprovalAttachmentOutbox";
 import OfflineAttachmentBootstrap from "../components/OfflineAttachmentBootstrap";
 import {
@@ -199,10 +206,11 @@ export default function DashboardPage() {
     const cached = getInitialCachedProjectSnapshot();
     return cached?.proofs ?? [];
   });
-  const [approvals, setApprovals] = useState<Approval[]>(() => {
+    const [approvals, setApprovals] = useState<Approval[]>(() => {
     const cached = getInitialCachedProjectSnapshot();
     return cached?.approvals ?? [];
   });
+  const [offlineProjects, setOfflineProjects] = useState<OfflineProjectRecord[]>([]);
   const [offlineApprovals, setOfflineApprovals] = useState<OfflineApprovalRecord[]>([]);
   const [offlineProofs, setOfflineProofs] = useState<OfflineProofRecord[]>([]);
   const [isBrowserOnline, setIsBrowserOnline] = useState(
@@ -341,8 +349,10 @@ export default function DashboardPage() {
         const projectIdFromUrl = new URLSearchParams(window.location.search).get("project");
         const restoreProjectId = projectIdFromUrl || getLastOpenProjectId();
 
-        if (isOffline()) {
+                if (isOffline()) {
           console.log("🧱 OFFLINE BOOT PATH");
+
+          await refreshOfflineProjects();
 
           // 🔍 DEBUG — confirm recent projects cache
           const recent = getRecentProjects();
@@ -554,7 +564,9 @@ export default function DashboardPage() {
 
 
   useEffect(() => {
-    function handleBuildProofDataChanged() {
+        function handleBuildProofDataChanged() {
+      void refreshOfflineProjects();
+
       if (!selectedProject?.id) return;
 
       if (!navigator.onLine) {
@@ -893,6 +905,16 @@ export default function DashboardPage() {
     }
   }
 
+    async function refreshOfflineProjects() {
+    try {
+      const records = await getAllOfflineProjects();
+      setOfflineProjects(records);
+    } catch (error) {
+      console.error("Failed to load offline projects", error);
+      setOfflineProjects([]);
+    }
+  }
+
   async function flushOfflineProofs() {
     if (isFlushingOfflineProofsRef.current) return;
     isFlushingOfflineProofsRef.current = true;
@@ -1096,13 +1118,86 @@ export default function DashboardPage() {
   }
 
   // ---------------- PROJECT CRUD ----------------
-  async function addProject() {
-    if (!newProjectTitle.trim() || !userId) return;
+    async function addProject() {
+    const title = newProjectTitle.trim();
+    if (!title) return;
+
+    if (!navigator.onLine) {
+      try {
+        const offlineProjectId = createOfflineProjectId();
+        const now = new Date().toISOString();
+
+        await putOfflineProject({
+          id: offlineProjectId,
+          name: title,
+          clientName: null,
+          clientEmail: null,
+          clientPhone: null,
+          createdAt: now,
+          updatedAt: now,
+          status: "pending",
+          syncAttemptCount: 0,
+          lastSyncAttemptAt: null,
+          lastError: null,
+        });
+
+        await refreshOfflineProjects();
+
+        const offlineProject: Project = {
+          id: offlineProjectId,
+          title,
+          user_id: userId || "offline-user",
+          client_name: null,
+          client_email: null,
+          client_phone: null,
+          project_address: null,
+          archived_at: null,
+          created_at: now,
+        };
+
+        saveRecentProject({
+          id: offlineProject.id,
+          title: offlineProject.title,
+          client_name: null,
+          client_email: null,
+          client_phone: null,
+          project_address: null,
+        });
+
+        setSelectedProjectWithTrace(offlineProject, "offline project create");
+        saveLastOpenProjectId(offlineProject.id);
+        cacheProjectSnapshot({
+          project: offlineProject,
+          proofs: [],
+          approvals: [],
+        });
+
+        setProjects((current) => {
+          if (current.some((p) => p.id === offlineProject.id)) return current;
+          return [offlineProject, ...current];
+        });
+
+        setProofs([]);
+        setApprovals([]);
+        setOfflineProofs([]);
+        setOfflineApprovals([]);
+        setNewProjectTitle("");
+        setStatus("Project saved offline ✅ — will sync when connected.");
+        scrollBackToOnboarding(500);
+        window.dispatchEvent(new CustomEvent("buildproof-data-changed"));
+        return;
+      } catch (e: any) {
+        setStatus(e?.message || "Offline project save failed");
+        return;
+      }
+    }
+
+    if (!userId) return;
 
     setStatus("Saving project...");
 
     const { error } = await supabase.from("projects").insert({
-      title: newProjectTitle.trim(),
+      title,
       user_id: userId,
     });
 
@@ -1833,9 +1928,27 @@ export default function DashboardPage() {
     return bits.length ? bits.join(" • ") : "No client saved";
   }, [selectedProject]);
 
-  const filteredProjects = useMemo<Project[]>(() => {
+    const filteredProjects = useMemo<Project[]>(() => {
     const q = cleanText(projectSearch);
-    let list: Project[] = [...projects];
+
+    const normalizedOfflineProjects: Project[] = offlineProjects.map((p) => ({
+      id: p.id,
+      title: p.name,
+      user_id: userId || "offline-user",
+      client_name: p.clientName,
+      client_email: p.clientEmail,
+      client_phone: p.clientPhone,
+      project_address: null,
+      archived_at: null,
+      created_at: p.createdAt,
+    }));
+
+    const serverIdSet = new Set(projects.map((p) => p.id));
+
+    let list: Project[] = [
+      ...projects,
+      ...normalizedOfflineProjects.filter((p) => !serverIdSet.has(p.id)),
+    ];
 
     if (q) {
       list = list.filter((p) => {
@@ -1855,7 +1968,7 @@ export default function DashboardPage() {
     }
 
     return list;
-  }, [projects, projectSearch, projectSortMode]);
+  }, [projects, offlineProjects, projectSearch, projectSortMode, userId]);
 
   const filteredProofs = useMemo<TimelineProof[]>(() => {
     const serverContentSet = new Set(
