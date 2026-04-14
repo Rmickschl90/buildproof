@@ -611,57 +611,31 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
                   Attachments
                 </div>
 
-                {approval.attachments.map((attachment: any) => {
-                  if (attachment.isOffline) {
-                    return (
-                      <div
-                        key={attachment.id}
-                        style={{
-                          display: "block",
-                          padding: "6px 8px",
-                          borderRadius: 8,
-                          color: "#475569",
-                          fontWeight: 600,
-                          fontSize: 13,
-                          background: "rgba(100,116,139,0.10)",
-                          overflowWrap: "anywhere",
-                          wordBreak: "break-word",
-                          whiteSpace: "normal",
-                          minWidth: 0,
-                          maxWidth: "100%",
-                        }}
-                      >
-                        {attachment.filename || "Attachment"} (offline)
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <a
-                      key={attachment.id}
-                      href={`/api/attachments/open?id=${attachment.id}&kind=approval`}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{
-                        display: "block",
-                        padding: "6px 8px",
-                        borderRadius: 8,
-                        textDecoration: "none",
-                        color: "#1d4ed8",
-                        fontWeight: 600,
-                        fontSize: 13,
-                        background: "rgba(37,99,235,0.06)",
-                        overflowWrap: "anywhere",
-                        wordBreak: "break-word",
-                        whiteSpace: "normal",
-                        minWidth: 0,
-                        maxWidth: "100%",
-                      }}
-                    >
-                      {attachment.filename || "Attachment"}
-                    </a>
-                  );
-                })}F
+                {approval.attachments.map((attachment) => (
+                  <a
+                    key={attachment.id}
+                    href={`/api/attachments/open?id=${attachment.id}&kind=approval`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: "block",
+                      padding: "6px 8px",
+                      borderRadius: 8,
+                      textDecoration: "none",
+                      color: "#1d4ed8",
+                      fontWeight: 600,
+                      fontSize: 13,
+                      background: "rgba(37,99,235,0.06)",
+                      overflowWrap: "anywhere",
+                      wordBreak: "break-word",
+                      whiteSpace: "normal",
+                      minWidth: 0,
+                      maxWidth: "100%",
+                    }}
+                  >
+                    {attachment.filename || "Attachment"}
+                  </a>
+                ))}
               </div>
             ) : null}
           </>
