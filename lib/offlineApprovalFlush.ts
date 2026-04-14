@@ -33,9 +33,17 @@ export async function flushOfflineApprovalOutbox(
           continue;
         }
 
-        const token = await getAccessToken();
-
         const isNewOfflineApproval = record.id.startsWith("offline-");
+
+        const isIncompleteDraft =
+          isNewOfflineApproval &&
+          (!record.recipientEmail || !record.recipientEmail.trim());
+
+        if (isIncompleteDraft) {
+          continue;
+        }
+
+        const token = await getAccessToken();
 
         const endpoint = isNewOfflineApproval
           ? "/api/approvals/create"
@@ -43,27 +51,27 @@ export async function flushOfflineApprovalOutbox(
 
         const body = isNewOfflineApproval
           ? {
-              projectId: record.projectId,
-              title: record.title,
-              approvalType: record.approvalType,
-              description: record.description,
-              recipientName: record.recipientName,
-              recipientEmail: record.recipientEmail,
-              costDelta: record.costDelta,
-              scheduleDelta: record.scheduleDelta,
-              dueAt: record.dueAt,
-            }
+            projectId: record.projectId,
+            title: record.title,
+            approvalType: record.approvalType,
+            description: record.description,
+            recipientName: record.recipientName,
+            recipientEmail: record.recipientEmail,
+            costDelta: record.costDelta,
+            scheduleDelta: record.scheduleDelta,
+            dueAt: record.dueAt,
+          }
           : {
-              approvalId: record.id,
-              title: record.title,
-              approvalType: record.approvalType,
-              description: record.description,
-              recipientName: record.recipientName,
-              recipientEmail: record.recipientEmail,
-              costDelta: record.costDelta,
-              scheduleDelta: record.scheduleDelta,
-              dueAt: record.dueAt,
-            };
+            approvalId: record.id,
+            title: record.title,
+            approvalType: record.approvalType,
+            description: record.description,
+            recipientName: record.recipientName,
+            recipientEmail: record.recipientEmail,
+            costDelta: record.costDelta,
+            scheduleDelta: record.scheduleDelta,
+            dueAt: record.dueAt,
+          };
 
         const res = await fetch(endpoint, {
           method: "POST",
