@@ -70,7 +70,13 @@ export default function AttachmentList({ proofId, lockedAt }: Props) {
       .eq("proof_id", proofId)
       .order("created_at", { ascending: false });
 
-    if (error) setError(error.message);
+    if (error) {
+      // 🔥 CRITICAL: do NOT wipe attachments if offline
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
+
     setAttachments((data as Attachment[]) ?? []);
     setLoading(false);
   }
