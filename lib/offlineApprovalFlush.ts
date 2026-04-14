@@ -26,14 +26,9 @@ export async function flushOfflineApprovalOutbox(
   try {
     const records = await getPendingOfflineApprovals();
 
-    for (const record of records) {
+       for (const record of records) {
       try {
-        const claimed = await claimPendingOfflineApproval(record.id);
-        if (!claimed) {
-          continue;
-        }
-
-                const isNewOfflineApproval = record.id.startsWith("offline-");
+        const isNewOfflineApproval = record.id.startsWith("offline-");
 
         const isIncompleteDraft =
           isNewOfflineApproval &&
@@ -44,6 +39,11 @@ export async function flushOfflineApprovalOutbox(
           record.projectId.startsWith("offline-project-");
 
         if (isIncompleteDraft || isStillOnOfflineProject) {
+          continue;
+        }
+
+        const claimed = await claimPendingOfflineApproval(record.id);
+        if (!claimed) {
           continue;
         }
 
