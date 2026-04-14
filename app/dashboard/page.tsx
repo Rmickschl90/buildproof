@@ -491,7 +491,7 @@ export default function DashboardPage() {
     };
   }, []);
 
-  useEffect(() => {
+    useEffect(() => {
     if (!isBrowserOnline) return;
     if (!selectedProject?.id) return;
 
@@ -504,8 +504,13 @@ export default function DashboardPage() {
           : selectedProject.id;
 
       await refreshOfflineProofs(currentProjectId);
+      await refreshOfflineApprovals(currentProjectId);
 
       setProofStatus("Connection restored — syncing offline entries...");
+
+      const { flushOfflineApprovalOutbox } = await import(
+        "@/lib/offlineApprovalFlush"
+      );
 
       // 🔥 proofs
       await flushOfflineProofs();
@@ -526,6 +531,7 @@ export default function DashboardPage() {
       };
 
       await flushOfflineAttachmentOutbox(getAccessToken);
+      await flushOfflineApprovalOutbox(getAccessToken);
 
       // 🔄 reload everything
       if (!currentProjectId.startsWith("offline-project-")) {
