@@ -33,13 +33,17 @@ export async function flushOfflineApprovalOutbox(
           continue;
         }
 
-        const isNewOfflineApproval = record.id.startsWith("offline-");
+                const isNewOfflineApproval = record.id.startsWith("offline-");
 
         const isIncompleteDraft =
           isNewOfflineApproval &&
           (!record.recipientEmail || !record.recipientEmail.trim());
 
-        if (isIncompleteDraft) {
+        const isStillOnOfflineProject =
+          typeof record.projectId === "string" &&
+          record.projectId.startsWith("offline-project-");
+
+        if (isIncompleteDraft || isStillOnOfflineProject) {
           continue;
         }
 
