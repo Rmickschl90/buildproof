@@ -2148,8 +2148,21 @@ export default function DashboardPage() {
       }
 
       for (const offlineApproval of normalizedOfflineApprovals) {
-        approvalMap.set(offlineApproval.id, offlineApproval as Approval);
-      }
+  const existingApproval = approvalMap.get(offlineApproval.id) as any;
+
+  if (existingApproval) {
+    approvalMap.set(offlineApproval.id, {
+      ...existingApproval,
+      ...offlineApproval,
+      attachments: [
+        ...(existingApproval.attachments || []),
+        ...(offlineApproval.attachments || []),
+      ],
+    } as Approval);
+  } else {
+    approvalMap.set(offlineApproval.id, offlineApproval as Approval);
+  }
+}
 
       const nextVisibleApprovals = Array.from(approvalMap.values()).sort((a, b) =>
         a.created_at < b.created_at ? 1 : -1
