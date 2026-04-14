@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
-import { flushOfflineAttachmentOutbox } from "@/lib/offlineAttachmentFlush";
 import { flushOfflineApprovalAttachmentOutbox } from "@/lib/offlineApprovalAttachmentFlush";
 import { flushOfflineApprovalSendOutbox } from "@/lib/offlineApprovalSendFlush";
 import { flushOfflineApprovalOutbox } from "@/lib/offlineApprovalFlush";
@@ -26,9 +25,8 @@ export default function OfflineAttachmentBootstrap() {
 
       isFlushingRef.current = true;
 
-      try {
+            try {
         await flushOfflineApprovalOutbox(getAccessToken);
-        await flushOfflineAttachmentOutbox(getAccessToken);
         await flushOfflineApprovalAttachmentOutbox(getAccessToken);
         await flushOfflineApprovalSendOutbox(getAccessToken);
       } catch (error) {
