@@ -2106,46 +2106,52 @@ export default function DashboardPage() {
     let cancelled = false;
 
     async function buildVisibleApprovals() {
-      const serverIdSet = new Set(approvals.map((a) => a.id));
-
       const normalizedOfflineApprovals = await Promise.all(
-        offlineApprovals
-          .filter((a) => !serverIdSet.has(a.id))
-          .map(async (a) => {
-            const queuedAttachments = await getOfflineApprovalAttachmentsForApproval({
-              approvalId: null,
-              offlineApprovalId: a.id,
-            });
+        offlineApprovals.map(async (a) => {
+          const queuedAttachments = await getOfflineApprovalAttachmentsForApproval({
+            approvalId: null,
+            offlineApprovalId: a.id,
+          });
 
-            return {
-              id: a.id,
-              title: a.title,
-              approval_type: a.approvalType,
-              description: a.description,
-              status: "draft" as const,
-              created_at: new Date(a.createdAt).toISOString(),
-              sent_at: null,
-              responded_at: null,
-              expired_at: null,
-              cost_delta: a.costDelta,
-              schedule_delta: a.scheduleDelta,
-              recipient_name: a.recipientName || null,
-              recipient_email: a.recipientEmail || "",
-              project_id: a.projectId,
-              created_timezone_id: a.createdTimezoneId ?? null,
-              created_timezone_offset_minutes:
-                a.createdTimezoneOffsetMinutes ?? null,
-              attachments: queuedAttachments.map((item) => ({
-                id: item.id,
-                filename: item.fileName ?? null,
-                mime_type: item.mimeType ?? null,
-                path: "",
-              })),
-            };
-          })
+          return {
+            id: a.id,
+            title: a.title,
+            approval_type: a.approvalType,
+            description: a.description,
+            status: "draft" as const,
+            created_at: new Date(a.createdAt).toISOString(),
+            sent_at: null,
+            responded_at: null,
+            expired_at: null,
+            cost_delta: a.costDelta,
+            schedule_delta: a.scheduleDelta,
+            recipient_name: a.recipientName || null,
+            recipient_email: a.recipientEmail || "",
+            project_id: a.projectId,
+            created_timezone_id: a.createdTimezoneId ?? null,
+            created_timezone_offset_minutes:
+              a.createdTimezoneOffsetMinutes ?? null,
+            attachments: queuedAttachments.map((item) => ({
+              id: item.id,
+              filename: item.fileName ?? null,
+              mime_type: item.mimeType ?? null,
+              path: "",
+            })),
+          };
+        })
       );
 
-      const nextVisibleApprovals = [...approvals, ...normalizedOfflineApprovals].sort((a, b) =>
+      const approvalMap = new Map<string, Approval>();
+
+      for (const approval of approvals) {
+        approvalMap.set(approval.id, approval);
+      }
+
+      for (const offlineApproval of normalizedOfflineApprovals) {
+        approvalMap.set(offlineApproval.id, offlineApproval as Approval);
+      }
+
+      const nextVisibleApprovals = Array.from(approvalMap.values()).sort((a, b) =>
         a.created_at < b.created_at ? 1 : -1
       );
 
