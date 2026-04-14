@@ -41,6 +41,7 @@ import {
   saveRecentProject,
   getRecentProjects,
 } from "@/lib/offlineRecentProjects";
+import { saveCachedAttachments } from "@/lib/offlineAttachmentCache";
 
 type Project = {
   id: string;
@@ -1092,6 +1093,44 @@ export default function DashboardPage() {
     setStatus("");
   }
 
+  async function preloadProofAttachments(proofsToCache: Proof[]) {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      return;
+    }
+
+    try {
+      for (const proof of proofsToCache) {
+        if (!proof?.id) continue;
+
+        const { data, error } = await supabase
+          .from("attachments")
+          .select("id, proof_id, filename, mime_type, size_bytes, created_at, path")
+          .eq("proof_id", proof.id)
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          const message = String(error.message || "").toLowerCase();
+
+          const looksOffline =
+            message.includes("failed to fetch") ||
+            message.includes("network") ||
+            message.includes("fetch");
+
+          if (looksOffline) {
+            continue;
+          }
+
+          console.error("Failed to preload proof attachments", proof.id, error);
+          continue;
+        }
+
+        saveCachedAttachments(proof.id, (data ?? []) as any[]);
+      }
+    } catch (error) {
+      console.error("Failed to preload proof attachments", error);
+    }
+  }
+
   async function loadProofs(
     projectId: string,
     includeArchived = showArchivedEntries,
@@ -1135,6 +1174,7 @@ export default function DashboardPage() {
       project: projectOverride ?? selectedProject,
       proofs: nextProofs,
     });
+    await preloadProofAttachments(nextProofs);
     await refreshOfflineProofs(projectId);
     setProofStatus("");
   }
@@ -2109,9 +2149,9 @@ export default function DashboardPage() {
       const normalizedOfflineApprovals = await Promise.all(
         offlineApprovals.map(async (a) => {
           const queuedAttachments = await getOfflineApprovalAttachmentsForApproval({
-  approvalId: a.id.startsWith("offline-") ? null : a.id,
-  offlineApprovalId: a.id.startsWith("offline-") ? a.id : null,
-});
+            approvalId: a.id.startsWith("offline-") ? null : a.id,
+            offlineApprovalId: a.id.startsWith("offline-") ? a.id : null,
+          });
 
           return {
             id: a.id,
