@@ -129,7 +129,7 @@ export default function ApprovalComposer({
         : ""
     );
     setScheduleDelta(initialApproval.schedule_delta || "");
-  
+
     setAttachments(initialApproval.attachments || []);
     setHasSavedOfflineDraft(false);
     setHasSyncedOfflineDraft(false);
@@ -861,20 +861,19 @@ export default function ApprovalComposer({
 
       setStatus("Saving draft...");
 
-            try {
+      try {
         const isOffline =
           typeof navigator !== "undefined" && !navigator.onLine;
 
         const missingRecipientEmail = !recipientEmail.trim();
 
-               if (isOffline || missingRecipientEmail) {
+        if (isOffline || missingRecipientEmail) {
           await saveOffline();
 
           if (missingRecipientEmail) {
             setStatus("Draft saved locally — add recipient email before syncing or sending.");
           }
 
-          await onComplete?.();
           return;
         }
 
@@ -890,7 +889,6 @@ export default function ApprovalComposer({
 
                 if (looksOffline) {
           await saveOffline();
-          await onComplete?.();
           return;
         }
 
@@ -918,7 +916,7 @@ export default function ApprovalComposer({
         return;
       }
 
-            if (!recipientEmail.trim()) {
+      if (!recipientEmail.trim()) {
         setStatus("Add recipient email before sending approval.");
         return;
       }
