@@ -867,13 +867,14 @@ export default function ApprovalComposer({
 
         const missingRecipientEmail = !recipientEmail.trim();
 
-        if (isOffline || missingRecipientEmail) {
+               if (isOffline || missingRecipientEmail) {
           await saveOffline();
 
           if (missingRecipientEmail) {
             setStatus("Draft saved locally — add recipient email before syncing or sending.");
           }
 
+          await onComplete?.();
           return;
         }
 
@@ -887,8 +888,9 @@ export default function ApprovalComposer({
           message.includes("network") ||
           message.includes("fetch");
 
-        if (looksOffline) {
+                if (looksOffline) {
           await saveOffline();
+          await onComplete?.();
           return;
         }
 
