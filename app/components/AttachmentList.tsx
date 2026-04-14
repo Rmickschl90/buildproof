@@ -18,6 +18,10 @@ type Props = {
   lockedAt?: string | null;
 };
 
+function getAttachmentCacheKey(proofId: number) {
+  return `buildproof_attachment_cache_${proofId}`;
+}
+
 function formatBytes(bytes?: number | null) {
   if (!bytes || bytes <= 0) return "";
   const kb = bytes / 1024;
@@ -53,7 +57,17 @@ function fileIcon(kind: string) {
 
 export default function AttachmentList({ proofId, lockedAt }: Props) {
   const [loading, setLoading] = useState(true);
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [attachments, setAttachments] = useState<Attachment[]>(() => {
+    if (typeof window === "undefined") return [];
+
+    try {
+      const raw = window.localStorage.getItem(getAttachmentCacheKey(proofId));
+      if (!raw) return [];
+      return JSON.parse(raw) as Attachment[];
+    } catch {
+      return [];
+    }
+  });
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState("");
   const [isMobile, setIsMobile] = useState(false);
@@ -62,7 +76,9 @@ export default function AttachmentList({ proofId, lockedAt }: Props) {
 
   async function load() {
     setError("");
-    setLoading(true);
+
+    const hasCachedAttachments = attachments.length > 0;
+    setLoading(!hasCachedAttachments);
 
     const { data, error } = await supabase
       .from("attachments")
@@ -71,25 +87,36 @@ export default function AttachmentList({ proofId, lockedAt }: Props) {
       .order("created_at", { ascending: false });
 
     if (error) {
-  const message = String(error.message || "").toLowerCase();
+      const message = String(error.message || "").toLowerCase();
 
-  const looksOffline =
-    message.includes("failed to fetch") ||
-    message.includes("network") ||
-    message.includes("fetch");
+      const looksOffline =
+        message.includes("failed to fetch") ||
+        message.includes("network") ||
+        message.includes("fetch");
 
-  // 🔥 CRITICAL: keep current attachments and suppress offline noise
-  if (looksOffline) {
-    setLoading(false);
-    return;
-  }
+      // 🔥 CRITICAL: keep current attachments and suppress offline noise
+      if (looksOffline) {
+        setLoading(false);
+        return;
+      }
 
-  setError(error.message);
-  setLoading(false);
-  return;
-}
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
 
-    setAttachments((data as Attachment[]) ?? []);
+    const nextAttachments = (data as Attachment[]) ?? [];
+    setAttachments(nextAttachments);
+
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem(
+          getAttachmentCacheKey(proofId),
+          JSON.stringify(nextAttachments)
+        );
+      } catch { }
+    }
+
     setLoading(false);
   }
 
