@@ -2136,7 +2136,8 @@ export default function DashboardPage() {
               filename: item.fileName ?? null,
               mime_type: item.mimeType ?? null,
               path: "",
-            })),
+              isOffline: true, // 🔥 ADD THIS
+            }))
           };
         })
       );
@@ -2148,21 +2149,21 @@ export default function DashboardPage() {
       }
 
       for (const offlineApproval of normalizedOfflineApprovals) {
-  const existingApproval = approvalMap.get(offlineApproval.id) as any;
+        const existingApproval = approvalMap.get(offlineApproval.id) as any;
 
-  if (existingApproval) {
-    approvalMap.set(offlineApproval.id, {
-      ...existingApproval,
-      ...offlineApproval,
-      attachments: [
-        ...(existingApproval.attachments || []),
-        ...(offlineApproval.attachments || []),
-      ],
-    } as Approval);
-  } else {
-    approvalMap.set(offlineApproval.id, offlineApproval as Approval);
-  }
-}
+        if (existingApproval) {
+          approvalMap.set(offlineApproval.id, {
+            ...existingApproval,
+            ...offlineApproval,
+            attachments: [
+              ...(existingApproval.attachments || []),
+              ...(offlineApproval.attachments || []),
+            ],
+          } as Approval);
+        } else {
+          approvalMap.set(offlineApproval.id, offlineApproval as Approval);
+        }
+      }
 
       const nextVisibleApprovals = Array.from(approvalMap.values()).sort((a, b) =>
         a.created_at < b.created_at ? 1 : -1
@@ -2178,7 +2179,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-}, [approvals, offlineApprovals]);
+  }, [approvals, offlineApprovals]);
   const draftApprovals = useMemo(() => {
     return visibleApprovals.filter(
       (a) => a.status === "draft" || a.status === "pending"
