@@ -1012,11 +1012,15 @@ export default function DashboardPage() {
     setStatus("");
   }
 
-  async function loadProofs(
+    async function loadProofs(
     projectId: string,
     includeArchived = showArchivedEntries,
     projectOverride?: Project
   ) {
+    if (projectId.startsWith("offline-project-")) {
+      return;
+    }
+
     const source = includeArchived ? "proofs" : "proofs_active";
 
     // 🔒 Prevent fetch while offline
@@ -1055,12 +1059,16 @@ export default function DashboardPage() {
     setProofStatus("");
   }
 
-  async function loadApprovals(
+    async function loadApprovals(
     projectId: string,
     includeArchived = showArchivedEntries,
     projectOverride?: Project
   ) {
     try {
+      if (projectId.startsWith("offline-project-")) {
+        return;
+      }
+
       // 🔒 Prevent fetch while offline
       if (typeof navigator !== "undefined" && !navigator.onLine) {
         return;
