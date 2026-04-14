@@ -906,6 +906,32 @@ export default function DashboardPage() {
       );
 
       setOfflineProofs(filtered);
+
+      if (!navigator.onLine) {
+        setProofs((current) => {
+          const existingIds = new Set(current.map((p) => String(p.id)));
+
+          const mappedOfflineProofs = filtered.map((record) => ({
+            id: record.id as any,
+            content: record.content,
+            created_at: record.createdAt,
+            project_id: record.projectId,
+            locked_at: null,
+            deleted_at: null,
+            deleted_by: null,
+            updated_at: record.updatedAt,
+            created_timezone_id: record.createdTimezoneId,
+            created_timezone_offset_minutes: record.createdTimezoneOffsetMinutes,
+          }));
+
+          const merged = [
+            ...mappedOfflineProofs.filter((p) => !existingIds.has(String(p.id))),
+            ...current,
+          ];
+
+          return merged;
+        });
+      }
     } catch (error) {
       console.error("Failed to load offline proofs", error);
       setOfflineProofs([]);
