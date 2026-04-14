@@ -259,3 +259,24 @@ export async function attachOfflineAttachmentsToProof(
     }
   });
 }
+
+export async function remapOfflineAttachmentProjectId(
+  oldProjectId: string,
+  newProjectId: string
+): Promise<void> {
+  await withStore("readwrite", async (store) => {
+    const all = (await promisify(store.getAll())) as OfflineAttachmentRecord[];
+
+    const matches = all.filter((rec) => rec.projectId === oldProjectId);
+
+    for (const rec of matches) {
+      const updated: OfflineAttachmentRecord = {
+        ...rec,
+        projectId: newProjectId,
+        updatedAt: new Date().toISOString(),
+      };
+
+      await promisify(store.put(updated));
+    }
+  });
+}

@@ -18,6 +18,7 @@ import {
   remapOfflineProofProjectId,
   type OfflineProofRecord,
 } from "@/lib/offlineProofOutbox";
+import { remapOfflineAttachmentProjectId } from "@/lib/offlineAttachmentOutbox";
 import {
   listOfflineApprovalsForProject,
   remapOfflineApprovalProjectId,
@@ -490,7 +491,7 @@ export default function DashboardPage() {
     };
   }, []);
 
-    useEffect(() => {
+  useEffect(() => {
     if (!isBrowserOnline) return;
     if (!selectedProject?.id) return;
 
@@ -930,7 +931,7 @@ export default function DashboardPage() {
     }
   }
 
-    async function syncOfflineProjects() {
+  async function syncOfflineProjects() {
     if (!navigator.onLine || !userId) return;
 
     try {
@@ -956,6 +957,7 @@ export default function DashboardPage() {
         }
 
         await remapOfflineProofProjectId(record.id, data.id);
+        await remapOfflineAttachmentProjectId(record.id, data.id);
         await remapOfflineApprovalProjectId(record.id, data.id);
         await removeOfflineProject(record.id);
 
