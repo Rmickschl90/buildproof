@@ -220,6 +220,9 @@ export default function DashboardPage() {
   const [isBrowserOnline, setIsBrowserOnline] = useState(
     typeof navigator === "undefined" ? true : navigator.onLine
   );
+  useEffect(() => {
+  console.log("🧱 isBrowserOnline changed:", isBrowserOnline);
+}, [isBrowserOnline]);
   const isFlushingOfflineProofsRef = useRef(false);
   const selectedProjectId = selectedProject ? selectedProject.id : null;
   const [editingApproval, setEditingApproval] = useState<any | null>(null);
