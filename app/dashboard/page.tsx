@@ -2451,7 +2451,9 @@ export default function DashboardPage() {
                         }
                       } else {
                         // 🌐 ONLINE — normal behavior
+                        
                         setSelectedProjectWithTrace(p, "project list click online");
+                        saveLastOpenProjectId(p.id);
 
                         cacheProjectSnapshot({ project: p, proofs: [], approvals: [] });
 
