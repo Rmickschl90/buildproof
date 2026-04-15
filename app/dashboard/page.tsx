@@ -2838,6 +2838,14 @@ export default function DashboardPage() {
 
                       <input
                         className="input"
+                        type="tel"
+                        placeholder="Client phone"
+                        value={clientPhoneDraft}
+                        onChange={(e) => setClientPhoneDraft(e.target.value)}
+                      />
+
+                      <input
+                        className="input"
                         placeholder="Project address (optional)"
                         value={projectAddressDraft}
                         onChange={(e) => setProjectAddressDraft(e.target.value)}
