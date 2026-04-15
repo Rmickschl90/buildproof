@@ -319,6 +319,7 @@ export default function DashboardPage() {
       proofCount: proofs.length,
       approvalCount: approvals.length,
     });
+    console.log("🧱 CACHE WRITE PROOFS", proofs.map((p) => p.id));
 
     saveCachedDashboardProject({
       project: selectedProject,
