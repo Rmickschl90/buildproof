@@ -221,8 +221,8 @@ export default function DashboardPage() {
     typeof navigator === "undefined" ? true : navigator.onLine
   );
   useEffect(() => {
-  console.log("🧱 isBrowserOnline changed:", isBrowserOnline);
-}, [isBrowserOnline]);
+    console.log("🧱 isBrowserOnline changed:", isBrowserOnline);
+  }, [isBrowserOnline]);
   const isFlushingOfflineProofsRef = useRef(false);
   const selectedProjectId = selectedProject ? selectedProject.id : null;
   const [editingApproval, setEditingApproval] = useState<any | null>(null);
@@ -524,7 +524,10 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    // 🚨 Prevent running on initial mount
+    console.log("🧱 RECONNECT EFFECT FIRED", {
+      isBrowserOnline,
+      selectedProjectId: selectedProject?.id,
+    });
 
     if (!isBrowserOnline) return;
     if (!selectedProject?.id) return;
