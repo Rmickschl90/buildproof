@@ -535,6 +535,10 @@ export default function DashboardPage() {
     void (async () => {
       console.log("🧱 RECONNECT STEP 1 - entered async block");
       await syncOfflineProjects();
+
+      // 🔥 Ensure project exists before loading approvals
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
       console.log("🧱 RECONNECT STEP 2 - finished syncOfflineProjects");
 
       const currentProjectId =
