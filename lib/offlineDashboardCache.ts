@@ -60,6 +60,10 @@ export function saveCachedDashboardProject(data: CachedDashboardProject | null |
   proofIds: data.proofs.map((p) => p.id),
 });
 
+if (data.proofs.length === 0) {
+  console.log("🧱 EMPTY CACHE WRITE STACK", new Error().stack);
+}
+
   try {
     window.localStorage.setItem(getKey(data.project.id), JSON.stringify(data));
   } catch (error) {
