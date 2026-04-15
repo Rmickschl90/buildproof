@@ -271,3 +271,33 @@ export async function remapOfflineApprovalSendApprovalId(args: {
     await txDone(tx);
     db.close();
 }
+
+export async function remapOfflineApprovalSendProjectId(
+  oldProjectId: string,
+  newProjectId: string
+): Promise<void> {
+  const db = await openDb();
+
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    const store = tx.objectStore(STORE_NAME);
+    const index = store.index("projectId");
+
+    const req = index.getAll(oldProjectId);
+
+    req.onsuccess = () => {
+      const records = req.result || [];
+
+      for (const record of records) {
+        store.put({
+          ...record,
+          projectId: newProjectId,
+        });
+      }
+    };
+
+    req.onerror = () => reject(req.error);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}

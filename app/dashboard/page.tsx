@@ -24,6 +24,7 @@ import {
   remapOfflineApprovalProjectId,
   type OfflineApprovalRecord,
 } from "@/lib/offlineApprovalOutbox";
+import { remapOfflineApprovalSendProjectId } from "@/lib/offlineApprovalSendOutbox";
 import {
   createOfflineProjectId,
   getAllOfflineProjects,
@@ -1011,6 +1012,7 @@ export default function DashboardPage() {
         await remapOfflineProofProjectId(record.id, data.id);
         await remapOfflineAttachmentProjectId(record.id, data.id);
         await remapOfflineApprovalProjectId(record.id, data.id);
+        await remapOfflineApprovalSendProjectId(record.id, data.id);
         await removeOfflineProject(record.id);
 
         const syncedProject = data as Project;
