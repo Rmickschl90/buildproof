@@ -582,12 +582,8 @@ export default function DashboardPage() {
       const { flushOfflineApprovalAttachmentOutbox } = await import(
         "@/lib/offlineApprovalAttachmentFlush"
       );
-      const { flushOfflineApprovalSendOutbox } = await import(
-        "@/lib/offlineApprovalSendFlush"
-      );
 
       await flushOfflineApprovalAttachmentOutbox(getAccessToken);
-      await flushOfflineApprovalSendOutbox(getAccessToken);
 
       // 🔄 reload everything
       if (!currentProjectId.startsWith("offline-project-")) {
