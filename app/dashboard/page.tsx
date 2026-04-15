@@ -533,7 +533,9 @@ export default function DashboardPage() {
     if (!selectedProject?.id) return;
 
     void (async () => {
+      console.log("🧱 RECONNECT STEP 1 - entered async block");
       await syncOfflineProjects();
+      console.log("🧱 RECONNECT STEP 2 - finished syncOfflineProjects");
 
       const currentProjectId =
         selectedProject.id.startsWith("offline-project-")
@@ -542,8 +544,10 @@ export default function DashboardPage() {
 
       await refreshOfflineProofs(currentProjectId);
       await refreshOfflineApprovals(currentProjectId);
+      console.log("🧱 RECONNECT STEP 4 - finished refreshOfflineApprovals");
 
       setProofStatus("Connection restored — syncing offline entries...");
+      console.log("🧱 RECONNECT STEP 5 - set proof status");
 
       const { flushOfflineApprovalOutbox } = await import(
         "@/lib/offlineApprovalFlush"
