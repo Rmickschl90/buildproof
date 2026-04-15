@@ -1217,10 +1217,12 @@ export default function DashboardPage() {
 
     const nextProofs = (data ?? []) as Proof[];
     setProofs(nextProofs);
-    cacheProjectSnapshot({
-      project: projectOverride ?? selectedProject,
-      proofs: nextProofs,
-    });
+    if (nextProofs.length > 0) {
+      cacheProjectSnapshot({
+        project: projectOverride ?? selectedProject,
+        proofs: nextProofs,
+      });
+    }
     await preloadProofAttachments(nextProofs);
     await refreshOfflineProofs(projectId);
     setProofStatus("");
@@ -1273,10 +1275,12 @@ export default function DashboardPage() {
       const nextApprovals = (json?.approvals ?? []) as Approval[];
       setApprovals(nextApprovals);
       await refreshOfflineApprovals(projectId);
-      cacheProjectSnapshot({
-        project: projectOverride ?? selectedProject,
-        approvals: nextApprovals,
-      });
+      if (nextApprovals.length > 0) {
+        cacheProjectSnapshot({
+          project: projectOverride ?? selectedProject,
+          approvals: nextApprovals,
+        });
+      }
     } catch (err: any) {
       const message = String(err?.message || "Failed to load approvals.");
 
