@@ -2483,7 +2483,6 @@ export default function DashboardPage() {
                         setSelectedProjectWithTrace(p, "project list click online");
                         saveLastOpenProjectId(p.id);
 
-                        cacheProjectSnapshot({ project: p, proofs: [], approvals: [] });
 
                         loadProofs(p.id, false, p);
                         loadApprovals(p.id, false, p);
