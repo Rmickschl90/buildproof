@@ -313,13 +313,40 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!selectedProject) return;
 
+    const projectId = selectedProject.id;
+
+    const existingRaw =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem(`buildproof-dashboard-cache:${projectId}`)
+        : null;
+
+    let existingProofCount = 0;
+
+    try {
+      if (existingRaw) {
+        const parsed = JSON.parse(existingRaw);
+        existingProofCount = parsed?.proofs?.length ?? 0;
+      }
+    } catch { }
+
+    const isEmptyWrite = proofs.length === 0 && approvals.length === 0;
+    const existingHasData = existingProofCount > 0;
+
+    // 🚨 BLOCK destructive overwrite
+    if (isEmptyWrite && existingHasData) {
+      console.log("🛑 BLOCKED EMPTY CACHE OVERWRITE", {
+        projectId,
+        existingProofCount,
+      });
+      return;
+    }
+
     console.log("🧱 CACHE WRITE", {
-      projectId: selectedProject.id,
+      projectId,
       projectTitle: selectedProject.title,
       proofCount: proofs.length,
       approvalCount: approvals.length,
     });
-    console.log("🧱 CACHE WRITE PROOFS", proofs.map((p) => p.id));
 
     saveCachedDashboardProject({
       project: selectedProject,
@@ -2452,7 +2479,7 @@ export default function DashboardPage() {
                         }
                       } else {
                         // 🌐 ONLINE — normal behavior
-                        
+
                         setSelectedProjectWithTrace(p, "project list click online");
                         saveLastOpenProjectId(p.id);
 
