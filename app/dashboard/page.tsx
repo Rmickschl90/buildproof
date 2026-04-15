@@ -313,6 +313,13 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!selectedProject) return;
 
+    console.log("🧱 CACHE WRITE", {
+      projectId: selectedProject.id,
+      projectTitle: selectedProject.title,
+      proofCount: proofs.length,
+      approvalCount: approvals.length,
+    });
+
     saveCachedDashboardProject({
       project: selectedProject,
       proofs,
