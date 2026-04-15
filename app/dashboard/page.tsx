@@ -329,14 +329,12 @@ export default function DashboardPage() {
       }
     } catch { }
 
-    const isEmptyWrite = proofs.length === 0 && approvals.length === 0;
-    const existingHasData = existingProofCount > 0;
+    // 🚨 BLOCK ALL empty writes for server projects
+    const isServerProject = !selectedProject.id.startsWith("offline-project-");
 
-    // 🚨 BLOCK destructive overwrite
-    if (isEmptyWrite && existingHasData) {
-      console.log("🛑 BLOCKED EMPTY CACHE OVERWRITE", {
+    if (isServerProject && proofs.length === 0) {
+      console.log("🛑 BLOCKED EMPTY CACHE WRITE", {
         projectId,
-        existingProofCount,
       });
       return;
     }
