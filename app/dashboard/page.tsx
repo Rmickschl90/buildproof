@@ -989,8 +989,11 @@ export default function DashboardPage() {
     try {
       const records = await getAllOfflineProjects();
       const pendingProjects = records.filter((p) => p.status === "pending");
+      const { claimOfflineProject } = await import("@/lib/offlineProjectOutbox");
 
       for (const record of pendingProjects) {
+        const claimed = await claimOfflineProject(record.id);
+        if (!claimed) continue;
         const { data, error } = await supabase
           .from("projects")
           .insert({
@@ -1011,7 +1014,7 @@ export default function DashboardPage() {
         await remapOfflineProofProjectId(record.id, data.id);
         await remapOfflineAttachmentProjectId(record.id, data.id);
         await remapOfflineApprovalProjectId(record.id, data.id);
-        await removeOfflineProject(record.id);
+        await removeOfflineProject(claimed.id);
 
         const syncedProject = data as Project;
 

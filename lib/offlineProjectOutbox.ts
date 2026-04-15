@@ -10,7 +10,7 @@ export type OfflineProjectRecord = {
   clientPhone: string | null;
   createdAt: string;
   updatedAt: string;
-  status: "pending" | "synced";
+  status: "pending" | "syncing" | "synced";
   syncAttemptCount: number;
   lastSyncAttemptAt: string | null;
   lastError: string | null;
@@ -109,6 +109,40 @@ export async function updateOfflineProject(
 
     getReq.onerror = () => reject(getReq.error);
     tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function claimOfflineProject(
+  id: string
+): Promise<OfflineProjectRecord | null> {
+  const db = await openDb();
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    const store = tx.objectStore(STORE_NAME);
+
+    const getReq = store.get(id);
+
+    getReq.onsuccess = () => {
+      const existing = getReq.result as OfflineProjectRecord | undefined;
+
+      if (!existing || existing.status !== "pending") {
+        resolve(null);
+        return;
+      }
+
+      const updated: OfflineProjectRecord = {
+        ...existing,
+        status: "syncing",
+        updatedAt: new Date().toISOString(),
+      };
+
+      store.put(updated);
+      resolve(updated);
+    };
+
+    getReq.onerror = () => reject(getReq.error);
     tx.onerror = () => reject(tx.error);
   });
 }
