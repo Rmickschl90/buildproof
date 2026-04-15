@@ -21,12 +21,7 @@ export async function POST(req: Request) {
       .eq("id", projectId)
       .single();
 
-    console.log("APPROVALS LIST PROJECT LOOKUP", {
-      projectId,
-      project,
-      projectError,
-      userId: user.id,
-    });
+    
 
     if (projectError || !project) {
       return NextResponse.json(

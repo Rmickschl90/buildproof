@@ -586,7 +586,6 @@ export default function DashboardPage() {
       );
 
       await flushOfflineApprovalAttachmentOutbox(getAccessToken);
-      console.log("🧱 RECONNECT STEP 6 - about to flush approval sends");
       await flushOfflineApprovalSendOutbox(getAccessToken);
 
       // 🔄 reload everything
