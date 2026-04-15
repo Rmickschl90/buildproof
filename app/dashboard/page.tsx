@@ -1255,6 +1255,8 @@ export default function DashboardPage() {
 
       const token = await getAccessToken();
 
+      console.log("🧱 LOAD APPROVALS REQUEST", { projectId, includeArchived });
+
       const res = await fetch("/api/approvals/list", {
         method: "POST",
         headers: {
