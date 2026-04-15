@@ -581,8 +581,13 @@ export default function DashboardPage() {
       const { flushOfflineApprovalAttachmentOutbox } = await import(
         "@/lib/offlineApprovalAttachmentFlush"
       );
+      const { flushOfflineApprovalSendOutbox } = await import(
+        "@/lib/offlineApprovalSendFlush"
+      );
 
       await flushOfflineApprovalAttachmentOutbox(getAccessToken);
+      console.log("🧱 RECONNECT STEP 6 - about to flush approval sends");
+      await flushOfflineApprovalSendOutbox(getAccessToken);
 
       // 🔄 reload everything
       if (!currentProjectId.startsWith("offline-project-")) {
@@ -1014,7 +1019,7 @@ export default function DashboardPage() {
         await remapOfflineProofProjectId(record.id, data.id);
         await remapOfflineAttachmentProjectId(record.id, data.id);
         await remapOfflineApprovalProjectId(record.id, data.id);
-        await removeOfflineProject(claimed.id);
+
 
         const syncedProject = data as Project;
 
