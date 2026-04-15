@@ -491,11 +491,6 @@ export default function DashboardPage() {
           if (project) {
             setSelectedProjectWithTrace(project, "online boot restore from projectIdFromUrl");
 
-            cacheProjectSnapshot({
-              project,
-              proofs: [],
-              approvals: [],
-            });
 
             await loadProofs(project.id, false, project);
             await loadApprovals(project.id, false, project);
