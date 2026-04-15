@@ -24,7 +24,6 @@ import {
   remapOfflineApprovalProjectId,
   type OfflineApprovalRecord,
 } from "@/lib/offlineApprovalOutbox";
-import { remapOfflineApprovalSendProjectId } from "@/lib/offlineApprovalSendOutbox";
 import {
   createOfflineProjectId,
   getAllOfflineProjects,
