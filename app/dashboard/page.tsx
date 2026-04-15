@@ -2823,7 +2823,7 @@ export default function DashboardPage() {
                     <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
                       <input
                         className="input"
-                        placeholder="Client name (optional)"
+                        placeholder="Client name"
                         value={clientNameDraft}
                         onChange={(e) => setClientNameDraft(e.target.value)}
                       />
@@ -2831,7 +2831,7 @@ export default function DashboardPage() {
                       <input
                         id="client-email-input"
                         className="input"
-                        placeholder="Client email (optional)"
+                        placeholder="Client email"
                         value={clientEmailDraft}
                         onChange={(e) => setClientEmailDraft(e.target.value)}
                       />
@@ -2846,7 +2846,7 @@ export default function DashboardPage() {
 
                       <input
                         className="input"
-                        placeholder="Project address (optional)"
+                        placeholder="Project address"
                         value={projectAddressDraft}
                         onChange={(e) => setProjectAddressDraft(e.target.value)}
                       />
