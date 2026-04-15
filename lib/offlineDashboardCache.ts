@@ -53,6 +53,13 @@ export function saveCachedDashboardProject(data: CachedDashboardProject | null |
     return;
   }
 
+  console.log("🧱 SAVE CACHE HELPER", {
+  projectId: data.project.id,
+  proofCount: data.proofs.length,
+  approvalCount: data.approvals.length,
+  proofIds: data.proofs.map((p) => p.id),
+});
+
   try {
     window.localStorage.setItem(getKey(data.project.id), JSON.stringify(data));
   } catch (error) {
