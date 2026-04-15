@@ -221,7 +221,6 @@ export default function DashboardPage() {
     typeof navigator === "undefined" ? true : navigator.onLine
   );
   const isFlushingOfflineProofsRef = useRef(false);
-  const hasInitializedOnlineStateRef = useRef(false);
   const selectedProjectId = selectedProject ? selectedProject.id : null;
   const [editingApproval, setEditingApproval] = useState<any | null>(null);
 
@@ -312,41 +311,15 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-  if (!selectedProject) return;
+    if (!selectedProject) return;
 
-  const existingCached = loadCachedDashboardProject(selectedProject.id);
-
-  const isOnlineServerProject =
-    typeof navigator !== "undefined" &&
-    navigator.onLine &&
-    !selectedProject.id.startsWith("offline-project-");
-
-  const nextProofs = proofs;
-  const nextApprovals = approvals;
-
-  const wouldWriteEmptySnapshot =
-    isOnlineServerProject &&
-    nextProofs.length === 0 &&
-    nextApprovals.length === 0;
-
-  const existingHasData =
-    !!existingCached &&
-    (
-      (existingCached.proofs?.length ?? 0) > 0 ||
-      (existingCached.approvals?.length ?? 0) > 0
-    );
-
-  if (wouldWriteEmptySnapshot && existingHasData) {
-    return;
-  }
-
-  saveCachedDashboardProject({
-    project: selectedProject,
-    proofs: nextProofs,
-    approvals: nextApprovals,
-    cachedAt: new Date().toISOString(),
-  });
-}, [selectedProject, proofs, approvals]);
+    saveCachedDashboardProject({
+      project: selectedProject,
+      proofs,
+      approvals,
+      cachedAt: new Date().toISOString(),
+    });
+  }, [selectedProject, proofs, approvals]);
 
   useEffect(() => {
     const existing = JSON.parse(
@@ -483,6 +456,12 @@ export default function DashboardPage() {
           if (project) {
             setSelectedProjectWithTrace(project, "online boot restore from projectIdFromUrl");
 
+            cacheProjectSnapshot({
+              project,
+              proofs: [],
+              approvals: [],
+            });
+
             await loadProofs(project.id, false, project);
             await loadApprovals(project.id, false, project);
           }
@@ -515,10 +494,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     // 🚨 Prevent running on initial mount
-    if (!hasInitializedOnlineStateRef.current) {
-      hasInitializedOnlineStateRef.current = true;
-      return;
-    }
 
     if (!isBrowserOnline) return;
     if (!selectedProject?.id) return;
@@ -2470,6 +2445,8 @@ export default function DashboardPage() {
                       } else {
                         // 🌐 ONLINE — normal behavior
                         setSelectedProjectWithTrace(p, "project list click online");
+
+                        cacheProjectSnapshot({ project: p, proofs: [], approvals: [] });
 
                         loadProofs(p.id, false, p);
                         loadApprovals(p.id, false, p);
