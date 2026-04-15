@@ -998,29 +998,68 @@ export default function DashboardPage() {
       for (const record of pendingProjects) {
         const claimed = await claimOfflineProject(record.id);
         if (!claimed) continue;
-        const { data, error } = await supabase
-          .from("projects")
-          .insert({
-            title: record.name,
-            user_id: userId,
-            client_name: record.clientName,
-            client_email: record.clientEmail,
-            client_phone: record.clientPhone,
-          })
-          .select("id,title,user_id,client_name,client_email,client_phone,project_address,archived_at,created_at")
-          .single();
 
-        if (error || !data?.id) {
-          console.error("Offline project sync failed", error);
-          continue;
+        let data: any = null;
+        let error: any = null;
+
+        if (record.id.startsWith("offline-project-")) {
+          const result = await supabase
+            .from("projects")
+            .insert({
+              title: record.name,
+              user_id: userId,
+              client_name: record.clientName,
+              client_email: record.clientEmail,
+              client_phone: record.clientPhone,
+              project_address: record.projectAddress,
+            })
+            .select("id,title,user_id,client_name,client_email,client_phone,project_address,archived_at,created_at")
+            .single();
+
+          data = result.data;
+          error = result.error;
+
+          if (error || !data?.id) {
+            console.error("Offline project sync failed", error);
+            continue;
+          }
+
+          await remapOfflineProofProjectId(record.id, data.id);
+          await remapOfflineAttachmentProjectId(record.id, data.id);
+          await remapOfflineApprovalProjectId(record.id, data.id);
+        } else {
+          const result = await supabase
+            .from("projects")
+            .update({
+              client_name: record.clientName,
+              client_email: record.clientEmail,
+              client_phone: record.clientPhone,
+              project_address: record.projectAddress,
+            })
+            .eq("id", record.id)
+            .select("id,title,user_id,client_name,client_email,client_phone,project_address,archived_at,created_at")
+            .single();
+
+          data = result.data;
+          error = result.error;
+
+          if (error || !data?.id) {
+            console.error("Offline project update sync failed", error);
+            continue;
+          }
         }
-
-        await remapOfflineProofProjectId(record.id, data.id);
-        await remapOfflineAttachmentProjectId(record.id, data.id);
-        await remapOfflineApprovalProjectId(record.id, data.id);
 
 
         const syncedProject = data as Project;
+
+        saveRecentProject({
+          id: syncedProject.id,
+          title: syncedProject.title,
+          client_name: syncedProject.client_name ?? null,
+          client_email: syncedProject.client_email ?? null,
+          client_phone: syncedProject.client_phone ?? null,
+          project_address: syncedProject.project_address ?? null,
+        });
 
         if (selectedProject?.id === record.id) {
           setSelectedProjectWithTrace(
@@ -1335,6 +1374,7 @@ export default function DashboardPage() {
           clientName: null,
           clientEmail: null,
           clientPhone: null,
+          projectAddress: null,
           createdAt: now,
           updatedAt: now,
           status: "pending",
@@ -1435,6 +1475,13 @@ export default function DashboardPage() {
       setSelectedProjectWithTrace(updatedProject, "project rename");
       setProjects((list) => list.map((p) => (p.id === selectedProject.id ? { ...p, title: next } : p)));
       cacheProjectSnapshot({ project: updatedProject });
+
+      saveCachedDashboardProject({
+        project: updatedProject,
+        proofs,
+        approvals,
+        cachedAt: new Date().toISOString(),
+      });
 
       setStatus("Project renamed ✅");
       renameInputRef.current?.blur();
@@ -1926,6 +1973,44 @@ export default function DashboardPage() {
         project_address: projectAddressDraft.trim() || null,
       };
 
+      if (!navigator.onLine) {
+        await putOfflineProject({
+          id: selectedProject.id,
+          name: selectedProject.title,
+          clientName: payload.client_name,
+          clientEmail: payload.client_email,
+          clientPhone: payload.client_phone,
+          projectAddress: payload.project_address,
+          createdAt: selectedProject.created_at || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          status: "pending",
+          syncAttemptCount: 0,
+          lastSyncAttemptAt: null,
+          lastError: null,
+        });
+
+        const updatedProject = { ...selectedProject, ...payload };
+
+        setSelectedProjectWithTrace(updatedProject, "offline client save");
+        setProjects((list) =>
+          list.map((p) => (p.id === selectedProject.id ? { ...p, ...payload } : p))
+        );
+        cacheProjectSnapshot({ project: updatedProject });
+
+        saveRecentProject({
+          id: updatedProject.id,
+          title: updatedProject.title,
+          client_name: updatedProject.client_name ?? null,
+          client_email: updatedProject.client_email ?? null,
+          client_phone: updatedProject.client_phone ?? null,
+          project_address: updatedProject.project_address ?? null,
+        });
+
+        setStatus("Client saved offline ✅ — will sync when connected.");
+        setClientEditing(false);
+        return;
+      }
+
       const { error } = await supabase.from("projects").update(payload).eq("id", selectedProject.id);
 
       if (error) throw error;
@@ -2140,7 +2225,7 @@ export default function DashboardPage() {
       client_name: p.clientName,
       client_email: p.clientEmail,
       client_phone: p.clientPhone,
-      project_address: null,
+      project_address: p.projectAddress,
       archived_at: null,
       created_at: p.createdAt,
     }));
