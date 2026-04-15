@@ -26,7 +26,11 @@ export async function flushOfflineApprovalSendOutbox(
     const pending = await getPendingOfflineApprovalSends();
 
     for (const record of pending) {
+      console.log("🧱 APPROVAL SEND FLUSH RECORD", record);
+
       if (!record.approvalId) {
+        console.log("🧱 APPROVAL SEND BLOCKED - no approvalId", record);
+
         await markOfflineApprovalSendPending(
           record.id,
           "Approval is not synced yet."
@@ -34,14 +38,18 @@ export async function flushOfflineApprovalSendOutbox(
         continue;
       }
 
-      const stillHasRelatedAttachments = await hasPendingOfflineApprovalAttachments(
-        {
+      const stillHasRelatedAttachments =
+        await hasPendingOfflineApprovalAttachments({
           approvalId: record.approvalId,
           offlineApprovalId: record.offlineApprovalId,
-        }
-      );
+        });
 
       if (stillHasRelatedAttachments) {
+        console.log(
+          "🧱 APPROVAL SEND BLOCKED - attachments still pending",
+          record
+        );
+
         await markOfflineApprovalSendPending(
           record.id,
           "Waiting for approval attachments to finish syncing."
@@ -70,6 +78,12 @@ export async function flushOfflineApprovalSendOutbox(
         } catch {}
 
         if (!listResponse.ok) {
+          console.log(
+            "🧱 APPROVAL SEND BLOCKED - list request failed",
+            record,
+            listData
+          );
+
           const message =
             listData?.error ||
             listData?.message ||
@@ -84,6 +98,11 @@ export async function flushOfflineApprovalSendOutbox(
         );
 
         if (!matchedApproval) {
+          console.log(
+            "🧱 APPROVAL SEND BLOCKED - approval missing on server",
+            { record, listData }
+          );
+
           await markOfflineApprovalSendPending(
             record.id,
             "Waiting for approval to appear on server."
@@ -91,11 +110,21 @@ export async function flushOfflineApprovalSendOutbox(
           continue;
         }
 
-        const serverAttachmentCount = Array.isArray(matchedApproval.attachments)
+        const serverAttachmentCount = Array.isArray(
+          matchedApproval.attachments
+        )
           ? matchedApproval.attachments.length
           : 0;
 
         if (serverAttachmentCount < record.expectedAttachmentCount) {
+          console.log(
+            "🧱 APPROVAL SEND BLOCKED - server attachment count too low",
+            {
+              record,
+              serverAttachmentCount,
+            }
+          );
+
           await markOfflineApprovalSendPending(
             record.id,
             "Waiting for approval attachments to finish syncing."
@@ -103,9 +132,11 @@ export async function flushOfflineApprovalSendOutbox(
           continue;
         }
 
+        console.log("🧱 APPROVAL SEND READY TO SEND", record);
+
         await markOfflineApprovalSendProcessing(record.id);
 
-                const response = await fetch("/api/approvals/send", {
+        const response = await fetch("/api/approvals/send", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -124,6 +155,12 @@ export async function flushOfflineApprovalSendOutbox(
         } catch {}
 
         if (!response.ok) {
+          console.log(
+            "🧱 APPROVAL SEND BLOCKED - send failed",
+            record,
+            data
+          );
+
           const message =
             data?.error ||
             data?.message ||
@@ -132,6 +169,8 @@ export async function flushOfflineApprovalSendOutbox(
           await markOfflineApprovalSendPending(record.id, message);
           continue;
         }
+
+        console.log("🧱 APPROVAL SEND SUCCESS", record);
 
         await removeOfflineApprovalSend(record.id);
 
@@ -147,6 +186,12 @@ export async function flushOfflineApprovalSendOutbox(
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Approval send failed.";
+
+        console.log(
+          "🧱 APPROVAL SEND BLOCKED - exception",
+          record,
+          message
+        );
 
         await markOfflineApprovalSendPending(record.id, message);
       }
