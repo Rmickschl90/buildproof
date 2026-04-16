@@ -545,7 +545,7 @@ export default function DashboardPage() {
       selectedProjectId: selectedProject?.id,
     });
 
-    if (!isBrowserOnline) return;
+    if (!navigator.onLine) return;
     if (!selectedProject?.id) return;
 
     void (async () => {
