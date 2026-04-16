@@ -226,7 +226,6 @@ export default function DashboardPage() {
   }, [isBrowserOnline]);
   const isFlushingOfflineProofsRef = useRef(false);
   const isRunningReconnectRef = useRef(false);
-  const selectedProjectRef = useRef<Project | null>(null);
   const selectedProjectId = selectedProject ? selectedProject.id : null;
   const [editingApproval, setEditingApproval] = useState<any | null>(null);
 
@@ -381,9 +380,6 @@ export default function DashboardPage() {
     console.log("🧱 selectedProject changed:", selectedProject);
   }, [selectedProject]);
 
-  useEffect(() => {
-    selectedProjectRef.current = selectedProject;
-  }, [selectedProject]);
 
   useEffect(() => {
     setHasMounted(true);
@@ -562,13 +558,10 @@ export default function DashboardPage() {
 
       console.log("🧱 RECONNECT STEP 2 - finished syncOfflineProjects");
 
-      const current = selectedProjectRef.current;
-      if (!current?.id) return;
-
       const currentProjectId =
-        current.id.startsWith("offline-project-")
-          ? getLastOpenProjectId() || current.id
-          : current.id;
+  selectedProject.id.startsWith("offline-project-")
+    ? getLastOpenProjectId() || selectedProject.id
+    : selectedProject.id;
 
       await refreshOfflineProofs(currentProjectId);
       await refreshOfflineApprovals(currentProjectId);
@@ -617,36 +610,6 @@ export default function DashboardPage() {
         await loadApprovals(currentProjectId, showArchivedEntries);
       }
 
-      if (!currentProjectId.startsWith("offline-project-")) {
-        const { data: refreshedProject } = await supabase
-          .from("projects")
-          .select("id,title,user_id,client_name,client_email,client_phone,project_address,archived_at,created_at")
-          .eq("id", currentProjectId)
-          .single();
-
-        if (refreshedProject) {
-          setSelectedProjectWithTrace(
-            refreshedProject as Project,
-            "post-reconnect forced refresh"
-          );
-
-          saveRecentProject({
-            id: refreshedProject.id,
-            title: refreshedProject.title,
-            client_name: refreshedProject.client_name ?? null,
-            client_email: refreshedProject.client_email ?? null,
-            client_phone: refreshedProject.client_phone ?? null,
-            project_address: refreshedProject.project_address ?? null,
-          });
-
-          saveCachedDashboardProject({
-            project: refreshedProject as Project,
-            proofs,
-            approvals,
-            cachedAt: new Date().toISOString(),
-          });
-        }
-      }
 
       await refreshOfflineProofs(currentProjectId);
       await refreshOfflineApprovals(currentProjectId);
@@ -2292,12 +2255,7 @@ export default function DashboardPage() {
     const address = selectedProject.project_address?.trim();
     const bits = [name, email, phone, address].filter(Boolean);
     return bits.length ? bits.join(" • ") : "No client saved";
-  }, [
-    selectedProject?.client_name,
-    selectedProject?.client_email,
-    selectedProject?.client_phone,
-    selectedProject?.project_address,
-  ]);
+  }, [selectedProject]);
 
   const filteredProjects = useMemo<Project[]>(() => {
     const q = cleanText(projectSearch);
