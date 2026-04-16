@@ -164,14 +164,8 @@ export async function flushOfflineSendOutbox(
 
     const records = await getFlushableOfflineSendRecords();
 
-    // 🔥 BLOCK send if proofs are still pending
     const { listPendingOfflineProofs } = await import("@/lib/offlineProofOutbox");
 
-    const pendingProofs = await listPendingOfflineProofs();
-
-    if (pendingProofs.length > 0) {
-      return { flushed: 0, failed: 0 };
-    }
 
     if (!records.length) {
       return { flushed: 0, failed: 0 };
@@ -189,6 +183,16 @@ export async function flushOfflineSendOutbox(
 
     for (const record of records) {
       try {
+        // 🔥 block send ONLY if this project still has pending proofs
+        const pendingProofs = await listPendingOfflineProofs();
+
+        const hasPendingForProject = pendingProofs.some(
+          (p) => p.projectId === record.projectId
+        );
+
+        if (hasPendingForProject) {
+          continue;
+        }
         if (!isOnline()) {
           await markOfflineSendPending(record.id, "Offline during flush.");
           onStatus?.("queued_offline");
