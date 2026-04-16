@@ -37,12 +37,22 @@ export default function OfflineAttachmentBootstrap() {
     }
 
     function handleOnline() {
-      void runFlush();
-    }
+  void runFlush();
+
+  const fn = (window as any).__runDashboardReconnect;
+  if (typeof fn === "function") {
+    void fn();
+  }
+}
 
     function handleFocus() {
-      void runFlush();
-    }
+  void runFlush();
+
+  const fn = (window as any).__runDashboardReconnect;
+  if (typeof fn === "function") {
+    void fn();
+  }
+}
 
     function handleVisibility() {
       if (document.visibilityState === "visible") {
