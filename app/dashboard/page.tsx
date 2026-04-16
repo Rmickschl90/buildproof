@@ -151,32 +151,7 @@ function isOffline() {
   return typeof navigator !== "undefined" && !navigator.onLine;
 }
 
-async function waitForSupabaseReconnectReady() {
-  const maxAttempts = 10;
-  const delayMs = 1000;
 
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-      continue;
-    }
-
-    try {
-      const { error } = await supabase
-        .from("projects")
-        .select("id")
-        .limit(1);
-
-      if (!error) return true;
-    } catch {
-      // keep retrying
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
-  }
-
-  return false;
-}
 
 const LAST_OPEN_PROJECT_KEY = "buildproof_last_open_project_id";
 
@@ -253,7 +228,6 @@ export default function DashboardPage() {
   }, [isBrowserOnline]);
   const isFlushingOfflineProofsRef = useRef(false);
   const isRunningReconnectRef = useRef(false);
-  const bootedFromOfflineRestoreRef = useRef(false);
   const selectedProjectId = selectedProject ? selectedProject.id : null;
   const [editingApproval, setEditingApproval] = useState<any | null>(null);
 
@@ -422,7 +396,6 @@ export default function DashboardPage() {
 
         if (isOffline()) {
           console.log("🧱 OFFLINE BOOT PATH");
-          bootedFromOfflineRestoreRef.current = true;
 
           await refreshOfflineProjects();
 
@@ -543,143 +516,97 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    function handleConnectionChange() {
-      setIsBrowserOnline(navigator.onLine);
-    }
+  function handleConnectionChange() {
+    setIsBrowserOnline(navigator.onLine);
+  }
 
-    function handleVisibilityOrFocus() {
-      setIsBrowserOnline(navigator.onLine);
-    }
+  function handleVisibilityOrFocus() {
+    setIsBrowserOnline(navigator.onLine);
+  }
 
-    window.addEventListener("online", handleConnectionChange);
-    window.addEventListener("offline", handleConnectionChange);
-    window.addEventListener("focus", handleVisibilityOrFocus);
-    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+  window.addEventListener("online", handleConnectionChange);
+  window.addEventListener("offline", handleConnectionChange);
+  window.addEventListener("focus", handleVisibilityOrFocus);
+  document.addEventListener("visibilitychange", handleVisibilityOrFocus);
 
-    return () => {
-      window.removeEventListener("online", handleConnectionChange);
-      window.removeEventListener("offline", handleConnectionChange);
-      window.removeEventListener("focus", handleVisibilityOrFocus);
-      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
-    };
-  }, []);
-
-
-
-  useEffect(() => {
-    console.log("🧱 RECONNECT EFFECT FIRED", {
-      isBrowserOnline,
-      selectedProjectId: selectedProject?.id,
-    });
-
-    if (!navigator.onLine) return;
-    if (!selectedProject?.id) return;
-
-    void (async () => {
-      console.log("🧱 RECONNECT STEP 1 - entered async block");
-
-      const reconnectReady = await waitForSupabaseReconnectReady();
-      if (!reconnectReady) return;
-
-      await syncOfflineProjects();
-
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("buildproof-data-changed"));
-      }
-
-      console.log("🧱 RECONNECT STEP 2 - finished syncOfflineProjects");
-
-      const currentProjectId =
-        selectedProject.id.startsWith("offline-project-")
-          ? getLastOpenProjectId() || selectedProject.id
-          : selectedProject.id;
-
-      await refreshOfflineProofs(currentProjectId);
-      await refreshOfflineApprovals(currentProjectId);
-      console.log("🧱 RECONNECT STEP 4 - finished refreshOfflineApprovals");
-
-      setProofStatus("Connection restored — syncing offline entries...");
-      console.log("🧱 RECONNECT STEP 5 - set proof status");
+  return () => {
+    window.removeEventListener("online", handleConnectionChange);
+    window.removeEventListener("offline", handleConnectionChange);
+    window.removeEventListener("focus", handleVisibilityOrFocus);
+    document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+  };
+}, []);
 
 
-      const { flushOfflineApprovalOutbox } = await import(
-        "@/lib/offlineApprovalFlush"
-      );
-
-      // 🔥 proofs
-      await flushOfflineProofs();
-
-      // 🔥 attachments
-      const { flushOfflineAttachmentOutbox } = await import(
-        "@/lib/offlineAttachmentFlush"
-      );
-
-      const getAccessToken = async () => {
-        const { data, error } = await supabase.auth.getSession();
-        if (error) throw error;
-        const token = data.session?.access_token;
-        if (!token) throw new Error("Not logged in");
-        return token;
-      };
-
-      await flushOfflineAttachmentOutbox(getAccessToken);
-      await flushOfflineApprovalOutbox(getAccessToken);
-
-      const { flushOfflineApprovalAttachmentOutbox } = await import(
-        "@/lib/offlineApprovalAttachmentFlush"
-      );
-      const { flushOfflineApprovalSendOutbox } = await import(
-        "@/lib/offlineApprovalSendFlush"
-      );
-
-      await flushOfflineApprovalAttachmentOutbox(getAccessToken);
-      await flushOfflineApprovalSendOutbox(getAccessToken);
-
-      // 🔄 reload everything
-      if (!currentProjectId.startsWith("offline-project-")) {
-        await loadProofs(currentProjectId, showArchivedEntries);
-        await loadApprovals(currentProjectId, showArchivedEntries);
-      }
-
-
-      await refreshOfflineProofs(currentProjectId);
-      await refreshOfflineApprovals(currentProjectId);
-            await refreshOfflineProofs(currentProjectId);
-      await refreshOfflineApprovals(currentProjectId);
-
-    })();
-  }, [isBrowserOnline, selectedProject?.id]);
 
   useEffect(() => {
-  if (!bootedFromOfflineRestoreRef.current) return;
+  console.log("🧱 RECONNECT EFFECT FIRED", {
+    isBrowserOnline,
+    selectedProjectId: selectedProject?.id,
+  });
+
+  if (!navigator.onLine) return;
   if (!selectedProject?.id) return;
 
-  const activeProject = selectedProject;
+  void (async () => {
+    console.log("🧱 RECONNECT STEP 1 - entered async block");
 
-  let cancelled = false;
-  let hasResumed = false;
-
-  async function tryResumeOfflineRestore() {
-    if (cancelled || hasResumed) return;
-    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-
-    const ready = await waitForSupabaseReconnectReady();
-    if (!ready || cancelled || hasResumed) return;
-
-    hasResumed = true;
-    bootedFromOfflineRestoreRef.current = false;
-
-    const currentProjectId =
-      activeProject.id.startsWith("offline-project-")
-        ? getLastOpenProjectId() || activeProject.id
-        : activeProject.id;
+    // 🔥 WAIT for network to stabilize
+    await new Promise((resolve) => setTimeout(resolve, 800));
 
     await syncOfflineProjects();
 
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("buildproof-data-changed"));
-    }
+    // 🔥 Ensure project exists before loading approvals
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
+    console.log("🧱 RECONNECT STEP 2 - finished syncOfflineProjects");
+
+    const currentProjectId =
+      selectedProject.id.startsWith("offline-project-")
+        ? getLastOpenProjectId() || selectedProject.id
+        : selectedProject.id;
+
+    await refreshOfflineProofs(currentProjectId);
+    await refreshOfflineApprovals(currentProjectId);
+    console.log("🧱 RECONNECT STEP 4 - finished refreshOfflineApprovals");
+
+    setProofStatus("Connection restored — syncing offline entries...");
+    console.log("🧱 RECONNECT STEP 5 - set proof status");
+
+    const { flushOfflineApprovalOutbox } = await import(
+      "@/lib/offlineApprovalFlush"
+    );
+
+    // 🔥 proofs
+    await flushOfflineProofs();
+
+    // 🔥 attachments
+    const { flushOfflineAttachmentOutbox } = await import(
+      "@/lib/offlineAttachmentFlush"
+    );
+
+    const getAccessToken = async () => {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      const token = data.session?.access_token;
+      if (!token) throw new Error("Not logged in");
+      return token;
+    };
+
+    await flushOfflineAttachmentOutbox(getAccessToken);
+    await flushOfflineApprovalOutbox(getAccessToken);
+
+    const { flushOfflineApprovalAttachmentOutbox } = await import(
+      "@/lib/offlineApprovalAttachmentFlush"
+    );
+    const { flushOfflineApprovalSendOutbox } = await import(
+      "@/lib/offlineApprovalSendFlush"
+    );
+
+    await flushOfflineApprovalAttachmentOutbox(getAccessToken);
+    await flushOfflineApprovalSendOutbox(getAccessToken);
+
+    // 🔄 reload everything
     if (!currentProjectId.startsWith("offline-project-")) {
       await loadProofs(currentProjectId, showArchivedEntries);
       await loadApprovals(currentProjectId, showArchivedEntries);
@@ -687,20 +614,8 @@ export default function DashboardPage() {
 
     await refreshOfflineProofs(currentProjectId);
     await refreshOfflineApprovals(currentProjectId);
-  }
-
-  const interval = window.setInterval(() => {
-    void tryResumeOfflineRestore();
-  }, 1500);
-
-  void tryResumeOfflineRestore();
-
-  return () => {
-    cancelled = true;
-    window.clearInterval(interval);
-  };
-}, [selectedProject?.id, showArchivedEntries]);
-
+  })();
+}, [isBrowserOnline, selectedProject?.id]);
 
 
   useEffect(() => {
