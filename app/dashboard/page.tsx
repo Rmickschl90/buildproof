@@ -223,9 +223,25 @@ export default function DashboardPage() {
     return cached?.project ?? null;
   });
   function setSelectedProjectWithTrace(
-    next: Project | null,
+    next: Project | null | ((current: Project | null) => Project | null),
     reason: string
   ) {
+    if (typeof next === "function") {
+      setSelectedProject((current) => {
+        const resolved = (next as (current: Project | null) => Project | null)(current);
+
+        console.log("🧱 setSelectedProjectWithTrace:", {
+          reason,
+          next: resolved,
+          stack: new Error().stack,
+        });
+
+        return resolved;
+      });
+
+      return;
+    }
+
     console.log("🧱 setSelectedProjectWithTrace:", {
       reason,
       next,
@@ -253,6 +269,7 @@ export default function DashboardPage() {
   }, [isBrowserOnline]);
   const isFlushingOfflineProofsRef = useRef(false);
   const isRunningReconnectRef = useRef(false);
+  const bootedFromOfflineRestoreRef = useRef(false);
   const selectedProjectId = selectedProject ? selectedProject.id : null;
   const [editingApproval, setEditingApproval] = useState<any | null>(null);
 
@@ -421,6 +438,7 @@ export default function DashboardPage() {
 
         if (isOffline()) {
           console.log("🧱 OFFLINE BOOT PATH");
+          bootedFromOfflineRestoreRef.current = true;
 
           await refreshOfflineProjects();
 
@@ -542,19 +560,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     function handleConnectionChange() {
-      console.log("🧱 handleConnectionChange", {
-        navigatorOnline: navigator.onLine,
-      });
-
       setIsBrowserOnline(navigator.onLine);
     }
 
     function handleVisibilityOrFocus() {
-      console.log("🧱 handleVisibilityOrFocus", {
-        navigatorOnline: navigator.onLine,
-        visibilityState: document.visibilityState,
-      });
-
       setIsBrowserOnline(navigator.onLine);
     }
 
@@ -571,22 +580,6 @@ export default function DashboardPage() {
     };
   }, []);
 
-  useEffect(() => {
-    let lastOnlineState = navigator.onLine;
-
-    const interval = setInterval(() => {
-      const current = navigator.onLine;
-
-      if (current !== lastOnlineState) {
-        console.log("🧱 POLL detected online change:", current);
-
-        lastOnlineState = current;
-        setIsBrowserOnline(current);
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
 
 
   useEffect(() => {
@@ -667,6 +660,16 @@ export default function DashboardPage() {
 
       await refreshOfflineProofs(currentProjectId);
       await refreshOfflineApprovals(currentProjectId);
+            await refreshOfflineProofs(currentProjectId);
+      await refreshOfflineApprovals(currentProjectId);
+
+      if (bootedFromOfflineRestoreRef.current) {
+        bootedFromOfflineRestoreRef.current = false;
+        setSelectedProjectWithTrace(
+          (current) => (current ? { ...current } : current),
+          "offline restore reconnect resume"
+        );
+      }
     })();
   }, [isBrowserOnline, selectedProject?.id]);
 
