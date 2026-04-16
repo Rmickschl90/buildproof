@@ -444,11 +444,7 @@ export default function DashboardPage() {
               debugSteps.push("refreshOfflineApprovals done");
 
               setDashboardReady(true);
-              setTimeout(() => {
-                console.log("🧱 FORCED RECONNECT CHECK AFTER OFFLINE BOOT");
 
-                setIsBrowserOnline(navigator.onLine);
-              }, 1000);
               debugSteps.push("setDashboardReady done");
 
               window.localStorage.setItem(
@@ -581,16 +577,6 @@ export default function DashboardPage() {
       setProofStatus("Connection restored — syncing offline entries...");
       console.log("🧱 RECONNECT STEP 5 - set proof status");
 
-      // 🔥 force full project reload after reconnect
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      const userId = session?.user?.id;
-
-      if (userId) {
-        await loadActiveProjects(userId);
-      }
 
       const { flushOfflineApprovalOutbox } = await import(
         "@/lib/offlineApprovalFlush"
@@ -743,7 +729,7 @@ export default function DashboardPage() {
       setSendCloseSignal((k) => k + 1);
       setShowDeliveryHistory(true);
 
-      if (!navigator.onLine) return;
+      if (!isBrowserOnline) return;
 
       await loadProofs(selectedProject.id, showArchivedEntries);
       await loadApprovals(selectedProject.id, showArchivedEntries);
@@ -1290,20 +1276,6 @@ export default function DashboardPage() {
 
     const nextProjects = (data ?? []) as Project[];
     setProjects(nextProjects);
-
-    if (selectedProject?.id) {
-      const refreshedSelectedProject = nextProjects.find(
-        (project) => project.id === selectedProject.id
-      );
-
-      if (refreshedSelectedProject) {
-        setSelectedProjectWithTrace(
-          refreshedSelectedProject,
-          "loadActiveProjects refresh selected project"
-        );
-      }
-    }
-
     setStatus("");
   }
 
@@ -2320,7 +2292,12 @@ export default function DashboardPage() {
     const address = selectedProject.project_address?.trim();
     const bits = [name, email, phone, address].filter(Boolean);
     return bits.length ? bits.join(" • ") : "No client saved";
-  }, [selectedProject]);
+  }, [
+    selectedProject?.client_name,
+    selectedProject?.client_email,
+    selectedProject?.client_phone,
+    selectedProject?.project_address,
+  ]);
 
   const filteredProjects = useMemo<Project[]>(() => {
     const q = cleanText(projectSearch);
