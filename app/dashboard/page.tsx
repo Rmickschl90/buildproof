@@ -533,6 +533,18 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+  const interval = window.setInterval(() => {
+    const next = navigator.onLine;
+
+    setIsBrowserOnline((current) =>
+      current === next ? current : next
+    );
+  }, 1500);
+
+  return () => window.clearInterval(interval);
+}, []);
+
+  useEffect(() => {
     console.log("🧱 RECONNECT EFFECT FIRED", {
       isBrowserOnline,
       selectedProjectId: selectedProject?.id,
