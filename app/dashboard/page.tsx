@@ -557,7 +557,13 @@ export default function DashboardPage() {
       console.log("🧱 RECONNECT STEP 1 - entered async block");
 
       // 🔥 WAIT for network to stabilize
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      // wait until browser is truly online
+      while (!navigator.onLine) {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+
+      // small buffer after reconnect
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
       await syncOfflineProjects();
 
