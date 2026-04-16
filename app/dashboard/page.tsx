@@ -519,6 +519,8 @@ export default function DashboardPage() {
       setIsBrowserOnline(navigator.onLine);
     }
 
+    handleConnectionChange();
+
     window.addEventListener("online", handleConnectionChange);
     window.addEventListener("offline", handleConnectionChange);
     window.addEventListener("focus", handleVisibilityOrFocus);
