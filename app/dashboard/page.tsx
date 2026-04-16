@@ -557,13 +557,7 @@ export default function DashboardPage() {
       console.log("🧱 RECONNECT STEP 1 - entered async block");
 
       // 🔥 WAIT for network to stabilize
-      // wait until browser is truly online
-      while (!navigator.onLine) {
-        await new Promise((resolve) => setTimeout(resolve, 300));
-      }
-
-      // small buffer after reconnect
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 800));
 
       await syncOfflineProjects();
 
@@ -1287,6 +1281,20 @@ export default function DashboardPage() {
 
     const nextProjects = (data ?? []) as Project[];
     setProjects(nextProjects);
+
+    if (selectedProject?.id) {
+      const refreshedSelectedProject = nextProjects.find(
+        (project) => project.id === selectedProject.id
+      );
+
+      if (refreshedSelectedProject) {
+        setSelectedProjectWithTrace(
+          refreshedSelectedProject,
+          "loadActiveProjects refresh selected project"
+        );
+      }
+    }
+
     setStatus("");
   }
 
