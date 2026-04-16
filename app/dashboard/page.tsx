@@ -151,6 +151,33 @@ function isOffline() {
   return typeof navigator !== "undefined" && !navigator.onLine;
 }
 
+async function waitForSupabaseReconnectReady() {
+  const maxAttempts = 10;
+  const delayMs = 1000;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      continue;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("projects")
+        .select("id")
+        .limit(1);
+
+      if (!error) return true;
+    } catch {
+      // keep retrying
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+
+  return false;
+}
+
 const LAST_OPEN_PROJECT_KEY = "buildproof_last_open_project_id";
 
 function saveLastOpenProjectId(projectId: string) {
@@ -548,19 +575,14 @@ export default function DashboardPage() {
     void (async () => {
       console.log("🧱 RECONNECT STEP 1 - entered async block");
 
-      // 🔥 WAIT for network to stabilize
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      const reconnectReady = await waitForSupabaseReconnectReady();
+      if (!reconnectReady) return;
 
       await syncOfflineProjects();
 
       if (typeof window !== "undefined") {
-        console.log("🧱 DISPATCHING buildproof-data-changed");
-
-window.dispatchEvent(new Event("buildproof-data-changed"));
+        window.dispatchEvent(new Event("buildproof-data-changed"));
       }
-
-      // 🔥 Ensure project exists before loading approvals
-      await new Promise((resolve) => setTimeout(resolve, 300));
 
       console.log("🧱 RECONNECT STEP 2 - finished syncOfflineProjects");
 
@@ -665,8 +687,7 @@ window.dispatchEvent(new Event("buildproof-data-changed"));
 
   useEffect(() => {
     function handleBuildProofDataChanged() {
-      console.log("🧱 buildproof-data-changed RECEIVED");
-      
+
       void refreshOfflineProjects();
 
       if (!selectedProject?.id) return;
