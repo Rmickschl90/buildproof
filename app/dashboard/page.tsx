@@ -510,7 +510,7 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-    useEffect(() => {
+  useEffect(() => {
     function handleConnectionChange() {
       setIsBrowserOnline(navigator.onLine);
     }
@@ -533,16 +533,36 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-  const interval = window.setInterval(() => {
-    const next = navigator.onLine;
+    let cancelled = false;
 
-    setIsBrowserOnline((current) =>
-      current === next ? current : next
-    );
-  }, 1500);
+    async function checkConnection() {
+      try {
+        const res = await fetch(`/favicon.ico?bp-online-check=${Date.now()}`, {
+          method: "HEAD",
+          cache: "no-store",
+        });
 
-  return () => window.clearInterval(interval);
-}, []);
+        if (!cancelled) {
+          setIsBrowserOnline(res.ok);
+        }
+      } catch {
+        if (!cancelled) {
+          setIsBrowserOnline(false);
+        }
+      }
+    }
+
+    void checkConnection();
+
+    const interval = window.setInterval(() => {
+      void checkConnection();
+    }, 1500);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     console.log("🧱 RECONNECT EFFECT FIRED", {
