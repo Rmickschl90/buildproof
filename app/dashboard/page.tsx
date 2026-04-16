@@ -581,6 +581,17 @@ export default function DashboardPage() {
       setProofStatus("Connection restored — syncing offline entries...");
       console.log("🧱 RECONNECT STEP 5 - set proof status");
 
+      // 🔥 force full project reload after reconnect
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const userId = session?.user?.id;
+
+      if (userId) {
+        await loadActiveProjects(userId);
+      }
+
       const { flushOfflineApprovalOutbox } = await import(
         "@/lib/offlineApprovalFlush"
       );
@@ -592,8 +603,6 @@ export default function DashboardPage() {
       const { flushOfflineAttachmentOutbox } = await import(
         "@/lib/offlineAttachmentFlush"
       );
-
-      const { supabase } = await import("@/lib/supabase");
 
       const getAccessToken = async () => {
         const { data, error } = await supabase.auth.getSession();
