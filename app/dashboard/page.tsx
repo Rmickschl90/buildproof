@@ -1044,7 +1044,7 @@ export default function DashboardPage() {
           data = result.data;
           error = result.error;
 
-                    if (error || !data?.id) {
+          if (error || !data?.id) {
             console.error("Offline project update sync failed", error);
 
             await updateOfflineProject(record.id, {
@@ -1104,6 +1104,35 @@ export default function DashboardPage() {
       await loadActiveProjects(userId);
 
       if (selectedProject?.id && !selectedProject.id.startsWith("offline-project-")) {
+        const { data: refreshedProject } = await supabase
+          .from("projects")
+          .select("id,title,user_id,client_name,client_email,client_phone,project_address,archived_at,created_at")
+          .eq("id", selectedProject.id)
+          .single();
+
+        if (refreshedProject) {
+          setSelectedProjectWithTrace(
+            refreshedProject as Project,
+            "post-reconnect project refresh"
+          );
+
+          saveRecentProject({
+            id: refreshedProject.id,
+            title: refreshedProject.title,
+            client_name: refreshedProject.client_name ?? null,
+            client_email: refreshedProject.client_email ?? null,
+            client_phone: refreshedProject.client_phone ?? null,
+            project_address: refreshedProject.project_address ?? null,
+          });
+
+          saveCachedDashboardProject({
+            project: refreshedProject as Project,
+            proofs,
+            approvals,
+            cachedAt: new Date().toISOString(),
+          });
+        }
+
         await loadProofs(selectedProject.id, showArchivedEntries);
         await loadApprovals(selectedProject.id, showArchivedEntries);
       }
@@ -1199,7 +1228,7 @@ export default function DashboardPage() {
       .is("archived_at", null)
       .order("created_at", { ascending: false });
 
-        if (error) {
+    if (error) {
       const message = String(error.message || "").toLowerCase();
 
       const looksOffline =
