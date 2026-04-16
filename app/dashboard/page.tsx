@@ -29,6 +29,7 @@ import {
   getAllOfflineProjects,
   putOfflineProject,
   removeOfflineProject,
+  updateOfflineProject,
   type OfflineProjectRecord,
 } from "@/lib/offlineProjectOutbox";
 import { getOfflineApprovalAttachmentsForApproval } from "@/lib/offlineApprovalAttachmentOutbox";
@@ -1043,8 +1044,16 @@ export default function DashboardPage() {
           data = result.data;
           error = result.error;
 
-          if (error || !data?.id) {
+                    if (error || !data?.id) {
             console.error("Offline project update sync failed", error);
+
+            await updateOfflineProject(record.id, {
+              status: "pending",
+              lastError: error?.message || "Sync failed",
+              lastSyncAttemptAt: new Date().toISOString(),
+              syncAttemptCount: (record.syncAttemptCount || 0) + 1,
+            });
+
             continue;
           }
         }
@@ -1190,7 +1199,24 @@ export default function DashboardPage() {
       .is("archived_at", null)
       .order("created_at", { ascending: false });
 
-    if (error) {
+        if (error) {
+      const message = String(error.message || "").toLowerCase();
+
+      const looksOffline =
+        message.includes("failed to fetch") ||
+        message.includes("network") ||
+        message.includes("fetch");
+
+      if (looksOffline) {
+        const recent = getRecentProjects();
+
+        if (recent.length > 0) {
+          setProjects(recent as any);
+        }
+
+        return;
+      }
+
       setStatus(`Load projects failed: ${error.message}`);
       return;
     }
