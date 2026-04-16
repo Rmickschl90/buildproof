@@ -537,7 +537,7 @@ export default function DashboardPage() {
 
     async function checkConnection() {
       try {
-        const res = await fetch(`/favicon.ico?bp-online-check=${Date.now()}`, {
+        const res = await fetch(`/buildproof-logo.png?bp-online-check=${Date.now()}`, {
           method: "HEAD",
           cache: "no-store",
         });
