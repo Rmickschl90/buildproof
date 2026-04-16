@@ -223,33 +223,17 @@ export default function DashboardPage() {
     return cached?.project ?? null;
   });
   function setSelectedProjectWithTrace(
-    next: Project | null | ((current: Project | null) => Project | null),
-    reason: string
-  ) {
-    if (typeof next === "function") {
-      setSelectedProject((current) => {
-        const resolved = (next as (current: Project | null) => Project | null)(current);
+  next: Project | null,
+  reason: string
+) {
+  console.log("🧱 setSelectedProjectWithTrace:", {
+    reason,
+    next,
+    stack: new Error().stack,
+  });
 
-        console.log("🧱 setSelectedProjectWithTrace:", {
-          reason,
-          next: resolved,
-          stack: new Error().stack,
-        });
-
-        return resolved;
-      });
-
-      return;
-    }
-
-    console.log("🧱 setSelectedProjectWithTrace:", {
-      reason,
-      next,
-      stack: new Error().stack,
-    });
-
-    setSelectedProject(next);
-  }
+  setSelectedProject(next);
+}
   const [proofs, setProofs] = useState<Proof[]>(() => {
     const cached = getInitialCachedProjectSnapshot();
     return cached?.proofs ?? [];
@@ -663,15 +647,59 @@ export default function DashboardPage() {
             await refreshOfflineProofs(currentProjectId);
       await refreshOfflineApprovals(currentProjectId);
 
-      if (bootedFromOfflineRestoreRef.current) {
-        bootedFromOfflineRestoreRef.current = false;
-        setSelectedProjectWithTrace(
-          (current) => (current ? { ...current } : current),
-          "offline restore reconnect resume"
-        );
-      }
     })();
   }, [isBrowserOnline, selectedProject?.id]);
+
+  useEffect(() => {
+  if (!bootedFromOfflineRestoreRef.current) return;
+  if (!selectedProject?.id) return;
+
+  const activeProject = selectedProject;
+
+  let cancelled = false;
+  let hasResumed = false;
+
+  async function tryResumeOfflineRestore() {
+    if (cancelled || hasResumed) return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+
+    const ready = await waitForSupabaseReconnectReady();
+    if (!ready || cancelled || hasResumed) return;
+
+    hasResumed = true;
+    bootedFromOfflineRestoreRef.current = false;
+
+    const currentProjectId =
+      activeProject.id.startsWith("offline-project-")
+        ? getLastOpenProjectId() || activeProject.id
+        : activeProject.id;
+
+    await syncOfflineProjects();
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("buildproof-data-changed"));
+    }
+
+    if (!currentProjectId.startsWith("offline-project-")) {
+      await loadProofs(currentProjectId, showArchivedEntries);
+      await loadApprovals(currentProjectId, showArchivedEntries);
+    }
+
+    await refreshOfflineProofs(currentProjectId);
+    await refreshOfflineApprovals(currentProjectId);
+  }
+
+  const interval = window.setInterval(() => {
+    void tryResumeOfflineRestore();
+  }, 1500);
+
+  void tryResumeOfflineRestore();
+
+  return () => {
+    cancelled = true;
+    window.clearInterval(interval);
+  };
+}, [selectedProject?.id, showArchivedEntries]);
 
 
 
