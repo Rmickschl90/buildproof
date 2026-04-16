@@ -614,6 +614,37 @@ export default function DashboardPage() {
         await loadApprovals(currentProjectId, showArchivedEntries);
       }
 
+      if (!currentProjectId.startsWith("offline-project-")) {
+  const { data: refreshedProject } = await supabase
+    .from("projects")
+    .select("id,title,user_id,client_name,client_email,client_phone,project_address,archived_at,created_at")
+    .eq("id", currentProjectId)
+    .single();
+
+  if (refreshedProject) {
+    setSelectedProjectWithTrace(
+      refreshedProject as Project,
+      "post-reconnect forced refresh"
+    );
+
+    saveRecentProject({
+      id: refreshedProject.id,
+      title: refreshedProject.title,
+      client_name: refreshedProject.client_name ?? null,
+      client_email: refreshedProject.client_email ?? null,
+      client_phone: refreshedProject.client_phone ?? null,
+      project_address: refreshedProject.project_address ?? null,
+    });
+
+    saveCachedDashboardProject({
+      project: refreshedProject as Project,
+      proofs,
+      approvals,
+      cachedAt: new Date().toISOString(),
+    });
+  }
+}
+
       await refreshOfflineProofs(currentProjectId);
       await refreshOfflineApprovals(currentProjectId);
     })();
