@@ -553,15 +553,19 @@ export default function DashboardPage() {
 
       await syncOfflineProjects();
 
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("buildproof-data-changed"));
+      }
+
       // 🔥 Ensure project exists before loading approvals
       await new Promise((resolve) => setTimeout(resolve, 300));
 
       console.log("🧱 RECONNECT STEP 2 - finished syncOfflineProjects");
 
       const currentProjectId =
-  selectedProject.id.startsWith("offline-project-")
-    ? getLastOpenProjectId() || selectedProject.id
-    : selectedProject.id;
+        selectedProject.id.startsWith("offline-project-")
+          ? getLastOpenProjectId() || selectedProject.id
+          : selectedProject.id;
 
       await refreshOfflineProofs(currentProjectId);
       await refreshOfflineApprovals(currentProjectId);
