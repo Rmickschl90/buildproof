@@ -139,7 +139,7 @@ async function waitForTerminalJobStatus(
       return job;
     }
 
-    await processSendJob(jobId, token).catch(() => {});
+    await processSendJob(jobId, token).catch(() => { });
 
     await sleep(delayMs);
   }
@@ -163,6 +163,15 @@ export async function flushOfflineSendOutbox(
     const { getAccessToken, onStatus } = options;
 
     const records = await getFlushableOfflineSendRecords();
+
+    // 🔥 BLOCK send if proofs are still pending
+    const { listPendingOfflineProofs } = await import("@/lib/offlineProofOutbox");
+
+    const pendingProofs = await listPendingOfflineProofs();
+
+    if (pendingProofs.length > 0) {
+      return { flushed: 0, failed: 0 };
+    }
 
     if (!records.length) {
       return { flushed: 0, failed: 0 };
