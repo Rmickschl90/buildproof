@@ -533,6 +533,8 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    if (isBrowserOnline) return;
+
     let cancelled = false;
 
     async function checkConnection() {
@@ -542,13 +544,11 @@ export default function DashboardPage() {
           cache: "no-store",
         });
 
-        if (!cancelled) {
-          setIsBrowserOnline(res.ok);
+        if (!cancelled && res.ok) {
+          setIsBrowserOnline(true);
         }
       } catch {
-        if (!cancelled) {
-          setIsBrowserOnline(false);
-        }
+        // stay offline silently
       }
     }
 
@@ -562,7 +562,7 @@ export default function DashboardPage() {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, []);
+  }, [isBrowserOnline]);
 
   useEffect(() => {
     console.log("🧱 RECONNECT EFFECT FIRED", {
