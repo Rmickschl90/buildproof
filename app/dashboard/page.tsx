@@ -554,7 +554,9 @@ export default function DashboardPage() {
       await syncOfflineProjects();
 
       if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("buildproof-data-changed"));
+        console.log("🧱 DISPATCHING buildproof-data-changed");
+
+window.dispatchEvent(new Event("buildproof-data-changed"));
       }
 
       // 🔥 Ensure project exists before loading approvals
@@ -663,6 +665,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     function handleBuildProofDataChanged() {
+      console.log("🧱 buildproof-data-changed RECEIVED");
+      
       void refreshOfflineProjects();
 
       if (!selectedProject?.id) return;
