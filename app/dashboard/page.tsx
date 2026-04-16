@@ -571,6 +571,23 @@ export default function DashboardPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let lastOnlineState = navigator.onLine;
+
+    const interval = setInterval(() => {
+      const current = navigator.onLine;
+
+      if (current !== lastOnlineState) {
+        console.log("🧱 POLL detected online change:", current);
+
+        lastOnlineState = current;
+        setIsBrowserOnline(current);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
 
   useEffect(() => {
     console.log("🧱 RECONNECT EFFECT FIRED", {
