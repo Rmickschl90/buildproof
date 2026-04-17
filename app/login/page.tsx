@@ -92,12 +92,7 @@ export default function Login() {
     try {
       setBusy(true);
 
-      const base =
-        typeof window !== "undefined"
-          ? window.location.origin
-          : process.env.NEXT_PUBLIC_APP_URL;
-
-      if (!base) throw new Error("Missing app URL");
+      const base = window.location.origin.replace(/\/+$/, "");
 
       const redirectedFrom = new URLSearchParams(window.location.search).get("redirectedFrom");
       const emailRedirectTo = redirectedFrom
