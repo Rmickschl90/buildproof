@@ -590,87 +590,87 @@ export default function DashboardPage() {
 
 
   async function runReconnectFlow() {
-  if (isRunningReconnectRef.current) {
-    console.log("🧱 RECONNECT SKIPPED - already running");
-    return;
-  }
-
-  isRunningReconnectRef.current = true;
-
-  try {
-    console.log("🧱 RECONNECT STEP 1 - entered async block");
-
-    if (!navigator.onLine) return;
-    if (!selectedProject?.id) return;
-
-    const reconnectReady = await waitForSupabaseReconnectReady();
-    if (!reconnectReady) return;
-
-    await syncOfflineProjects();
-
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("buildproof-data-changed"));
+    if (isRunningReconnectRef.current) {
+      console.log("🧱 RECONNECT SKIPPED - already running");
+      return;
     }
 
-    console.log("🧱 RECONNECT STEP 2 - finished syncOfflineProjects");
+    isRunningReconnectRef.current = true;
 
-    const currentProjectId =
-      selectedProject.id.startsWith("offline-project-")
-        ? getLastOpenProjectId() || selectedProject.id
-        : selectedProject.id;
+    try {
+      console.log("🧱 RECONNECT STEP 1 - entered async block");
 
-    await refreshOfflineProofs(currentProjectId);
-    await refreshOfflineApprovals(currentProjectId);
-    console.log("🧱 RECONNECT STEP 4 - finished refreshOfflineApprovals");
+      if (!navigator.onLine) return;
+      if (!selectedProject?.id) return;
 
-    setProofStatus("Connection restored — syncing offline entries...");
-    console.log("🧱 RECONNECT STEP 5 - set proof status");
+      const reconnectReady = await waitForSupabaseReconnectReady();
+      if (!reconnectReady) return;
 
-    const { flushOfflineApprovalOutbox } = await import(
-      "@/lib/offlineApprovalFlush"
-    );
+      await syncOfflineProjects();
 
-    // 🔥 proofs
-    await flushOfflineProofs();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("buildproof-data-changed"));
+      }
 
-    // 🔥 attachments
-    const { flushOfflineAttachmentOutbox } = await import(
-      "@/lib/offlineAttachmentFlush"
-    );
+      console.log("🧱 RECONNECT STEP 2 - finished syncOfflineProjects");
 
-    const getAccessToken = async () => {
-      const { data, error } = await supabase.auth.getSession();
-      if (error) throw error;
-      const token = data.session?.access_token;
-      if (!token) throw new Error("Not logged in");
-      return token;
-    };
+      const currentProjectId =
+        selectedProject.id.startsWith("offline-project-")
+          ? getLastOpenProjectId() || selectedProject.id
+          : selectedProject.id;
 
-    await flushOfflineAttachmentOutbox(getAccessToken);
-    await flushOfflineApprovalOutbox(getAccessToken);
+      await refreshOfflineProofs(currentProjectId);
+      await refreshOfflineApprovals(currentProjectId);
+      console.log("🧱 RECONNECT STEP 4 - finished refreshOfflineApprovals");
 
-    const { flushOfflineApprovalAttachmentOutbox } = await import(
-      "@/lib/offlineApprovalAttachmentFlush"
-    );
-    const { flushOfflineApprovalSendOutbox } = await import(
-      "@/lib/offlineApprovalSendFlush"
-    );
+      setProofStatus("Connection restored — syncing offline entries...");
+      console.log("🧱 RECONNECT STEP 5 - set proof status");
 
-    await flushOfflineApprovalAttachmentOutbox(getAccessToken);
-    await flushOfflineApprovalSendOutbox(getAccessToken);
+      const { flushOfflineApprovalOutbox } = await import(
+        "@/lib/offlineApprovalFlush"
+      );
 
-    // 🔄 reload everything
-    if (!currentProjectId.startsWith("offline-project-")) {
-      await loadProofs(currentProjectId, showArchivedEntries);
-      await loadApprovals(currentProjectId, showArchivedEntries);
+      // 🔥 proofs
+      await flushOfflineProofs();
+
+      // 🔥 attachments
+      const { flushOfflineAttachmentOutbox } = await import(
+        "@/lib/offlineAttachmentFlush"
+      );
+
+      const getAccessToken = async () => {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        const token = data.session?.access_token;
+        if (!token) throw new Error("Not logged in");
+        return token;
+      };
+
+      await flushOfflineAttachmentOutbox(getAccessToken);
+      await flushOfflineApprovalOutbox(getAccessToken);
+
+      const { flushOfflineApprovalAttachmentOutbox } = await import(
+        "@/lib/offlineApprovalAttachmentFlush"
+      );
+      const { flushOfflineApprovalSendOutbox } = await import(
+        "@/lib/offlineApprovalSendFlush"
+      );
+
+      await flushOfflineApprovalAttachmentOutbox(getAccessToken);
+      await flushOfflineApprovalSendOutbox(getAccessToken);
+
+      // 🔄 reload everything
+      if (!currentProjectId.startsWith("offline-project-")) {
+        await loadProofs(currentProjectId, showArchivedEntries);
+        await loadApprovals(currentProjectId, showArchivedEntries);
+      }
+
+      await refreshOfflineProofs(currentProjectId);
+      await refreshOfflineApprovals(currentProjectId);
+    } finally {
+      isRunningReconnectRef.current = false;
     }
-
-    await refreshOfflineProofs(currentProjectId);
-    await refreshOfflineApprovals(currentProjectId);
-  } finally {
-    isRunningReconnectRef.current = false;
   }
-}
 
   useEffect(() => {
     console.log("🧱 RECONNECT EFFECT FIRED", {
@@ -1163,6 +1163,8 @@ export default function DashboardPage() {
 
 
         const syncedProject = data as Project;
+
+        await removeOfflineProject(record.id);
 
         saveRecentProject({
           id: syncedProject.id,

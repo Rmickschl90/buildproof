@@ -1,0 +1,195 @@
+[1mdiff --git a/app/dashboard/page.tsx b/app/dashboard/page.tsx[m
+[1mindex 91d73088..c8542d6b 100644[m
+[1m--- a/app/dashboard/page.tsx[m
+[1m+++ b/app/dashboard/page.tsx[m
+[36m@@ -15,12 +15,23 @@[m [mimport ApprovalCard from "../components/ApprovalCard";[m
+ import {[m
+   createOfflineProof,[m
+   listOfflineProofsForProject,[m
+[32m+[m[32m  remapOfflineProofProjectId,[m
+   type OfflineProofRecord,[m
+ } from "@/lib/offlineProofOutbox";[m
+[32m+[m[32mimport { remapOfflineAttachmentProjectId } from "@/lib/offlineAttachmentOutbox";[m
+ import {[m
+   listOfflineApprovalsForProject,[m
+[32m+[m[32m  remapOfflineApprovalProjectId,[m
+   type OfflineApprovalRecord,[m
+ } from "@/lib/offlineApprovalOutbox";[m
+[32m+[m[32mimport {[m
+[32m+[m[32m  createOfflineProjectId,[m
+[32m+[m[32m  getAllOfflineProjects,[m
+[32m+[m[32m  putOfflineProject,[m
+[32m+[m[32m  removeOfflineProject,[m
+[32m+[m[32m  updateOfflineProject,[m
+[32m+[m[32m  type OfflineProjectRecord,[m
+[32m+[m[32m} from "@/lib/offlineProjectOutbox";[m
+ import { getOfflineApprovalAttachmentsForApproval } from "@/lib/offlineApprovalAttachmentOutbox";[m
+ import OfflineAttachmentBootstrap from "../components/OfflineAttachmentBootstrap";[m
+ import {[m
+[36m@@ -31,6 +42,7 @@[m [mimport {[m
+   saveRecentProject,[m
+   getRecentProjects,[m
+ } from "@/lib/offlineRecentProjects";[m
+[32m+[m[32mimport { saveCachedAttachments } from "@/lib/offlineAttachmentCache";[m
+ [m
+ type Project = {[m
+   id: string;[m
+[36m@@ -139,6 +151,33 @@[m [mfunction isOffline() {[m
+   return typeof navigator !== "undefined" && !navigator.onLine;[m
+ }[m
+ [m
+[32m+[m[32masync function waitForSupabaseReconnectReady() {[m
+[32m+[m[32m  const maxAttempts = 10;[m
+[32m+[m[32m  const delayMs = 1000;[m
+[32m+[m
+[32m+[m[32m  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {[m
+[32m+[m[32m    if (typeof navigator !== "undefined" && !navigator.onLine) {[m
+[32m+[m[32m      await new Promise((resolve) => setTimeout(resolve, delayMs));[m
+[32m+[m[32m      continue;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    try {[m
+[32m+[m[32m      const { error } = await supabase[m
+[32m+[m[32m        .from("projects")[m
+[32m+[m[32m        .select("id")[m
+[32m+[m[32m        .limit(1);[m
+[32m+[m
+[32m+[m[32m      if (!error) return true;[m
+[32m+[m[32m    } catch {[m
+[32m+[m[32m      // keep retrying[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    await new Promise((resolve) => setTimeout(resolve, delayMs));[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  return false;[m
+[32m+[m[32m}[m
+[32m+[m
+ const LAST_OPEN_PROJECT_KEY = "buildproof_last_open_project_id";[m
+ [m
+ function saveLastOpenProjectId(projectId: string) {[m
+[36m@@ -203,12 +242,17 @@[m [mexport default function DashboardPage() {[m
+     const cached = getInitialCachedProjectSnapshot();[m
+     return cached?.approvals ?? [];[m
+   });[m
+[32m+[m[32m  const [offlineProjects, setOfflineProjects] = useState<OfflineProjectRecord[]>([]);[m
+   const [offlineApprovals, setOfflineApprovals] = useState<OfflineApprovalRecord[]>([]);[m
+   const [offlineProofs, setOfflineProofs] = useState<OfflineProofRecord[]>([]);[m
+   const [isBrowserOnline, setIsBrowserOnline] = useState([m
+     typeof navigator === "undefined" ? true : navigator.onLine[m
+   );[m
+[32m+[m[32m  useEffect(() => {[m
+[32m+[m[32m    console.log("🧱 isBrowserOnline changed:", isBrowserOnline);[m
+[32m+[m[32m  }, [isBrowserOnline]);[m
+   const isFlushingOfflineProofsRef = useRef(false);[m
+[32m+[m[32m  const isRunningReconnectRef = useRef(false);[m
+   const selectedProjectId = selectedProject ? selectedProject.id : null;[m
+   const [editingApproval, setEditingApproval] = useState<any | null>(null);[m
+ [m
+[36m@@ -301,6 +345,39 @@[m [mexport default function DashboardPage() {[m
+   useEffect(() => {[m
+     if (!selectedProject) return;[m
+ [m
+[32m+[m[32m    const projectId = selectedProject.id;[m
+[32m+[m
+[32m+[m[32m    const existingRaw =[m
+[32m+[m[32m      typeof window !== "undefined"[m
+[32m+[m[32m        ? window.localStorage.getItem(`buildproof-dashboard-cache:${projectId}`)[m
+[32m+[m[32m        : null;[m
+[32m+[m
+[32m+[m[32m    let existingProofCount = 0;[m
+[32m+[m
+[32m+[m[32m    try {[m
+[32m+[m[32m      if (existingRaw) {[m
+[32m+[m[32m        const parsed = JSON.parse(existingRaw);[m
+[32m+[m[32m        existingProofCount = parsed?.proofs?.length ?? 0;[m
+[32m+[m[32m      }[m
+[32m+[m[32m    } catch { }[m
+[32m+[m
+[32m+[m[32m    // 🚨 BLOCK ALL empty writes for server projects[m
+[32m+[m[32m    const isServerProject = !selectedProject.id.startsWith("offline-project-");[m
+[32m+[m
+[32m+[m[32m    if (isServerProject && proofs.length === 0) {[m
+[32m+[m[32m      console.log("🛑 BLOCKED EMPTY CACHE WRITE", {[m
+[32m+[m[32m        projectId,[m
+[32m+[m[32m      });[m
+[32m+[m[32m      return;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    console.log("🧱 CACHE WRITE", {[m
+[32m+[m[32m      projectId,[m
+[32m+[m[32m      projectTitle: selectedProject.title,[m
+[32m+[m[32m      proofCount: proofs.length,[m
+[32m+[m[32m      approvalCount: approvals.length,[m
+[32m+[m[32m    });[m
+[32m+[m
+     saveCachedDashboardProject({[m
+       project: selectedProject,[m
+       proofs,[m
+[36m@@ -330,6 +407,7 @@[m [mexport default function DashboardPage() {[m
+     console.log("🧱 selectedProject changed:", selectedProject);[m
+   }, [selectedProject]);[m
+ [m
+[32m+[m
+   useEffect(() => {[m
+     setHasMounted(true);[m
+   }, []);[m
+[36m@@ -344,6 +422,8 @@[m [mexport default function DashboardPage() {[m
+         if (isOffline()) {[m
+           console.log("🧱 OFFLINE BOOT PATH");[m
+ [m
+[32m+[m[32m          await refreshOfflineProjects();[m
+[32m+[m
+           // 🔍 DEBUG — confirm recent projects cache[m
+           const recent = getRecentProjects();[m
+           console.log("🧱 Offline recent projects:", recent);[m
+[36m@@ -387,6 +467,7 @@[m [mexport default function DashboardPage() {[m
+               debugSteps.push("refreshOfflineApprovals done");[m
+ [m
+               setDashboardReady(true);[m
+[32m+[m
+               debugSteps.push("setDashboardReady done");[m
+ [m
+               window.localStorage.setItem([m
+[36m@@ -428,6 +509,7 @@[m [mexport default function DashboardPage() {[m
+         setUserId(data.user.id);[m
+         setUserEmail(data.user.email ?? null);[m
+ [m
+[32m+[m[32m        await refreshOfflineProjects();[m
+         await flushOfflineProofs();[m
+         await loadActiveProjects(data.user.id);[m
+ [m
+[36m@@ -441,11 +523,6 @@[m [mexport default function DashboardPage() {[m
+           if (project) {[m
+             setSelectedProjectWithTrace(project, "online boot restore from projectIdFromUrl");[m
+ [m
+[31m-            cacheProjectSnapshot({[m
+[31m-              project,[m
+[31m-              proofs: [],[m
+[31m-              approvals: [],[m
+[31m-            });[m
+ [m
+             await loadProofs(project.id, false, project);[m
+             await loadApprovals(project.id, false, project);[m
+[36m@@ -465,53 +542,166 @@[m [mexport default function DashboardPage() {[m
+ [m
+   useEffect(() => {[m
+     function handleConnectionChange() {[m
+[32m+[m[32m      console.log("🧱 handleConnectionChange", {[m
+[32m+[m[32m        navigatorOnline: navigator.onLine,[m
+[32m+[m[32m      });[m
+[32m+[m
+[32m+[m[32m      setIsBrowserOnline(navigator.onLine);[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    function handleVisibilityOrFocus() {[m
+[32m+[m[32m      console.log("🧱 handleVisibilityOrFocus", {[m
+[32m+[m[32m        navigatorOnline: navigator.onLine,[m
+[32m+[m[32m        visibilityState: document.visibilityState,[m
+[32m+[m[32m      });[m
+[32m+[m
+       setIsBrowserOnline(navigator.onLine);[m
+     }[m
+ [m
+     window.addEventListener("online", handleConnectionChange);[m
+     window.addEventListener("offline", handleConnectionChange);[
