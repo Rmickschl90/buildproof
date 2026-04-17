@@ -27,7 +27,7 @@ export default function OfflineReconnectBootstrap() {
                     source,
                 });
 
-                window.dispatchEvent(new Event("online"));
+                window.dispatchEvent(new Event("buildproof-run-reconnect-flow"));
                 window.dispatchEvent(new Event("buildproof-data-changed"));
             } catch {
                 // still offline or network not ready yet
