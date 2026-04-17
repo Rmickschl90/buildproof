@@ -412,8 +412,78 @@ export default function DashboardPage() {
 
 
   useEffect(() => {
-    setHasMounted(true);
-  }, []);
+  setHasMounted(true);
+
+  // 🔥 FORCE ONE RECONNECT PASS AFTER BOOT
+  setTimeout(() => {
+    console.log("🧱 DIRECT BOOT RECONNECT TRIGGER");
+
+    if (!navigator.onLine) return;
+    if (!selectedProject?.id) return;
+
+    (async () => {
+      console.log("🧱 DIRECT RECONNECT STEP 1");
+
+      const reconnectReady = await waitForSupabaseReconnectReady();
+      if (!reconnectReady) return;
+
+      await syncOfflineProjects();
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("buildproof-data-changed"));
+      }
+
+      const currentProjectId =
+        selectedProject.id.startsWith("offline-project-")
+          ? getLastOpenProjectId() || selectedProject.id
+          : selectedProject.id;
+
+      await refreshOfflineProofs(currentProjectId);
+      await refreshOfflineApprovals(currentProjectId);
+
+      const { flushOfflineApprovalOutbox } = await import(
+        "@/lib/offlineApprovalFlush"
+      );
+
+      await flushOfflineProofs();
+
+      const { flushOfflineAttachmentOutbox } = await import(
+        "@/lib/offlineAttachmentFlush"
+      );
+
+      const getAccessToken = async () => {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        const token = data.session?.access_token;
+        if (!token) throw new Error("Not logged in");
+        return token;
+      };
+
+      await flushOfflineAttachmentOutbox(getAccessToken);
+      await flushOfflineApprovalOutbox(getAccessToken);
+
+      const { flushOfflineApprovalAttachmentOutbox } = await import(
+        "@/lib/offlineApprovalAttachmentFlush"
+      );
+      const { flushOfflineApprovalSendOutbox } = await import(
+        "@/lib/offlineApprovalSendFlush"
+      );
+
+      await flushOfflineApprovalAttachmentOutbox(getAccessToken);
+      await flushOfflineApprovalSendOutbox(getAccessToken);
+
+      if (!currentProjectId.startsWith("offline-project-")) {
+        await loadProofs(currentProjectId, showArchivedEntries);
+        await loadApprovals(currentProjectId, showArchivedEntries);
+      }
+
+      await refreshOfflineProofs(currentProjectId);
+      await refreshOfflineApprovals(currentProjectId);
+
+      console.log("🧱 DIRECT RECONNECT COMPLETE");
+    })();
+  }, 1000); // slight delay to allow restore to settle
+}, []);
 
   // ---------------- AUTH BOOT ----------------
   useEffect(() => {
