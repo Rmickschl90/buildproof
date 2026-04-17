@@ -542,14 +542,14 @@ export default function DashboardPage() {
 
   useEffect(() => {
     function handleConnectionChange() {
-  console.log("🧱 handleConnectionChange", {
-    navigatorOnline: navigator.onLine,
-  });
+      console.log("🧱 handleConnectionChange", {
+        navigatorOnline: navigator.onLine,
+      });
 
-  console.log("🧱 EVENT: online/offline fired");
+      console.log("🧱 EVENT: online/offline fired");
 
-  setIsBrowserOnline(navigator.onLine);
-}
+      setIsBrowserOnline(navigator.onLine);
+    }
 
     function handleVisibilityOrFocus() {
       console.log("🧱 handleVisibilityOrFocus", {
@@ -557,7 +557,19 @@ export default function DashboardPage() {
         visibilityState: document.visibilityState,
       });
 
-      setIsBrowserOnline(navigator.onLine);
+      console.log("🧱 FORCE RECHECK ON FOCUS");
+
+      // 🔥 force a state bump even if value didn't change
+      setIsBrowserOnline((prev) => {
+        const next = navigator.onLine;
+
+        console.log("🧱 focus forcing state update", {
+          prev,
+          next,
+        });
+
+        return next;
+      });
     }
 
     window.addEventListener("online", handleConnectionChange);
@@ -574,28 +586,28 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-  let lastOnlineState = navigator.onLine;
+    let lastOnlineState = navigator.onLine;
 
-  const interval = setInterval(() => {
-    const current = navigator.onLine;
+    const interval = setInterval(() => {
+      const current = navigator.onLine;
 
-    if (current !== lastOnlineState) {
-      console.log("🧱 POLL detected online change:", current);
+      if (current !== lastOnlineState) {
+        console.log("🧱 POLL detected online change:", current);
 
-      lastOnlineState = current;
+        lastOnlineState = current;
 
-      console.log("🧱 FORCING isBrowserOnline update from poll");
+        console.log("🧱 FORCING isBrowserOnline update from poll");
 
-      setIsBrowserOnline(current);
-    }
-  }, 1000);
+        setIsBrowserOnline(current);
+      }
+    }, 1000);
 
-  // 🔥 CRITICAL — run once immediately on mount
-  console.log("🧱 POLL INIT CHECK", navigator.onLine);
-  setIsBrowserOnline(navigator.onLine);
+    // 🔥 CRITICAL — run once immediately on mount
+    console.log("🧱 POLL INIT CHECK", navigator.onLine);
+    setIsBrowserOnline(navigator.onLine);
 
-  return () => clearInterval(interval);
-}, []);
+    return () => clearInterval(interval);
+  }, []);
 
 
   useEffect(() => {
