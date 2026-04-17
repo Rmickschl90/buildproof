@@ -3,7 +3,6 @@ import OfflineSendBootstrap from "@/app/components/OfflineSendBootstrap";
 import OfflineAttachmentBootstrap from "@/app/components/OfflineAttachmentBootstrap";
 import OfflineSendIndicator from "@/app/components/OfflineSendIndicator";
 import OfflineAppShellBootstrap from "@/app/components/OfflineAppShellBootstrap";
-import OfflineReconnectBootstrap from "@/app/components/OfflineReconnectBootstrap";
 
 export const metadata = {
   title: "BuildProof",
@@ -23,10 +22,9 @@ export default function RootLayout({
           content="width=device-width, initial-scale=1, viewport-fit=cover"
         />
       </head>
-      <body>
+                  <body>
         <OfflineAppShellBootstrap />
         <OfflineAttachmentBootstrap />
-        <OfflineReconnectBootstrap />
         <OfflineSendIndicator />
         {children}
         <OfflineSendBootstrap />
