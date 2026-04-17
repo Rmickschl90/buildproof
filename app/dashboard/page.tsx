@@ -246,18 +246,18 @@ export default function DashboardPage() {
   const [offlineApprovals, setOfflineApprovals] = useState<OfflineApprovalRecord[]>([]);
   const [offlineProofs, setOfflineProofs] = useState<OfflineProofRecord[]>([]);
   const [isBrowserOnline, setIsBrowserOnline] = useState(() => {
-  if (typeof navigator === "undefined") return true;
+    if (typeof navigator === "undefined") return true;
 
-  // 🔥 detect offline restore scenario
-  const cached = getInitialCachedProjectSnapshot();
+    // 🔥 detect offline restore scenario
+    const cached = getInitialCachedProjectSnapshot();
 
-  if (cached && !navigator.onLine) {
-    console.log("🧱 FORCING OFFLINE STATE ON BOOT (cached restore)");
-    return false;
-  }
+    if (cached && !navigator.onLine) {
+      console.log("🧱 FORCING OFFLINE STATE ON BOOT (cached restore)");
+      return false;
+    }
 
-  return navigator.onLine;
-});
+    return navigator.onLine;
+  });
   useEffect(() => {
     console.log("🧱 isBrowserOnline changed:", isBrowserOnline);
   }, [isBrowserOnline]);
@@ -619,12 +619,23 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
+  const hasBootReconnectRunRef = useRef(false);
 
   useEffect(() => {
     console.log("🧱 RECONNECT EFFECT FIRED", {
       isBrowserOnline,
       selectedProjectId: selectedProject?.id,
     });
+
+    // 🔥 NEW: force one reconnect attempt after mount
+    if (!hasBootReconnectRunRef.current) {
+      console.log("🧱 FORCED BOOT RECONNECT CHECK");
+
+      hasBootReconnectRunRef.current = true;
+
+      // pretend we just came online
+      setIsBrowserOnline(true);
+    }
 
     if (!navigator.onLine) return;
     if (!selectedProject?.id) return;
