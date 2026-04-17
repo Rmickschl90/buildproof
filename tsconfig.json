@@ -6,19 +6,17 @@
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
-    "moduleResolution": "Node",
+    "moduleResolution": "Bundler",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "incremental": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./*"]
     },
     "noEmit": true,
     "resolveJsonModule": true,
-    "ignoreDeprecations": "6.0",
     "plugins": [
       {
         "name": "next"
