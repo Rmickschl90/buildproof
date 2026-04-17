@@ -151,7 +151,32 @@ function isOffline() {
   return typeof navigator !== "undefined" && !navigator.onLine;
 }
 
+async function waitForSupabaseReconnectReady() {
+  const maxAttempts = 10;
+  const delayMs = 1000;
 
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      continue;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("projects")
+        .select("id")
+        .limit(1);
+
+      if (!error) return true;
+    } catch {
+      // keep retrying
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+
+  return false;
+}
 
 const LAST_OPEN_PROJECT_KEY = "buildproof_last_open_project_id";
 
@@ -198,17 +223,17 @@ export default function DashboardPage() {
     return cached?.project ?? null;
   });
   function setSelectedProjectWithTrace(
-  next: Project | null,
-  reason: string
-) {
-  console.log("🧱 setSelectedProjectWithTrace:", {
-    reason,
-    next,
-    stack: new Error().stack,
-  });
+    next: Project | null,
+    reason: string
+  ) {
+    console.log("🧱 setSelectedProjectWithTrace:", {
+      reason,
+      next,
+      stack: new Error().stack,
+    });
 
-  setSelectedProject(next);
-}
+    setSelectedProject(next);
+  }
   const [proofs, setProofs] = useState<Proof[]>(() => {
     const cached = getInitialCachedProjectSnapshot();
     return cached?.proofs ?? [];
@@ -516,106 +541,135 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-  function handleConnectionChange() {
-    setIsBrowserOnline(navigator.onLine);
-  }
+    function handleConnectionChange() {
+      console.log("🧱 handleConnectionChange", {
+        navigatorOnline: navigator.onLine,
+      });
 
-  function handleVisibilityOrFocus() {
-    setIsBrowserOnline(navigator.onLine);
-  }
+      setIsBrowserOnline(navigator.onLine);
+    }
 
-  window.addEventListener("online", handleConnectionChange);
-  window.addEventListener("offline", handleConnectionChange);
-  window.addEventListener("focus", handleVisibilityOrFocus);
-  document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+    function handleVisibilityOrFocus() {
+      console.log("🧱 handleVisibilityOrFocus", {
+        navigatorOnline: navigator.onLine,
+        visibilityState: document.visibilityState,
+      });
 
-  return () => {
-    window.removeEventListener("online", handleConnectionChange);
-    window.removeEventListener("offline", handleConnectionChange);
-    window.removeEventListener("focus", handleVisibilityOrFocus);
-    document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
-  };
-}, []);
+      setIsBrowserOnline(navigator.onLine);
+    }
 
+    window.addEventListener("online", handleConnectionChange);
+    window.addEventListener("offline", handleConnectionChange);
+    window.addEventListener("focus", handleVisibilityOrFocus);
+    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+
+    return () => {
+      window.removeEventListener("online", handleConnectionChange);
+      window.removeEventListener("offline", handleConnectionChange);
+      window.removeEventListener("focus", handleVisibilityOrFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+    };
+  }, []);
+
+  useEffect(() => {
+    let lastOnlineState = navigator.onLine;
+
+    const interval = setInterval(() => {
+      const current = navigator.onLine;
+
+      if (current !== lastOnlineState) {
+        console.log("🧱 POLL detected online change:", current);
+
+        lastOnlineState = current;
+        setIsBrowserOnline(current);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
 
   useEffect(() => {
-  console.log("🧱 RECONNECT EFFECT FIRED", {
-    isBrowserOnline,
-    selectedProjectId: selectedProject?.id,
-  });
+    console.log("🧱 RECONNECT EFFECT FIRED", {
+      isBrowserOnline,
+      selectedProjectId: selectedProject?.id,
+    });
 
-  if (!navigator.onLine) return;
-  if (!selectedProject?.id) return;
+    if (!navigator.onLine) return;
+    if (!selectedProject?.id) return;
 
-  void (async () => {
-    console.log("🧱 RECONNECT STEP 1 - entered async block");
+    void (async () => {
+      console.log("🧱 RECONNECT STEP 1 - entered async block");
 
-    // 🔥 WAIT for network to stabilize
-    await new Promise((resolve) => setTimeout(resolve, 800));
+      const reconnectReady = await waitForSupabaseReconnectReady();
+      if (!reconnectReady) return;
 
-    await syncOfflineProjects();
+      await syncOfflineProjects();
 
-    // 🔥 Ensure project exists before loading approvals
-    await new Promise((resolve) => setTimeout(resolve, 300));
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("buildproof-data-changed"));
+      }
 
-    console.log("🧱 RECONNECT STEP 2 - finished syncOfflineProjects");
+      console.log("🧱 RECONNECT STEP 2 - finished syncOfflineProjects");
 
-    const currentProjectId =
-      selectedProject.id.startsWith("offline-project-")
-        ? getLastOpenProjectId() || selectedProject.id
-        : selectedProject.id;
+      const currentProjectId =
+        selectedProject.id.startsWith("offline-project-")
+          ? getLastOpenProjectId() || selectedProject.id
+          : selectedProject.id;
 
-    await refreshOfflineProofs(currentProjectId);
-    await refreshOfflineApprovals(currentProjectId);
-    console.log("🧱 RECONNECT STEP 4 - finished refreshOfflineApprovals");
+      await refreshOfflineProofs(currentProjectId);
+      await refreshOfflineApprovals(currentProjectId);
+      console.log("🧱 RECONNECT STEP 4 - finished refreshOfflineApprovals");
 
-    setProofStatus("Connection restored — syncing offline entries...");
-    console.log("🧱 RECONNECT STEP 5 - set proof status");
+      setProofStatus("Connection restored — syncing offline entries...");
+      console.log("🧱 RECONNECT STEP 5 - set proof status");
 
-    const { flushOfflineApprovalOutbox } = await import(
-      "@/lib/offlineApprovalFlush"
-    );
 
-    // 🔥 proofs
-    await flushOfflineProofs();
+      const { flushOfflineApprovalOutbox } = await import(
+        "@/lib/offlineApprovalFlush"
+      );
 
-    // 🔥 attachments
-    const { flushOfflineAttachmentOutbox } = await import(
-      "@/lib/offlineAttachmentFlush"
-    );
+      // 🔥 proofs
+      await flushOfflineProofs();
 
-    const getAccessToken = async () => {
-      const { data, error } = await supabase.auth.getSession();
-      if (error) throw error;
-      const token = data.session?.access_token;
-      if (!token) throw new Error("Not logged in");
-      return token;
-    };
+      // 🔥 attachments
+      const { flushOfflineAttachmentOutbox } = await import(
+        "@/lib/offlineAttachmentFlush"
+      );
 
-    await flushOfflineAttachmentOutbox(getAccessToken);
-    await flushOfflineApprovalOutbox(getAccessToken);
+      const getAccessToken = async () => {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        const token = data.session?.access_token;
+        if (!token) throw new Error("Not logged in");
+        return token;
+      };
 
-    const { flushOfflineApprovalAttachmentOutbox } = await import(
-      "@/lib/offlineApprovalAttachmentFlush"
-    );
-    const { flushOfflineApprovalSendOutbox } = await import(
-      "@/lib/offlineApprovalSendFlush"
-    );
+      await flushOfflineAttachmentOutbox(getAccessToken);
+      await flushOfflineApprovalOutbox(getAccessToken);
 
-    await flushOfflineApprovalAttachmentOutbox(getAccessToken);
-    await flushOfflineApprovalSendOutbox(getAccessToken);
+      const { flushOfflineApprovalAttachmentOutbox } = await import(
+        "@/lib/offlineApprovalAttachmentFlush"
+      );
+      const { flushOfflineApprovalSendOutbox } = await import(
+        "@/lib/offlineApprovalSendFlush"
+      );
 
-    // 🔄 reload everything
-    if (!currentProjectId.startsWith("offline-project-")) {
-      await loadProofs(currentProjectId, showArchivedEntries);
-      await loadApprovals(currentProjectId, showArchivedEntries);
-    }
+      await flushOfflineApprovalAttachmentOutbox(getAccessToken);
+      await flushOfflineApprovalSendOutbox(getAccessToken);
 
-    await refreshOfflineProofs(currentProjectId);
-    await refreshOfflineApprovals(currentProjectId);
-  })();
-}, [isBrowserOnline, selectedProject?.id]);
+      // 🔄 reload everything
+      if (!currentProjectId.startsWith("offline-project-")) {
+        await loadProofs(currentProjectId, showArchivedEntries);
+        await loadApprovals(currentProjectId, showArchivedEntries);
+      }
+
+
+      await refreshOfflineProofs(currentProjectId);
+      await refreshOfflineApprovals(currentProjectId);
+    })();
+  }, [isBrowserOnline, selectedProject?.id]);
+
 
 
   useEffect(() => {
