@@ -245,19 +245,12 @@ export default function DashboardPage() {
   const [offlineProjects, setOfflineProjects] = useState<OfflineProjectRecord[]>([]);
   const [offlineApprovals, setOfflineApprovals] = useState<OfflineApprovalRecord[]>([]);
   const [offlineProofs, setOfflineProofs] = useState<OfflineProofRecord[]>([]);
-  const [isBrowserOnline, setIsBrowserOnline] = useState(() => {
-    if (typeof navigator === "undefined") return true;
+  const [isBrowserOnline, setIsBrowserOnline] = useState(
+    typeof navigator === "undefined" ? true : navigator.onLine
+  );
 
-    // 🔥 detect offline restore scenario
-    const cached = getInitialCachedProjectSnapshot();
-
-    if (cached && !navigator.onLine) {
-      console.log("🧱 FORCING OFFLINE STATE ON BOOT (cached restore)");
-      return false;
-    }
-
-    return navigator.onLine;
-  });
+  const [reconnectTick, setReconnectTick] = useState<number>(0);
+  
   useEffect(() => {
     console.log("🧱 isBrowserOnline changed:", isBrowserOnline);
   }, [isBrowserOnline]);
@@ -619,23 +612,12 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const hasBootReconnectRunRef = useRef(false);
 
   useEffect(() => {
     console.log("🧱 RECONNECT EFFECT FIRED", {
       isBrowserOnline,
       selectedProjectId: selectedProject?.id,
     });
-
-    // 🔥 NEW: force one reconnect attempt after mount
-    if (!hasBootReconnectRunRef.current) {
-      console.log("🧱 FORCED BOOT RECONNECT CHECK");
-
-      hasBootReconnectRunRef.current = true;
-
-      // pretend we just came online
-      setIsBrowserOnline(true);
-    }
 
     if (!navigator.onLine) return;
     if (!selectedProject?.id) return;
@@ -665,7 +647,6 @@ export default function DashboardPage() {
 
       setProofStatus("Connection restored — syncing offline entries...");
       console.log("🧱 RECONNECT STEP 5 - set proof status");
-
 
       const { flushOfflineApprovalOutbox } = await import(
         "@/lib/offlineApprovalFlush"
@@ -706,13 +687,19 @@ export default function DashboardPage() {
         await loadApprovals(currentProjectId, showArchivedEntries);
       }
 
-
       await refreshOfflineProofs(currentProjectId);
       await refreshOfflineApprovals(currentProjectId);
     })();
-  }, [isBrowserOnline, selectedProject?.id]);
+  }, [isBrowserOnline, selectedProject?.id, reconnectTick]);
 
+  // 👇 NEW BLOCK (THIS IS THE ONLY ADDITION)
+  useEffect(() => {
+    if (!selectedProject?.id) return;
 
+    console.log("🧱 TRIGGERING RECONNECT TICK AFTER MOUNT");
+
+    setReconnectTick((n) => n + 1);
+  }, []);
 
   useEffect(() => {
     if (!selectedProject) {
