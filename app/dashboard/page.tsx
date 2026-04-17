@@ -245,9 +245,19 @@ export default function DashboardPage() {
   const [offlineProjects, setOfflineProjects] = useState<OfflineProjectRecord[]>([]);
   const [offlineApprovals, setOfflineApprovals] = useState<OfflineApprovalRecord[]>([]);
   const [offlineProofs, setOfflineProofs] = useState<OfflineProofRecord[]>([]);
-  const [isBrowserOnline, setIsBrowserOnline] = useState(
-    typeof navigator === "undefined" ? true : navigator.onLine
-  );
+  const [isBrowserOnline, setIsBrowserOnline] = useState(() => {
+  if (typeof navigator === "undefined") return true;
+
+  // 🔥 detect offline restore scenario
+  const cached = getInitialCachedProjectSnapshot();
+
+  if (cached && !navigator.onLine) {
+    console.log("🧱 FORCING OFFLINE STATE ON BOOT (cached restore)");
+    return false;
+  }
+
+  return navigator.onLine;
+});
   useEffect(() => {
     console.log("🧱 isBrowserOnline changed:", isBrowserOnline);
   }, [isBrowserOnline]);
