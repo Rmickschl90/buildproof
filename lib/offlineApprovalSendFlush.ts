@@ -34,11 +34,12 @@ export async function flushOfflineApprovalSendOutbox(
         continue;
       }
 
-      const stillHasRelatedAttachments =
-        await hasPendingOfflineApprovalAttachments({
+      const stillHasRelatedAttachments = await hasPendingOfflineApprovalAttachments(
+        {
           approvalId: record.approvalId,
           offlineApprovalId: record.offlineApprovalId,
-        });
+        }
+      );
 
       if (stillHasRelatedAttachments) {
         await markOfflineApprovalSendPending(
@@ -90,9 +91,7 @@ export async function flushOfflineApprovalSendOutbox(
           continue;
         }
 
-        const serverAttachmentCount = Array.isArray(
-          matchedApproval.attachments
-        )
+        const serverAttachmentCount = Array.isArray(matchedApproval.attachments)
           ? matchedApproval.attachments.length
           : 0;
 
@@ -106,7 +105,7 @@ export async function flushOfflineApprovalSendOutbox(
 
         await markOfflineApprovalSendProcessing(record.id);
 
-        const response = await fetch("/api/approvals/send", {
+                const response = await fetch("/api/approvals/send", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

@@ -245,7 +245,7 @@ export async function POST(req: Request) {
             sendJobId: job.id,
             shareUrl: null,
             shareId: null,
-            skipFinalize: false,
+            skipFinalize: true,
           }),
         });
 

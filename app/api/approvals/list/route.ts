@@ -21,21 +21,8 @@ export async function POST(req: Request) {
       .eq("id", projectId)
       .single();
 
-    
-
     if (projectError || !project) {
-      return NextResponse.json(
-        {
-          error: "Project not found.",
-          debug: {
-            projectId,
-            project,
-            projectError,
-            userId: user.id,
-          },
-        },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Project not found." }, { status: 404 });
     }
 
     if (project.user_id !== user.id) {

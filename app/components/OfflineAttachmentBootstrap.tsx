@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import { flushOfflineAttachmentOutbox } from "@/lib/offlineAttachmentFlush";
 import { flushOfflineApprovalAttachmentOutbox } from "@/lib/offlineApprovalAttachmentFlush";
 import { flushOfflineApprovalSendOutbox } from "@/lib/offlineApprovalSendFlush";
 import { flushOfflineApprovalOutbox } from "@/lib/offlineApprovalFlush";
@@ -25,8 +26,9 @@ export default function OfflineAttachmentBootstrap() {
 
       isFlushingRef.current = true;
 
-            try {
+      try {
         await flushOfflineApprovalOutbox(getAccessToken);
+        await flushOfflineAttachmentOutbox(getAccessToken);
         await flushOfflineApprovalAttachmentOutbox(getAccessToken);
         await flushOfflineApprovalSendOutbox(getAccessToken);
       } catch (error) {
@@ -37,22 +39,12 @@ export default function OfflineAttachmentBootstrap() {
     }
 
     function handleOnline() {
-  void runFlush();
-
-  const fn = (window as any).__runDashboardReconnect;
-  if (typeof fn === "function") {
-    void fn();
-  }
-}
+      void runFlush();
+    }
 
     function handleFocus() {
-  void runFlush();
-
-  const fn = (window as any).__runDashboardReconnect;
-  if (typeof fn === "function") {
-    void fn();
-  }
-}
+      void runFlush();
+    }
 
     function handleVisibility() {
       if (document.visibilityState === "visible") {

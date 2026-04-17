@@ -10,18 +10,12 @@ function isOnline(): boolean {
   return navigator.onLine;
 }
 
-let isFlushing = false;
-
 export async function flushOfflineAttachmentOutbox(
   getAccessToken: () => Promise<string>
 ) {
-  if (isFlushing) return;
   if (!isOnline()) return;
 
-  isFlushing = true;
-
-  try {
-    const records = await getPendingOfflineAttachments();
+  const records = await getPendingOfflineAttachments();
 
   for (const record of records) {
     try {
@@ -97,14 +91,11 @@ export async function flushOfflineAttachmentOutbox(
 
       await removeOfflineAttachmentRecord(record.id);
 
-            if (typeof window !== "undefined") {
+      if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("buildproof-attachment-complete"));
       }
     } catch (err: any) {
       await markAttachmentPending(record.id, err?.message || "Upload failed");
     }
-  }
-  } finally {
-    isFlushing = false;
   }
 }

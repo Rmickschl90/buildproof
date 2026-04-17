@@ -2,10 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
-import {
-  loadCachedAttachments,
-  saveCachedAttachments,
-} from "../../lib/offlineAttachmentCache";
+
 type Attachment = {
   id: string;
   proof_id: number;
@@ -20,10 +17,6 @@ type Props = {
   proofId: number;
   lockedAt?: string | null;
 };
-
-function getAttachmentCacheKey(proofId: number) {
-  return `buildproof_attachment_cache_${proofId}`;
-}
 
 function formatBytes(bytes?: number | null) {
   if (!bytes || bytes <= 0) return "";
@@ -60,26 +53,16 @@ function fileIcon(kind: string) {
 
 export default function AttachmentList({ proofId, lockedAt }: Props) {
   const [loading, setLoading] = useState(true);
-const [attachments, setAttachments] = useState<Attachment[]>(() =>
-  loadCachedAttachments(proofId) as Attachment[]
-);
-const [error, setError] = useState("");
-const [busyId, setBusyId] = useState("");
-const [isMobile, setIsMobile] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState("");
+  const [isMobile, setIsMobile] = useState(false);
 
   const isLocked = !!lockedAt;
 
-    async function load() {
+  async function load() {
     setError("");
-
-    const cached = loadCachedAttachments(proofId) as Attachment[];
-    const hasCachedAttachments = cached.length > 0;
-
-    if (hasCachedAttachments) {
-      setAttachments(cached);
-    }
-
-    setLoading(!hasCachedAttachments);
+    setLoading(true);
 
     const { data, error } = await supabase
       .from("attachments")
@@ -87,27 +70,8 @@ const [isMobile, setIsMobile] = useState(false);
       .eq("proof_id", proofId)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      const message = String(error.message || "").toLowerCase();
-
-      const looksOffline =
-        message.includes("failed to fetch") ||
-        message.includes("network") ||
-        message.includes("fetch");
-
-      if (looksOffline) {
-        setLoading(false);
-        return;
-      }
-
-      setError(error.message);
-      setLoading(false);
-      return;
-    }
-
-    const nextAttachments = (data as Attachment[]) ?? [];
-    setAttachments(nextAttachments);
-    saveCachedAttachments(proofId, nextAttachments);
+    if (error) setError(error.message);
+    setAttachments((data as Attachment[]) ?? []);
     setLoading(false);
   }
 

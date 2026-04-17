@@ -15,23 +15,12 @@ import ApprovalCard from "../components/ApprovalCard";
 import {
   createOfflineProof,
   listOfflineProofsForProject,
-  remapOfflineProofProjectId,
   type OfflineProofRecord,
 } from "@/lib/offlineProofOutbox";
-import { remapOfflineAttachmentProjectId } from "@/lib/offlineAttachmentOutbox";
 import {
   listOfflineApprovalsForProject,
-  remapOfflineApprovalProjectId,
   type OfflineApprovalRecord,
 } from "@/lib/offlineApprovalOutbox";
-import {
-  createOfflineProjectId,
-  getAllOfflineProjects,
-  putOfflineProject,
-  removeOfflineProject,
-  updateOfflineProject,
-  type OfflineProjectRecord,
-} from "@/lib/offlineProjectOutbox";
 import { getOfflineApprovalAttachmentsForApproval } from "@/lib/offlineApprovalAttachmentOutbox";
 import OfflineAttachmentBootstrap from "../components/OfflineAttachmentBootstrap";
 import {
@@ -42,7 +31,6 @@ import {
   saveRecentProject,
   getRecentProjects,
 } from "@/lib/offlineRecentProjects";
-import { saveCachedAttachments } from "@/lib/offlineAttachmentCache";
 
 type Project = {
   id: string;
@@ -151,33 +139,6 @@ function isOffline() {
   return typeof navigator !== "undefined" && !navigator.onLine;
 }
 
-async function waitForSupabaseReconnectReady() {
-  const maxAttempts = 10;
-  const delayMs = 1000;
-
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-      continue;
-    }
-
-    try {
-      const { error } = await supabase
-        .from("projects")
-        .select("id")
-        .limit(1);
-
-      if (!error) return true;
-    } catch {
-      // keep retrying
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
-  }
-
-  return false;
-}
-
 const LAST_OPEN_PROJECT_KEY = "buildproof_last_open_project_id";
 
 function saveLastOpenProjectId(projectId: string) {
@@ -242,17 +203,12 @@ export default function DashboardPage() {
     const cached = getInitialCachedProjectSnapshot();
     return cached?.approvals ?? [];
   });
-  const [offlineProjects, setOfflineProjects] = useState<OfflineProjectRecord[]>([]);
   const [offlineApprovals, setOfflineApprovals] = useState<OfflineApprovalRecord[]>([]);
   const [offlineProofs, setOfflineProofs] = useState<OfflineProofRecord[]>([]);
   const [isBrowserOnline, setIsBrowserOnline] = useState(
     typeof navigator === "undefined" ? true : navigator.onLine
   );
-  useEffect(() => {
-    console.log("🧱 isBrowserOnline changed:", isBrowserOnline);
-  }, [isBrowserOnline]);
   const isFlushingOfflineProofsRef = useRef(false);
-  const isRunningReconnectRef = useRef(false);
   const selectedProjectId = selectedProject ? selectedProject.id : null;
   const [editingApproval, setEditingApproval] = useState<any | null>(null);
 
@@ -345,39 +301,6 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!selectedProject) return;
 
-    const projectId = selectedProject.id;
-
-    const existingRaw =
-      typeof window !== "undefined"
-        ? window.localStorage.getItem(`buildproof-dashboard-cache:${projectId}`)
-        : null;
-
-    let existingProofCount = 0;
-
-    try {
-      if (existingRaw) {
-        const parsed = JSON.parse(existingRaw);
-        existingProofCount = parsed?.proofs?.length ?? 0;
-      }
-    } catch { }
-
-    // 🚨 BLOCK ALL empty writes for server projects
-    const isServerProject = !selectedProject.id.startsWith("offline-project-");
-
-    if (isServerProject && proofs.length === 0) {
-      console.log("🛑 BLOCKED EMPTY CACHE WRITE", {
-        projectId,
-      });
-      return;
-    }
-
-    console.log("🧱 CACHE WRITE", {
-      projectId,
-      projectTitle: selectedProject.title,
-      proofCount: proofs.length,
-      approvalCount: approvals.length,
-    });
-
     saveCachedDashboardProject({
       project: selectedProject,
       proofs,
@@ -407,7 +330,6 @@ export default function DashboardPage() {
     console.log("🧱 selectedProject changed:", selectedProject);
   }, [selectedProject]);
 
-
   useEffect(() => {
     setHasMounted(true);
   }, []);
@@ -421,8 +343,6 @@ export default function DashboardPage() {
 
         if (isOffline()) {
           console.log("🧱 OFFLINE BOOT PATH");
-
-          await refreshOfflineProjects();
 
           // 🔍 DEBUG — confirm recent projects cache
           const recent = getRecentProjects();
@@ -467,7 +387,6 @@ export default function DashboardPage() {
               debugSteps.push("refreshOfflineApprovals done");
 
               setDashboardReady(true);
-
               debugSteps.push("setDashboardReady done");
 
               window.localStorage.setItem(
@@ -509,7 +428,6 @@ export default function DashboardPage() {
         setUserId(data.user.id);
         setUserEmail(data.user.email ?? null);
 
-        await refreshOfflineProjects();
         await flushOfflineProofs();
         await loadActiveProjects(data.user.id);
 
@@ -523,6 +441,11 @@ export default function DashboardPage() {
           if (project) {
             setSelectedProjectWithTrace(project, "online boot restore from projectIdFromUrl");
 
+            cacheProjectSnapshot({
+              project,
+              proofs: [],
+              approvals: [],
+            });
 
             await loadProofs(project.id, false, project);
             await loadApprovals(project.id, false, project);
@@ -542,100 +465,36 @@ export default function DashboardPage() {
 
   useEffect(() => {
     function handleConnectionChange() {
-  console.log("🧱 handleConnectionChange", {
-    navigatorOnline: navigator.onLine,
-  });
-
-  setIsBrowserOnline(navigator.onLine);
-}
-
-    function handleVisibilityOrFocus() {
-      console.log("🧱 handleVisibilityOrFocus", {
-        navigatorOnline: navigator.onLine,
-        visibilityState: document.visibilityState,
-      });
-
       setIsBrowserOnline(navigator.onLine);
     }
 
     window.addEventListener("online", handleConnectionChange);
     window.addEventListener("offline", handleConnectionChange);
-    window.addEventListener("focus", handleVisibilityOrFocus);
-    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
 
     return () => {
       window.removeEventListener("online", handleConnectionChange);
       window.removeEventListener("offline", handleConnectionChange);
-      window.removeEventListener("focus", handleVisibilityOrFocus);
-      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
     };
   }, []);
 
   useEffect(() => {
-    let lastOnlineState = navigator.onLine;
-
-    const interval = setInterval(() => {
-      const current = navigator.onLine;
-
-      if (current !== lastOnlineState) {
-        console.log("🧱 POLL detected online change:", current);
-
-        lastOnlineState = current;
-        setIsBrowserOnline(current);
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-
-  useEffect(() => {
-    console.log("🧱 RECONNECT EFFECT FIRED", {
-      isBrowserOnline,
-      selectedProjectId: selectedProject?.id,
-    });
-
-    if (!navigator.onLine) return;
+    if (!isBrowserOnline) return;
     if (!selectedProject?.id) return;
 
     void (async () => {
-      console.log("🧱 RECONNECT STEP 1 - entered async block");
-
-      const reconnectReady = await waitForSupabaseReconnectReady();
-      if (!reconnectReady) return;
-
-      await syncOfflineProjects();
-
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("buildproof-data-changed"));
-      }
-
-      console.log("🧱 RECONNECT STEP 2 - finished syncOfflineProjects");
-
-      const currentProjectId =
-        selectedProject.id.startsWith("offline-project-")
-          ? getLastOpenProjectId() || selectedProject.id
-          : selectedProject.id;
-
-      await refreshOfflineProofs(currentProjectId);
-      await refreshOfflineApprovals(currentProjectId);
-      console.log("🧱 RECONNECT STEP 4 - finished refreshOfflineApprovals");
+      await refreshOfflineProofs(selectedProject.id);
 
       setProofStatus("Connection restored — syncing offline entries...");
-      console.log("🧱 RECONNECT STEP 5 - set proof status");
-
-
-      const { flushOfflineApprovalOutbox } = await import(
-        "@/lib/offlineApprovalFlush"
-      );
 
       // 🔥 proofs
       await flushOfflineProofs();
 
-      // 🔥 attachments
+      // 🔥 attachments (NEW)
       const { flushOfflineAttachmentOutbox } = await import(
         "@/lib/offlineAttachmentFlush"
       );
+
+      const { supabase } = await import("@/lib/supabase");
 
       const getAccessToken = async () => {
         const { data, error } = await supabase.auth.getSession();
@@ -646,27 +505,10 @@ export default function DashboardPage() {
       };
 
       await flushOfflineAttachmentOutbox(getAccessToken);
-      await flushOfflineApprovalOutbox(getAccessToken);
-
-      const { flushOfflineApprovalAttachmentOutbox } = await import(
-        "@/lib/offlineApprovalAttachmentFlush"
-      );
-      const { flushOfflineApprovalSendOutbox } = await import(
-        "@/lib/offlineApprovalSendFlush"
-      );
-
-      await flushOfflineApprovalAttachmentOutbox(getAccessToken);
-      await flushOfflineApprovalSendOutbox(getAccessToken);
 
       // 🔄 reload everything
-      if (!currentProjectId.startsWith("offline-project-")) {
-        await loadProofs(currentProjectId, showArchivedEntries);
-        await loadApprovals(currentProjectId, showArchivedEntries);
-      }
-
-
-      await refreshOfflineProofs(currentProjectId);
-      await refreshOfflineApprovals(currentProjectId);
+      await loadProofs(selectedProject.id, showArchivedEntries);
+      await refreshOfflineProofs(selectedProject.id);
     })();
   }, [isBrowserOnline, selectedProject?.id]);
 
@@ -713,9 +555,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     function handleBuildProofDataChanged() {
-
-      void refreshOfflineProjects();
-
       if (!selectedProject?.id) return;
 
       if (!navigator.onLine) {
@@ -747,7 +586,7 @@ export default function DashboardPage() {
       setSendCloseSignal((k) => k + 1);
       setShowDeliveryHistory(true);
 
-      if (!isBrowserOnline) return;
+      if (!navigator.onLine) return;
 
       await loadProofs(selectedProject.id, showArchivedEntries);
       await loadApprovals(selectedProject.id, showArchivedEntries);
@@ -1022,8 +861,7 @@ export default function DashboardPage() {
       );
 
       const filtered = records.filter(
-        (record) =>
-          !serverContentSet.has((record.content || "").trim().toLowerCase())
+        (record) => !serverContentSet.has((record.content || "").trim().toLowerCase())
       );
 
       setOfflineProofs(filtered);
@@ -1042,144 +880,16 @@ export default function DashboardPage() {
     try {
       const records = await listOfflineApprovalsForProject(projectId);
 
-      setOfflineApprovals(records);
+      const serverIdSet = new Set(approvals.map((a) => a.id));
+
+      const filtered = records.filter(
+        (record: OfflineApprovalRecord) => !serverIdSet.has(record.id)
+      );
+
+      setOfflineApprovals(filtered);
     } catch (error) {
       console.error("Failed to load offline approvals", error);
       setOfflineApprovals([]);
-    }
-  }
-
-  async function refreshOfflineProjects() {
-    try {
-      const records = await getAllOfflineProjects();
-      setOfflineProjects(records);
-    } catch (error) {
-      console.error("Failed to load offline projects", error);
-      setOfflineProjects([]);
-    }
-  }
-
-  async function syncOfflineProjects() {
-    if (!navigator.onLine || !userId) return;
-
-    try {
-      const records = await getAllOfflineProjects();
-      const pendingProjects = records.filter((p) => p.status === "pending");
-      const { claimOfflineProject } = await import("@/lib/offlineProjectOutbox");
-
-      for (const record of pendingProjects) {
-        const claimed = await claimOfflineProject(record.id);
-        if (!claimed) continue;
-
-        let data: any = null;
-        let error: any = null;
-
-        if (record.id.startsWith("offline-project-")) {
-          const result = await supabase
-            .from("projects")
-            .insert({
-              title: record.name,
-              user_id: userId,
-              client_name: record.clientName,
-              client_email: record.clientEmail,
-              client_phone: record.clientPhone,
-              project_address: record.projectAddress,
-            })
-            .select("id,title,user_id,client_name,client_email,client_phone,project_address,archived_at,created_at")
-            .single();
-
-          data = result.data;
-          error = result.error;
-
-          if (error || !data?.id) {
-            console.error("Offline project sync failed", error);
-            continue;
-          }
-
-          await remapOfflineProofProjectId(record.id, data.id);
-          await remapOfflineAttachmentProjectId(record.id, data.id);
-          await remapOfflineApprovalProjectId(record.id, data.id);
-        } else {
-          const result = await supabase
-            .from("projects")
-            .update({
-              client_name: record.clientName,
-              client_email: record.clientEmail,
-              client_phone: record.clientPhone,
-              project_address: record.projectAddress,
-            })
-            .eq("id", record.id)
-            .select("id,title,user_id,client_name,client_email,client_phone,project_address,archived_at,created_at")
-            .single();
-
-          data = result.data;
-          error = result.error;
-
-          if (error || !data?.id) {
-            console.error("Offline project update sync failed", error);
-
-            await updateOfflineProject(record.id, {
-              status: "pending",
-              lastError: error?.message || "Sync failed",
-              lastSyncAttemptAt: new Date().toISOString(),
-              syncAttemptCount: (record.syncAttemptCount || 0) + 1,
-            });
-
-            continue;
-          }
-        }
-
-
-        const syncedProject = data as Project;
-
-        saveRecentProject({
-          id: syncedProject.id,
-          title: syncedProject.title,
-          client_name: syncedProject.client_name ?? null,
-          client_email: syncedProject.client_email ?? null,
-          client_phone: syncedProject.client_phone ?? null,
-          project_address: syncedProject.project_address ?? null,
-        });
-
-        if (selectedProject?.id === record.id) {
-          setSelectedProjectWithTrace(
-            syncedProject,
-            "offline project sync remap"
-          );
-          saveLastOpenProjectId(syncedProject.id);
-
-          saveRecentProject({
-            id: syncedProject.id,
-            title: syncedProject.title,
-            client_name: syncedProject.client_name ?? null,
-            client_email: syncedProject.client_email ?? null,
-            client_phone: syncedProject.client_phone ?? null,
-            project_address: syncedProject.project_address ?? null,
-          });
-
-          cacheProjectSnapshot({
-            project: syncedProject,
-            proofs: proofs.filter((p) => p.project_id === record.id).map((p) => ({
-              ...p,
-              project_id: syncedProject.id,
-            })),
-            approvals: approvals.filter((a) => a.project_id === record.id).map((a) => ({
-              ...a,
-              project_id: syncedProject.id,
-            })),
-          });
-        }
-      }
-
-      await refreshOfflineProjects();
-      await loadActiveProjects(userId);
-
-      if (selectedProject?.id && !selectedProject.id.startsWith("offline-project-")) {
-        await loadProofs(selectedProject.id, showArchivedEntries);
-        await loadApprovals(selectedProject.id, showArchivedEntries);
-      }
-    } catch (error) {
-      console.error("Failed to sync offline projects", error);
     }
   }
 
@@ -1271,23 +981,6 @@ export default function DashboardPage() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      const message = String(error.message || "").toLowerCase();
-
-      const looksOffline =
-        message.includes("failed to fetch") ||
-        message.includes("network") ||
-        message.includes("fetch");
-
-      if (looksOffline) {
-        const recent = getRecentProjects();
-
-        if (recent.length > 0) {
-          setProjects(recent as any);
-        }
-
-        return;
-      }
-
       setStatus(`Load projects failed: ${error.message}`);
       return;
     }
@@ -1297,53 +990,11 @@ export default function DashboardPage() {
     setStatus("");
   }
 
-  async function preloadProofAttachments(proofsToCache: Proof[]) {
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      return;
-    }
-
-    try {
-      for (const proof of proofsToCache) {
-        if (!proof?.id) continue;
-
-        const { data, error } = await supabase
-          .from("attachments")
-          .select("id, proof_id, filename, mime_type, size_bytes, created_at, path")
-          .eq("proof_id", proof.id)
-          .order("created_at", { ascending: false });
-
-        if (error) {
-          const message = String(error.message || "").toLowerCase();
-
-          const looksOffline =
-            message.includes("failed to fetch") ||
-            message.includes("network") ||
-            message.includes("fetch");
-
-          if (looksOffline) {
-            continue;
-          }
-
-          console.error("Failed to preload proof attachments", proof.id, error);
-          continue;
-        }
-
-        saveCachedAttachments(proof.id, (data ?? []) as any[]);
-      }
-    } catch (error) {
-      console.error("Failed to preload proof attachments", error);
-    }
-  }
-
   async function loadProofs(
     projectId: string,
     includeArchived = showArchivedEntries,
     projectOverride?: Project
   ) {
-    if (projectId.startsWith("offline-project-")) {
-      return;
-    }
-
     const source = includeArchived ? "proofs" : "proofs_active";
 
     // 🔒 Prevent fetch while offline
@@ -1374,13 +1025,10 @@ export default function DashboardPage() {
 
     const nextProofs = (data ?? []) as Proof[];
     setProofs(nextProofs);
-    if (nextProofs.length > 0) {
-      cacheProjectSnapshot({
-        project: projectOverride ?? selectedProject,
-        proofs: nextProofs,
-      });
-    }
-    await preloadProofAttachments(nextProofs);
+    cacheProjectSnapshot({
+      project: projectOverride ?? selectedProject,
+      proofs: nextProofs,
+    });
     await refreshOfflineProofs(projectId);
     setProofStatus("");
   }
@@ -1391,18 +1039,12 @@ export default function DashboardPage() {
     projectOverride?: Project
   ) {
     try {
-      if (projectId.startsWith("offline-project-")) {
-        return;
-      }
-
       // 🔒 Prevent fetch while offline
       if (typeof navigator !== "undefined" && !navigator.onLine) {
         return;
       }
 
       const token = await getAccessToken();
-
-      console.log("🧱 LOAD APPROVALS REQUEST", { projectId, includeArchived });
 
       const res = await fetch("/api/approvals/list", {
         method: "POST",
@@ -1434,12 +1076,10 @@ export default function DashboardPage() {
       const nextApprovals = (json?.approvals ?? []) as Approval[];
       setApprovals(nextApprovals);
       await refreshOfflineApprovals(projectId);
-      if (nextApprovals.length > 0) {
-        cacheProjectSnapshot({
-          project: projectOverride ?? selectedProject,
-          approvals: nextApprovals,
-        });
-      }
+      cacheProjectSnapshot({
+        project: projectOverride ?? selectedProject,
+        approvals: nextApprovals,
+      });
     } catch (err: any) {
       const message = String(err?.message || "Failed to load approvals.");
 
@@ -1457,86 +1097,12 @@ export default function DashboardPage() {
 
   // ---------------- PROJECT CRUD ----------------
   async function addProject() {
-    const title = newProjectTitle.trim();
-    if (!title) return;
-
-    if (!navigator.onLine) {
-      try {
-        const offlineProjectId = createOfflineProjectId();
-        const now = new Date().toISOString();
-
-        await putOfflineProject({
-          id: offlineProjectId,
-          name: title,
-          clientName: null,
-          clientEmail: null,
-          clientPhone: null,
-          projectAddress: null,
-          createdAt: now,
-          updatedAt: now,
-          status: "pending",
-          syncAttemptCount: 0,
-          lastSyncAttemptAt: null,
-          lastError: null,
-        });
-
-        await refreshOfflineProjects();
-
-        const offlineProject: Project = {
-          id: offlineProjectId,
-          title,
-          user_id: userId || "offline-user",
-          client_name: null,
-          client_email: null,
-          client_phone: null,
-          project_address: null,
-          archived_at: null,
-          created_at: now,
-        };
-
-        saveRecentProject({
-          id: offlineProject.id,
-          title: offlineProject.title,
-          client_name: null,
-          client_email: null,
-          client_phone: null,
-          project_address: null,
-        });
-
-        setSelectedProjectWithTrace(offlineProject, "offline project create");
-        saveLastOpenProjectId(offlineProject.id);
-        cacheProjectSnapshot({
-          project: offlineProject,
-          proofs: [],
-          approvals: [],
-        });
-
-        setProjects((current) => {
-          if (current.some((p) => p.id === offlineProject.id)) return current;
-          return [offlineProject, ...current];
-        });
-
-        setProofs([]);
-        setApprovals([]);
-        setOfflineProofs([]);
-        setOfflineApprovals([]);
-        setNewProjectTitle("");
-        setStatus("Project saved offline ✅ — will sync when connected.");
-        scrollBackToOnboarding(500);
-        window.dispatchEvent(new CustomEvent("buildproof-data-changed"));
-        return;
-      } catch (e: any) {
-        setStatus(e?.message || "Offline project save failed");
-        return;
-      }
-    }
-
-    if (!userId) return;
+    if (!newProjectTitle.trim() || !userId) return;
 
     setStatus("Saving project...");
 
     const { error } = await supabase.from("projects").insert({
-      title,
+      title: newProjectTitle.trim(),
       user_id: userId,
     });
 
@@ -1572,13 +1138,6 @@ export default function DashboardPage() {
       setSelectedProjectWithTrace(updatedProject, "project rename");
       setProjects((list) => list.map((p) => (p.id === selectedProject.id ? { ...p, title: next } : p)));
       cacheProjectSnapshot({ project: updatedProject });
-
-      saveCachedDashboardProject({
-        project: updatedProject,
-        proofs,
-        approvals,
-        cachedAt: new Date().toISOString(),
-      });
 
       setStatus("Project renamed ✅");
       renameInputRef.current?.blur();
@@ -2070,44 +1629,6 @@ export default function DashboardPage() {
         project_address: projectAddressDraft.trim() || null,
       };
 
-      if (!navigator.onLine) {
-        await putOfflineProject({
-          id: selectedProject.id,
-          name: selectedProject.title,
-          clientName: payload.client_name,
-          clientEmail: payload.client_email,
-          clientPhone: payload.client_phone,
-          projectAddress: payload.project_address,
-          createdAt: selectedProject.created_at || new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          status: "pending",
-          syncAttemptCount: 0,
-          lastSyncAttemptAt: null,
-          lastError: null,
-        });
-
-        const updatedProject = { ...selectedProject, ...payload };
-
-        setSelectedProjectWithTrace(updatedProject, "offline client save");
-        setProjects((list) =>
-          list.map((p) => (p.id === selectedProject.id ? { ...p, ...payload } : p))
-        );
-        cacheProjectSnapshot({ project: updatedProject });
-
-        saveRecentProject({
-          id: updatedProject.id,
-          title: updatedProject.title,
-          client_name: updatedProject.client_name ?? null,
-          client_email: updatedProject.client_email ?? null,
-          client_phone: updatedProject.client_phone ?? null,
-          project_address: updatedProject.project_address ?? null,
-        });
-
-        setStatus("Client saved offline ✅ — will sync when connected.");
-        setClientEditing(false);
-        return;
-      }
-
       const { error } = await supabase.from("projects").update(payload).eq("id", selectedProject.id);
 
       if (error) throw error;
@@ -2314,25 +1835,7 @@ export default function DashboardPage() {
 
   const filteredProjects = useMemo<Project[]>(() => {
     const q = cleanText(projectSearch);
-
-    const normalizedOfflineProjects: Project[] = offlineProjects.map((p) => ({
-      id: p.id,
-      title: p.name,
-      user_id: userId || "offline-user",
-      client_name: p.clientName,
-      client_email: p.clientEmail,
-      client_phone: p.clientPhone,
-      project_address: p.projectAddress,
-      archived_at: null,
-      created_at: p.createdAt,
-    }));
-
-    const serverIdSet = new Set(projects.map((p) => p.id));
-
-    let list: Project[] = [
-      ...projects,
-      ...normalizedOfflineProjects.filter((p) => !serverIdSet.has(p.id)),
-    ];
+    let list: Project[] = [...projects];
 
     if (q) {
       list = list.filter((p) => {
@@ -2352,7 +1855,7 @@ export default function DashboardPage() {
     }
 
     return list;
-  }, [projects, offlineProjects, projectSearch, projectSortMode, userId]);
+  }, [projects, projectSearch, projectSortMode]);
 
   const filteredProofs = useMemo<TimelineProof[]>(() => {
     const serverContentSet = new Set(
@@ -2402,66 +1905,46 @@ export default function DashboardPage() {
     let cancelled = false;
 
     async function buildVisibleApprovals() {
-      const normalizedOfflineApprovals = await Promise.all(
-        offlineApprovals.map(async (a) => {
-          const queuedAttachments = await getOfflineApprovalAttachmentsForApproval({
-            approvalId: a.id.startsWith("offline-") ? null : a.id,
-            offlineApprovalId: a.id.startsWith("offline-") ? a.id : null,
-          });
+      const serverIdSet = new Set(approvals.map((a) => a.id));
 
-          return {
-            id: a.id,
-            title: a.title,
-            approval_type: a.approvalType,
-            description: a.description,
-            status: "draft" as const,
-            created_at: new Date(a.createdAt).toISOString(),
-            sent_at: null,
-            responded_at: null,
-            expired_at: null,
-            cost_delta: a.costDelta,
-            schedule_delta: a.scheduleDelta,
-            recipient_name: a.recipientName || null,
-            recipient_email: a.recipientEmail || "",
-            project_id: a.projectId,
-            created_timezone_id: a.createdTimezoneId ?? null,
-            created_timezone_offset_minutes:
-              a.createdTimezoneOffsetMinutes ?? null,
-            attachments: queuedAttachments.map((item) => ({
-              id: item.id,
-              filename: item.fileName ?? null,
-              mime_type: item.mimeType ?? null,
-              path: "",
-              isOffline: true, // 🔥 ADD THIS
-            }))
-          };
-        })
+      const normalizedOfflineApprovals = await Promise.all(
+        offlineApprovals
+          .filter((a) => !serverIdSet.has(a.id))
+          .map(async (a) => {
+            const queuedAttachments = await getOfflineApprovalAttachmentsForApproval({
+              approvalId: null,
+              offlineApprovalId: a.id,
+            });
+
+            return {
+              id: a.id,
+              title: a.title,
+              approval_type: a.approvalType,
+              description: a.description,
+              status: "draft" as const,
+              created_at: new Date(a.createdAt).toISOString(),
+              sent_at: null,
+              responded_at: null,
+              expired_at: null,
+              cost_delta: a.costDelta,
+              schedule_delta: a.scheduleDelta,
+              recipient_name: a.recipientName || null,
+              recipient_email: a.recipientEmail || "",
+              project_id: a.projectId,
+              created_timezone_id: a.createdTimezoneId ?? null,
+              created_timezone_offset_minutes:
+                a.createdTimezoneOffsetMinutes ?? null,
+              attachments: queuedAttachments.map((item) => ({
+                id: item.id,
+                filename: item.fileName ?? null,
+                mime_type: item.mimeType ?? null,
+                path: "",
+              })),
+            };
+          })
       );
 
-      const approvalMap = new Map<string, Approval>();
-
-      for (const approval of approvals) {
-        approvalMap.set(approval.id, approval);
-      }
-
-      for (const offlineApproval of normalizedOfflineApprovals) {
-        const existingApproval = approvalMap.get(offlineApproval.id) as any;
-
-        if (existingApproval) {
-          approvalMap.set(offlineApproval.id, {
-            ...existingApproval,
-            ...offlineApproval,
-            attachments: [
-              ...(existingApproval.attachments || []),
-              ...(offlineApproval.attachments || []),
-            ],
-          } as Approval);
-        } else {
-          approvalMap.set(offlineApproval.id, offlineApproval as Approval);
-        }
-      }
-
-      const nextVisibleApprovals = Array.from(approvalMap.values()).sort((a, b) =>
+      const nextVisibleApprovals = [...approvals, ...normalizedOfflineApprovals].sort((a, b) =>
         a.created_at < b.created_at ? 1 : -1
       );
 
@@ -2476,6 +1959,7 @@ export default function DashboardPage() {
       cancelled = true;
     };
   }, [approvals, offlineApprovals]);
+
   const draftApprovals = useMemo(() => {
     return visibleApprovals.filter(
       (a) => a.status === "draft" || a.status === "pending"
@@ -2681,10 +2165,9 @@ export default function DashboardPage() {
                         }
                       } else {
                         // 🌐 ONLINE — normal behavior
-
                         setSelectedProjectWithTrace(p, "project list click online");
-                        saveLastOpenProjectId(p.id);
 
+                        cacheProjectSnapshot({ project: p, proofs: [], approvals: [] });
 
                         loadProofs(p.id, false, p);
                         loadApprovals(p.id, false, p);
@@ -3005,7 +2488,7 @@ export default function DashboardPage() {
                     <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
                       <input
                         className="input"
-                        placeholder="Client name..."
+                        placeholder="Client name (optional)"
                         value={clientNameDraft}
                         onChange={(e) => setClientNameDraft(e.target.value)}
                       />
@@ -3013,22 +2496,14 @@ export default function DashboardPage() {
                       <input
                         id="client-email-input"
                         className="input"
-                        placeholder="Client email..."
+                        placeholder="Client email (optional)"
                         value={clientEmailDraft}
                         onChange={(e) => setClientEmailDraft(e.target.value)}
                       />
 
                       <input
                         className="input"
-                        type="tel"
-                        placeholder="Client phone..."
-                        value={clientPhoneDraft}
-                        onChange={(e) => setClientPhoneDraft(e.target.value)}
-                      />
-
-                      <input
-                        className="input"
-                        placeholder="Project address..."
+                        placeholder="Project address (optional)"
                         value={projectAddressDraft}
                         onChange={(e) => setProjectAddressDraft(e.target.value)}
                       />

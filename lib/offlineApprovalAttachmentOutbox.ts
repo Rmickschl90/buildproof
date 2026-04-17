@@ -268,7 +268,6 @@ export async function attachServerApprovalIdToOfflineApprovalAttachments(
             const updated: OfflineApprovalAttachmentRecord = {
                 ...record,
                 approvalId,
-                offlineApprovalId: null, // 🔥 CRITICAL FIX
                 updatedAt: new Date().toISOString(),
             };
 

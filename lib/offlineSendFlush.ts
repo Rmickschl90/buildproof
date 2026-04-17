@@ -139,7 +139,7 @@ async function waitForTerminalJobStatus(
       return job;
     }
 
-    await processSendJob(jobId, token).catch(() => { });
+    await processSendJob(jobId, token).catch(() => {});
 
     await sleep(delayMs);
   }

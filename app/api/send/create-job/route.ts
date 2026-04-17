@@ -142,12 +142,8 @@ export async function POST(req: Request) {
 
     const lockedEntryIds = (proofs || []).map((p: any) => p.id);
 
-    // 🔥 Guard: wait for latest proof to exist
     if (lockedEntryIds.length === 0) {
-      return NextResponse.json(
-        { error: "Entries still syncing — try again in a moment." },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: "No entries available to send" }, { status: 400 });
     }
 
     const { data: job, error: insertErr } = await supabaseServer

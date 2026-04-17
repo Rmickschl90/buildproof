@@ -88,7 +88,7 @@ export default function ProofAttachmentsWrapper({
         }}
       >
         <div key={refreshKey ?? 0}>
-          {proofId ? (
+          {proofId && navigator.onLine ? (
             <AttachmentList proofId={proofId} lockedAt={lockedAt} />
           ) : (
             <div style={{ fontSize: 12, opacity: 0.6 }}>
