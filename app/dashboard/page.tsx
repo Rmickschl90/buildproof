@@ -248,9 +248,6 @@ export default function DashboardPage() {
   const [isBrowserOnline, setIsBrowserOnline] = useState(
     typeof navigator === "undefined" ? true : navigator.onLine
   );
-
-  const [reconnectTick, setReconnectTick] = useState<number>(0);
-
   useEffect(() => {
     console.log("🧱 isBrowserOnline changed:", isBrowserOnline);
   }, [isBrowserOnline]);
@@ -413,76 +410,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setHasMounted(true);
-
-    // 🔥 FORCE ONE RECONNECT PASS AFTER BOOT
-    setTimeout(() => {
-      console.log("🧱 DIRECT BOOT RECONNECT TRIGGER");
-
-      if (!navigator.onLine) return;
-      if (!selectedProject?.id) return;
-
-      (async () => {
-        console.log("🧱 DIRECT RECONNECT STEP 1");
-
-        const reconnectReady = await waitForSupabaseReconnectReady();
-        if (!reconnectReady) return;
-
-        await syncOfflineProjects();
-
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("buildproof-data-changed"));
-        }
-
-        const currentProjectId =
-          selectedProject.id.startsWith("offline-project-")
-            ? getLastOpenProjectId() || selectedProject.id
-            : selectedProject.id;
-
-        await refreshOfflineProofs(currentProjectId);
-        await refreshOfflineApprovals(currentProjectId);
-
-        const { flushOfflineApprovalOutbox } = await import(
-          "@/lib/offlineApprovalFlush"
-        );
-
-        await flushOfflineProofs();
-
-        const { flushOfflineAttachmentOutbox } = await import(
-          "@/lib/offlineAttachmentFlush"
-        );
-
-        const getAccessToken = async () => {
-          const { data, error } = await supabase.auth.getSession();
-          if (error) throw error;
-          const token = data.session?.access_token;
-          if (!token) throw new Error("Not logged in");
-          return token;
-        };
-
-        await flushOfflineAttachmentOutbox(getAccessToken);
-        await flushOfflineApprovalOutbox(getAccessToken);
-
-        const { flushOfflineApprovalAttachmentOutbox } = await import(
-          "@/lib/offlineApprovalAttachmentFlush"
-        );
-        const { flushOfflineApprovalSendOutbox } = await import(
-          "@/lib/offlineApprovalSendFlush"
-        );
-
-        await flushOfflineApprovalAttachmentOutbox(getAccessToken);
-        await flushOfflineApprovalSendOutbox(getAccessToken);
-
-        if (!currentProjectId.startsWith("offline-project-")) {
-          await loadProofs(currentProjectId, showArchivedEntries);
-          await loadApprovals(currentProjectId, showArchivedEntries);
-        }
-
-        await refreshOfflineProofs(currentProjectId);
-        await refreshOfflineApprovals(currentProjectId);
-
-        console.log("🧱 DIRECT RECONNECT COMPLETE");
-      })();
-    }, 1000); // slight delay to allow restore to settle
   }, []);
 
   // ---------------- AUTH BOOT ----------------
@@ -615,14 +542,12 @@ export default function DashboardPage() {
 
   useEffect(() => {
     function handleConnectionChange() {
-      console.log("🧱 handleConnectionChange", {
-        navigatorOnline: navigator.onLine,
-      });
+  console.log("🧱 handleConnectionChange", {
+    navigatorOnline: navigator.onLine,
+  });
 
-      console.log("🧱 EVENT: online/offline fired");
-
-      setIsBrowserOnline(navigator.onLine);
-    }
+  setIsBrowserOnline(navigator.onLine);
+}
 
     function handleVisibilityOrFocus() {
       console.log("🧱 handleVisibilityOrFocus", {
@@ -630,19 +555,7 @@ export default function DashboardPage() {
         visibilityState: document.visibilityState,
       });
 
-      console.log("🧱 FORCE RECHECK ON FOCUS");
-
-      // 🔥 force a state bump even if value didn't change
-      setIsBrowserOnline((prev) => {
-        const next = navigator.onLine;
-
-        console.log("🧱 focus forcing state update", {
-          prev,
-          next,
-        });
-
-        return next;
-      });
+      setIsBrowserOnline(navigator.onLine);
     }
 
     window.addEventListener("online", handleConnectionChange);
@@ -668,16 +581,9 @@ export default function DashboardPage() {
         console.log("🧱 POLL detected online change:", current);
 
         lastOnlineState = current;
-
-        console.log("🧱 FORCING isBrowserOnline update from poll");
-
         setIsBrowserOnline(current);
       }
     }, 1000);
-
-    // 🔥 CRITICAL — run once immediately on mount
-    console.log("🧱 POLL INIT CHECK", navigator.onLine);
-    setIsBrowserOnline(navigator.onLine);
 
     return () => clearInterval(interval);
   }, []);
@@ -718,6 +624,7 @@ export default function DashboardPage() {
       setProofStatus("Connection restored — syncing offline entries...");
       console.log("🧱 RECONNECT STEP 5 - set proof status");
 
+
       const { flushOfflineApprovalOutbox } = await import(
         "@/lib/offlineApprovalFlush"
       );
@@ -757,19 +664,13 @@ export default function DashboardPage() {
         await loadApprovals(currentProjectId, showArchivedEntries);
       }
 
+
       await refreshOfflineProofs(currentProjectId);
       await refreshOfflineApprovals(currentProjectId);
     })();
-  }, [isBrowserOnline, selectedProject?.id, reconnectTick]);
+  }, [isBrowserOnline, selectedProject?.id]);
 
-  // 👇 NEW BLOCK (THIS IS THE ONLY ADDITION)
-  useEffect(() => {
-    if (!selectedProject?.id) return;
 
-    console.log("🧱 TRIGGERING RECONNECT TICK AFTER MOUNT");
-
-    setReconnectTick((n) => n + 1);
-  }, []);
 
   useEffect(() => {
     if (!selectedProject) {
@@ -777,15 +678,6 @@ export default function DashboardPage() {
       setOfflineApprovals([]);
       return;
     }
-
-    // 🔥 FORCE RECONNECT WHEN PROJECT RESTORES
-    console.log("🧱 PROJECT RESTORED — TRIGGER RECONNECT");
-
-    setIsBrowserOnline(false);
-
-    setTimeout(() => {
-      setIsBrowserOnline(true);
-    }, 0);
 
     void refreshOfflineProofs(selectedProject.id);
     void refreshOfflineApprovals(selectedProject.id);
