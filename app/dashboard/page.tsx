@@ -542,12 +542,22 @@ export default function DashboardPage() {
 
   useEffect(() => {
     function handleConnectionChange() {
-  console.log("🧱 handleConnectionChange", {
-    navigatorOnline: navigator.onLine,
-  });
+      console.log("🧱 handleConnectionChange", {
+        navigatorOnline: navigator.onLine,
+      });
 
-  setIsBrowserOnline(navigator.onLine);
-}
+      if (navigator.onLine) {
+        setIsBrowserOnline(false);
+
+        window.setTimeout(() => {
+          setIsBrowserOnline(true);
+        }, 0);
+
+        return;
+      }
+
+      setIsBrowserOnline(false);
+    }
 
     function handleVisibilityOrFocus() {
       console.log("🧱 handleVisibilityOrFocus", {
