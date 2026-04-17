@@ -590,6 +590,14 @@ export default function DashboardPage() {
 
 
   async function runReconnectFlow() {
+  if (isRunningReconnectRef.current) {
+    console.log("🧱 RECONNECT SKIPPED - already running");
+    return;
+  }
+
+  isRunningReconnectRef.current = true;
+
+  try {
     console.log("🧱 RECONNECT STEP 1 - entered async block");
 
     if (!navigator.onLine) return;
@@ -659,7 +667,10 @@ export default function DashboardPage() {
 
     await refreshOfflineProofs(currentProjectId);
     await refreshOfflineApprovals(currentProjectId);
+  } finally {
+    isRunningReconnectRef.current = false;
   }
+}
 
   useEffect(() => {
     console.log("🧱 RECONNECT EFFECT FIRED", {
