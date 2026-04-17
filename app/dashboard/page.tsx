@@ -574,21 +574,28 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    let lastOnlineState = navigator.onLine;
+  let lastOnlineState = navigator.onLine;
 
-    const interval = setInterval(() => {
-      const current = navigator.onLine;
+  const interval = setInterval(() => {
+    const current = navigator.onLine;
 
-      if (current !== lastOnlineState) {
-        console.log("🧱 POLL detected online change:", current);
+    if (current !== lastOnlineState) {
+      console.log("🧱 POLL detected online change:", current);
 
-        lastOnlineState = current;
-        setIsBrowserOnline(current);
-      }
-    }, 1000);
+      lastOnlineState = current;
 
-    return () => clearInterval(interval);
-  }, []);
+      console.log("🧱 FORCING isBrowserOnline update from poll");
+
+      setIsBrowserOnline(current);
+    }
+  }, 1000);
+
+  // 🔥 CRITICAL — run once immediately on mount
+  console.log("🧱 POLL INIT CHECK", navigator.onLine);
+  setIsBrowserOnline(navigator.onLine);
+
+  return () => clearInterval(interval);
+}, []);
 
 
   useEffect(() => {
