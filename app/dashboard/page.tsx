@@ -2068,7 +2068,7 @@ export default function DashboardPage() {
               }}
             >
               <div className="row" style={{ alignItems: "center" }}>
-                <div style={{ fontWeight: 800 }}>Projects TEST</div>
+                <div style={{ fontWeight: 800 }}>Projects</div>
 
                 <button className="btn" onClick={() => router.push("/archived")}>
                   Archived
@@ -2138,7 +2138,7 @@ export default function DashboardPage() {
                         project_address: p.project_address ?? null,
                       });
 
-
+                      
 
                       saveLastOpenProjectId(p.id);
 
