@@ -2138,14 +2138,7 @@ export default function DashboardPage() {
                         project_address: p.project_address ?? null,
                       });
 
-                      saveRecentProject({
-                        id: p.id,
-                        title: p.title,
-                        client_name: p.client_name ?? null,
-                        client_email: p.client_email ?? null,
-                        client_phone: p.client_phone ?? null,
-                        project_address: p.project_address ?? null,
-                      });
+                      
 
                       saveLastOpenProjectId(p.id);
 
