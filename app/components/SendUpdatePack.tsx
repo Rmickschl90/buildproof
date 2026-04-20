@@ -855,6 +855,7 @@ export default function SendUpdatePack({
     }
 
     async function handleSendComplete() {
+      // 🔥 IMPORTANT: force another flush AFTER entries finalize
       await flushOfflineSendOutbox({
         getAccessToken,
       });
