@@ -239,3 +239,24 @@ export async function removeOfflineSendRecord(id: string): Promise<void> {
     await promisifyRequest(store.delete(id));
   });
 }
+
+export async function remapOfflineSendProjectId(
+  oldProjectId: string,
+  newProjectId: string
+): Promise<void> {
+  await withStore("readwrite", async (store) => {
+    const all = (await promisifyRequest(store.getAll())) as OfflineSendRecord[];
+
+    const matches = all.filter((rec) => rec.projectId === oldProjectId);
+
+    for (const rec of matches) {
+      const updated: OfflineSendRecord = {
+        ...rec,
+        projectId: newProjectId,
+        updatedAt: new Date().toISOString(),
+      };
+
+      await promisifyRequest(store.put(updated));
+    }
+  });
+}

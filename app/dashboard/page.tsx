@@ -590,100 +590,100 @@ export default function DashboardPage() {
 
 
   async function runReconnectFlow() {
-  if (isRunningReconnectRef.current) {
-    console.log("🧱 RECONNECT SKIPPED - already running");
-    return;
-  }
-
-  isRunningReconnectRef.current = true;
-
-  try {
-    console.log("🧱 RECONNECT STEP 1 - entered async block");
-
-    if (!navigator.onLine) return;
-    if (!selectedProject?.id) return;
-
-    const reconnectReady = await waitForSupabaseReconnectReady();
-    if (!reconnectReady) return;
-
-    const startedWithProjectId = selectedProject.id;
-    const startedWithOfflineProject =
-      startedWithProjectId.startsWith("offline-project-");
-
-    await syncOfflineProjects();
-
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("buildproof-data-changed"));
+    if (isRunningReconnectRef.current) {
+      console.log("🧱 RECONNECT SKIPPED - already running");
+      return;
     }
 
-    console.log("🧱 RECONNECT STEP 2 - finished syncOfflineProjects");
+    isRunningReconnectRef.current = true;
 
-    const reconnectProjectId = startedWithOfflineProject
-      ? getLastOpenProjectId() || startedWithProjectId
-      : startedWithProjectId;
+    try {
+      console.log("🧱 RECONNECT STEP 1 - entered async block");
 
-    console.log("🧱 RECONNECT STEP 3 - resolved reconnectProjectId", {
-      startedWithProjectId,
-      reconnectProjectId,
-    });
+      if (!navigator.onLine) return;
+      if (!selectedProject?.id) return;
 
-    await refreshOfflineProofs(reconnectProjectId);
-    await refreshOfflineApprovals(reconnectProjectId);
-    console.log("🧱 RECONNECT STEP 4 - finished refreshOfflineApprovals");
+      const reconnectReady = await waitForSupabaseReconnectReady();
+      if (!reconnectReady) return;
 
-    setProofStatus("Connection restored — syncing offline entries...");
-    console.log("🧱 RECONNECT STEP 5 - set proof status");
+      const startedWithProjectId = selectedProject.id;
+      const startedWithOfflineProject =
+        startedWithProjectId.startsWith("offline-project-");
 
-    const { flushOfflineApprovalOutbox } = await import(
-      "@/lib/offlineApprovalFlush"
-    );
+      await syncOfflineProjects();
 
-    await flushOfflineProofs();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("buildproof-data-changed"));
+      }
 
-    const { flushOfflineAttachmentOutbox } = await import(
-      "@/lib/offlineAttachmentFlush"
-    );
+      console.log("🧱 RECONNECT STEP 2 - finished syncOfflineProjects");
 
-    const getAccessToken = async () => {
-      const { data, error } = await supabase.auth.getSession();
-      if (error) throw error;
-      const token = data.session?.access_token;
-      if (!token) throw new Error("Not logged in");
-      return token;
-    };
+      const reconnectProjectId = startedWithOfflineProject
+        ? getLastOpenProjectId() || startedWithProjectId
+        : startedWithProjectId;
 
-    await flushOfflineAttachmentOutbox(getAccessToken);
-    await flushOfflineApprovalOutbox(getAccessToken);
+      console.log("🧱 RECONNECT STEP 3 - resolved reconnectProjectId", {
+        startedWithProjectId,
+        reconnectProjectId,
+      });
 
-    const { flushOfflineSendOutbox } = await import(
-      "@/lib/offlineSendFlush"
-    );
+      await refreshOfflineProofs(reconnectProjectId);
+      await refreshOfflineApprovals(reconnectProjectId);
+      console.log("🧱 RECONNECT STEP 4 - finished refreshOfflineApprovals");
 
-    await flushOfflineSendOutbox({
-      getAccessToken,
-    });
+      setProofStatus("Connection restored — syncing offline entries...");
+      console.log("🧱 RECONNECT STEP 5 - set proof status");
 
-    const { flushOfflineApprovalAttachmentOutbox } = await import(
-      "@/lib/offlineApprovalAttachmentFlush"
-    );
-    const { flushOfflineApprovalSendOutbox } = await import(
-      "@/lib/offlineApprovalSendFlush"
-    );
+      const { flushOfflineApprovalOutbox } = await import(
+        "@/lib/offlineApprovalFlush"
+      );
 
-    await flushOfflineApprovalAttachmentOutbox(getAccessToken);
-    await flushOfflineApprovalSendOutbox(getAccessToken);
+      await flushOfflineProofs();
 
-    if (!reconnectProjectId.startsWith("offline-project-")) {
-      await loadProofs(reconnectProjectId, showArchivedEntries);
-      await loadApprovals(reconnectProjectId, showArchivedEntries);
+      const { flushOfflineAttachmentOutbox } = await import(
+        "@/lib/offlineAttachmentFlush"
+      );
+
+      const getAccessToken = async () => {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        const token = data.session?.access_token;
+        if (!token) throw new Error("Not logged in");
+        return token;
+      };
+
+      await flushOfflineAttachmentOutbox(getAccessToken);
+      await flushOfflineApprovalOutbox(getAccessToken);
+
+      const { flushOfflineSendOutbox } = await import(
+        "@/lib/offlineSendFlush"
+      );
+
+      await flushOfflineSendOutbox({
+        getAccessToken,
+      });
+
+      const { flushOfflineApprovalAttachmentOutbox } = await import(
+        "@/lib/offlineApprovalAttachmentFlush"
+      );
+      const { flushOfflineApprovalSendOutbox } = await import(
+        "@/lib/offlineApprovalSendFlush"
+      );
+
+      await flushOfflineApprovalAttachmentOutbox(getAccessToken);
+      await flushOfflineApprovalSendOutbox(getAccessToken);
+
+      if (!reconnectProjectId.startsWith("offline-project-")) {
+        await loadProofs(reconnectProjectId, showArchivedEntries);
+        await loadApprovals(reconnectProjectId, showArchivedEntries);
+      }
+
+      await refreshOfflineProofs(reconnectProjectId);
+      await refreshOfflineApprovals(reconnectProjectId);
+    } finally {
+      isRunningReconnectRef.current = false;
     }
-
-    await refreshOfflineProofs(reconnectProjectId);
-    await refreshOfflineApprovals(reconnectProjectId);
-  } finally {
-    isRunningReconnectRef.current = false;
   }
-}
 
   useEffect(() => {
     console.log("🧱 RECONNECT EFFECT FIRED", {
@@ -1154,6 +1154,13 @@ export default function DashboardPage() {
           await remapOfflineProofProjectId(record.id, data.id);
           await remapOfflineAttachmentProjectId(record.id, data.id);
           await remapOfflineApprovalProjectId(record.id, data.id);
+
+          const { remapOfflineSendProjectId } = await import(
+            "@/lib/offlineSendOutbox"
+          );
+
+          await remapOfflineSendProjectId(record.id, data.id);
+
         } else {
           const result = await supabase
             .from("projects")
