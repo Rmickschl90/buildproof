@@ -6,6 +6,7 @@ import {
   removeOfflineSendRecord,
   type OfflineSendRecord,
 } from "@/lib/offlineSendOutbox";
+import { listPendingOfflineProofs } from "@/lib/offlineProofOutbox";
 import type { SendUiStatus } from "@/lib/sendStatus";
 
 type FlushStatusCallback = (
@@ -184,6 +185,24 @@ export async function flushOfflineSendOutbox(
           await markOfflineSendPending(record.id, "Offline during flush.");
           onStatus?.("queued_offline");
           failed += 1;
+          continue;
+        }
+
+        const pendingProofs = await listPendingOfflineProofs();
+        const hasPendingProofsForProject = pendingProofs.some(
+          (proof) => proof.projectId === record.projectId
+        );
+
+        if (hasPendingProofsForProject) {
+          await markOfflineSendPending(
+            record.id,
+            "Entries still syncing — try again in a moment."
+          );
+
+          onStatus?.("queued_offline", {
+            message: "Waiting for latest entries to finish syncing...",
+          });
+
           continue;
         }
 
