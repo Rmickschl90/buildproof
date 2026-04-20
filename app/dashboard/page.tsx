@@ -1125,7 +1125,9 @@ export default function DashboardPage() {
               client_phone: record.clientPhone,
               project_address: record.projectAddress,
             })
-            .select("id,title,user_id,client_name,client_email,client_phone,project_address,archived_at,created_at")
+            .select(
+              "id,title,user_id,client_name,client_email,client_phone,project_address,archived_at,created_at"
+            )
             .single();
 
           data = result.data;
@@ -1133,6 +1135,14 @@ export default function DashboardPage() {
 
           if (error || !data?.id) {
             console.error("Offline project sync failed", error);
+
+            await updateOfflineProject(record.id, {
+              status: "pending",
+              lastError: error?.message || "Sync failed",
+              lastSyncAttemptAt: new Date().toISOString(),
+              syncAttemptCount: (record.syncAttemptCount || 0) + 1,
+            });
+
             continue;
           }
 
@@ -1149,7 +1159,9 @@ export default function DashboardPage() {
               project_address: record.projectAddress,
             })
             .eq("id", record.id)
-            .select("id,title,user_id,client_name,client_email,client_phone,project_address,archived_at,created_at")
+            .select(
+              "id,title,user_id,client_name,client_email,client_phone,project_address,archived_at,created_at"
+            )
             .single();
 
           data = result.data;
@@ -1169,7 +1181,6 @@ export default function DashboardPage() {
           }
         }
 
-
         const syncedProject = data as Project;
 
         saveRecentProject({
@@ -1181,34 +1192,43 @@ export default function DashboardPage() {
           project_address: syncedProject.project_address ?? null,
         });
 
+        setProjects((current) => {
+          const withoutOffline = current.filter((p) => p.id !== record.id);
+          const withoutSyncedDuplicate = withoutOffline.filter(
+            (p) => p.id !== syncedProject.id
+          );
+          return [syncedProject, ...withoutSyncedDuplicate];
+        });
+
         if (selectedProject?.id === record.id) {
+          const remappedProofs = proofs
+            .filter((p) => p.project_id === record.id)
+            .map((p) => ({
+              ...p,
+              project_id: syncedProject.id,
+            }));
+
+          const remappedApprovals = approvals
+            .filter((a) => a.project_id === record.id)
+            .map((a) => ({
+              ...a,
+              project_id: syncedProject.id,
+            }));
+
           setSelectedProjectWithTrace(
             syncedProject,
             "offline project sync remap"
           );
           saveLastOpenProjectId(syncedProject.id);
 
-          saveRecentProject({
-            id: syncedProject.id,
-            title: syncedProject.title,
-            client_name: syncedProject.client_name ?? null,
-            client_email: syncedProject.client_email ?? null,
-            client_phone: syncedProject.client_phone ?? null,
-            project_address: syncedProject.project_address ?? null,
-          });
-
           cacheProjectSnapshot({
             project: syncedProject,
-            proofs: proofs.filter((p) => p.project_id === record.id).map((p) => ({
-              ...p,
-              project_id: syncedProject.id,
-            })),
-            approvals: approvals.filter((a) => a.project_id === record.id).map((a) => ({
-              ...a,
-              project_id: syncedProject.id,
-            })),
+            proofs: remappedProofs,
+            approvals: remappedApprovals,
           });
         }
+
+        await removeOfflineProject(record.id);
       }
 
       await refreshOfflineProjects();
