@@ -655,22 +655,23 @@ export default function DashboardPage() {
       await flushOfflineAttachmentOutbox(getAccessToken);
       await flushOfflineApprovalOutbox(getAccessToken);
 
+      const { flushOfflineSendOutbox } = await import(
+        "@/lib/offlineSendFlush"
+      );
+
+      await flushOfflineSendOutbox({
+        getAccessToken,
+      });
+
       const { flushOfflineApprovalAttachmentOutbox } = await import(
         "@/lib/offlineApprovalAttachmentFlush"
       );
       const { flushOfflineApprovalSendOutbox } = await import(
         "@/lib/offlineApprovalSendFlush"
       );
-      const { flushOfflineSendOutbox } = await import(
-        "@/lib/offlineSendFlush"
-      );
 
       await flushOfflineApprovalAttachmentOutbox(getAccessToken);
       await flushOfflineApprovalSendOutbox(getAccessToken);
-
-      await flushOfflineSendOutbox({
-        getAccessToken,
-      });
 
       if (!reconnectProjectId.startsWith("offline-project-")) {
         await loadProofs(reconnectProjectId, showArchivedEntries);
