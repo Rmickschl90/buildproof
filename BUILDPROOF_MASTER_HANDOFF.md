@@ -95,3 +95,55 @@ Critical instruction for next chat:
 Carry-forward bug audit:
 - previous chat identified an obvious duplicate `saveRecentProject(...)` write bug on another branch
 - current restore-broken-state dashboard still contains multiple `saveRecentProject(...)` writes in offline project sync logic and this must be rechecked before/while implementing offline project creation
+
+## 🟢 VERIFIED CORE SYSTEM (NEW)
+
+Offline lifecycle now fully functional:
+
+- offline entry creation → syncs correctly
+- offline approval creation → syncs correctly
+- offline update send → completes on reconnect
+- offline approval send → completes on reconnect
+- reconnect → does not require navigation
+- timeline → remains consistent (no disappearance)
+- no duplicate records observed
+
+---
+
+## 🔴 CRITICAL BUG FIX (IMPORTANT FOR FUTURE WORK)
+
+Approval-send failure was caused by:
+
+- incorrect IndexedDB index reference in remap
+- used "projectId" instead of "by_projectId"
+
+Impact:
+- broke remap
+- caused approval send failure
+- caused timeline disappearance after reconnect
+
+Resolution:
+- corrected index usage
+
+Lesson:
+- IndexedDB index naming must be treated as strict contract
+
+---
+
+## 🔒 NEW DEVELOPMENT RULES
+
+1. NEVER modify multiple offline subsystems in one change
+2. ALWAYS run full offline → reconnect → refresh test
+3. ALWAYS inspect console before writing new fixes
+4. ALWAYS verify remap coverage for new data types
+5. ALWAYS tag stable states (e.g. stable-offline-lifecycle)
+
+---
+
+## NEXT SAFE DEVELOPMENT AREA
+
+Approval attachments (as originally planned)
+
+Reason:
+- builds on now-stable approval system
+- does not require altering core offline pipeline

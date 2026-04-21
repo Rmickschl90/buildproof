@@ -650,3 +650,43 @@ Effect:
 
 Fix:
 - changed remapOfflineApprovalSendProjectId() to use store.index("by_projectId")
+
+## Checkpoint: full offline lifecycle stabilized (entries + approvals + sends + reconnect)
+
+Test:
+- create project (online)
+- go offline
+- add entry + attachment
+- create approval + attachment
+- send update offline
+- send approval offline
+- reconnect
+- wait
+- refresh
+
+Observed (final):
+- entry finalized and sent
+- approval sent successfully
+- waiting banner cleared
+- timeline preserved (no disappearance)
+- no duplicates
+- no missing records
+
+Root cause of failure:
+- approval-send project remap used incorrect IndexedDB index name
+- store defined index "by_projectId"
+- remap used store.index("projectId") → caused NotFoundError
+- remap aborted → approval-send retained offline project id
+- downstream /api/approvals/list returned 404 → approval send failed
+- reconnect reload cleared local state → timeline appeared empty
+
+Fix:
+- corrected index usage to store.index("by_projectId")
+
+Meaning:
+- full dependency chain now remaps correctly:
+  project → proofs → attachments → approvals → approval sends → sends
+- reconnect pipeline is now stable and deterministic
+
+Status:
+- CORE OFFLINE SYSTEM: VERIFIED STABLE
