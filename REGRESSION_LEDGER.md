@@ -635,3 +635,18 @@ Fix:
 Meaning:
 - approval send queue should now follow the remapped server project after offline project creation
 - next gate is full offline-created-project approval send retest
+
+## Checkpoint: approval-send project remap failure caused by wrong IndexedDB index name
+
+Root cause:
+- remapOfflineApprovalSendProjectId() used store.index("projectId")
+- the actual index created in offlineApprovalSendOutbox is named "by_projectId"
+- reconnect project sync threw IndexedDB NotFoundError before approval-send records could be remapped
+
+Effect:
+- approval-send records kept offline project id
+- /api/approvals/list was called with stale offline project id
+- approval send failed and reconnect state became inconsistent
+
+Fix:
+- changed remapOfflineApprovalSendProjectId() to use store.index("by_projectId")
