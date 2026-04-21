@@ -2050,16 +2050,40 @@ export default function DashboardPage() {
     }
   }
 
-  async function deleteEntry(proofId: number) {
+  async function deleteEntry(proofId: number | string) {
     if (!selectedProject) return;
 
-    const ok = window.confirm("Delete this entry permanently? This cannot be undone.");
+    const ok = window.confirm("Delete this entry permanently?");
     if (!ok) return;
+
+    const isOffline =
+      typeof navigator !== "undefined" && !navigator.onLine;
 
     try {
       setWorkingProofId(proofId);
       setProofStatus("Deleting...");
 
+      // 🟢 OFFLINE DELETE
+      if (isOffline) {
+        if (typeof proofId !== "string") {
+          throw new Error("Offline delete requires local draft id.");
+        }
+
+        const { deleteOfflineProof } = await import(
+          "@/lib/offlineProofOutbox"
+        );
+
+        await deleteOfflineProof(proofId);
+
+        await refreshOfflineProofs(selectedProject.id);
+
+        window.dispatchEvent(new CustomEvent("buildproof-data-changed"));
+
+        setProofStatus("Deleted ✅");
+        return;
+      }
+
+      // 🔵 ONLINE DELETE
       const token = await getAccessToken();
 
       const res = await fetch("/api/proofs/delete", {
@@ -3631,18 +3655,18 @@ export default function DashboardPage() {
 
                             <div
                               style={{ position: "relative" }}
-                              ref={!offline && proofMenuOpenId === proof.id ? proofMenuRef : null}
+                              ref={proofMenuOpenId === proof.id ? proofMenuRef : null}
                             >
                               <button
                                 className="btn"
                                 onClick={() => setProofMenuOpenId((v) => (v === proof.id ? null : proof.id))}
                                 title="Entry actions"
-                                disabled={isEditing || offline}
+                                disabled={isEditing}
                               >
                                 …
                               </button>
 
-                              {!offline && proofMenuOpenId === proof.id ? (
+                              {proofMenuOpenId === proof.id ? (
                                 <div
                                   style={{
                                     position: "absolute",
@@ -3660,7 +3684,7 @@ export default function DashboardPage() {
                                     gap: 8,
                                   }}
                                 >
-                                  {!isLocked ? (
+                                  {!offline && !isLocked ? (
                                     <button
                                       className="btn"
                                       onClick={() => {
@@ -3673,36 +3697,36 @@ export default function DashboardPage() {
                                     </button>
                                   ) : null}
 
-                                  {isArchived ? (
-                                    <button
-                                      className="btn"
-                                      onClick={() => {
-                                        if (!serverProof) return;
-                                        restoreEntry(serverProof.id);
-                                      }}
-                                      disabled={working}
-                                    >
-                                      {working ? "Working..." : "Restore"}
-                                    </button>
-                                  ) : (
-                                    <button
-                                      className="btn btnDanger"
-                                      onClick={() => {
-                                        if (offline) return;
-                                        archiveEntry(proof.id);
-                                      }}
-                                      disabled={working}
-                                    >
-                                      {working ? "Working..." : "Archive"}
-                                    </button>
-                                  )}
+                                  {!offline ? (
+                                    isArchived ? (
+                                      <button
+                                        className="btn"
+                                        onClick={() => {
+                                          if (!serverProof) return;
+                                          restoreEntry(serverProof.id);
+                                        }}
+                                        disabled={working}
+                                      >
+                                        {working ? "Working..." : "Restore"}
+                                      </button>
+                                    ) : (
+                                      <button
+                                        className="btn btnDanger"
+                                        onClick={() => {
+                                          archiveEntry(proof.id as number);
+                                        }}
+                                        disabled={working}
+                                      >
+                                        {working ? "Working..." : "Archive"}
+                                      </button>
+                                    )
+                                  ) : null}
 
                                   {!isLocked ? (
                                     <button
                                       className="btn btnDanger"
                                       onClick={() => {
-                                        if (!serverProof) return;
-                                        deleteEntry(serverProof.id);
+                                        deleteEntry(proof.id);
                                       }}
                                       disabled={working}
                                     >
@@ -3711,7 +3735,7 @@ export default function DashboardPage() {
                                   ) : null}
                                 </div>
                               ) : null}
-                            </div>
+                            </div>F
                           </div>
 
                           {isOpen ? (
