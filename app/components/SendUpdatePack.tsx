@@ -93,11 +93,14 @@ export default function SendUpdatePack({
     sendUiStatus === "sending_job" ||
     sendUiStatus === "finalizing_entries";
 
+  const isActivelySending =
+    isBusy ||
+    !!activeJobId;
+
   const canSend =
     hasOfficialClientEmail &&
     hasSendableEntries &&
-    !isBusy &&
-    !activeJobId;
+    !isActivelySending;
 
   function setUiStatus(next: SendUiStatus, message?: string) {
     if (!mountedRef.current) return;

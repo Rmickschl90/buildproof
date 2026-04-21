@@ -402,3 +402,236 @@ Meaning:
 - remaining regression is an ordering bug
 - send job is being created before the latest offline proof has finished syncing to the server
 - next fix target should be send job creation / send ordering guard, not dashboard or attachment rendering
+
+## Checkpoint: send ordering improved, remaining issue is delayed update flush until navigation/state change
+
+Scope:
+- restore-broken-state full offline E2E after send flush guard change
+
+Observed:
+- approval send completed on reconnect
+- no duplicate project appeared
+- attachments were visible
+- entries eventually finalized and latest offline entry was included in the update email
+- in first test, update did not send immediately on reconnect and waiting banner remained for a while; after leaving project / moving around, send eventually completed
+- in second test, reconnect produced waiting banner with little activity while staying on send update page; after exiting send page, update sent and finalized correctly
+
+Meaning:
+- original missing-latest-entry regression appears improved
+- remaining issue is no longer entry omission but delayed send completion
+- send/update flush appears to depend on navigation, page transition, visibility, or another later trigger instead of completing reliably in place
+- next fix target should be send page / send completion orchestration, not proof ordering
+
+## Checkpoint: reconnect send flow fully stabilized
+
+Observed:
+- update send triggers immediately on reconnect without navigation
+- newest offline entries consistently included
+- approval send continues to work
+- waiting banner clears correctly
+- no duplicate projects observed
+- attachments and approvals render correctly in UI and email
+
+Changes:
+- added send flush trigger to reconnect flow in dashboard
+
+Result:
+- core offline → reconnect → send pipeline is now stable and field-ready
+
+## Checkpoint: full offline → reconnect → send pipeline stable
+
+Result:
+- update sends immediately on reconnect
+- newest offline entries always included
+- approval send stable
+- no duplicate projects
+- attachments render correctly in UI and email
+- send completes without navigation or refresh
+- send button protected from double-send
+- TypeScript + config clean
+
+Conclusion:
+- core system is now stable and field-ready
+
+## Checkpoint: core offline reconnect/send pipeline stabilized on restore-broken-state
+
+Scope:
+- restore-broken-state core offline/reconnect/send stabilization
+- no polish or non-core UI work
+
+Observed:
+- update sends immediately on reconnect
+- newest offline entries are included
+- approval send works
+- waiting banner clears correctly
+- no duplicate project reproduced in final stabilized reconnect/send test
+- attachments render correctly in UI and email
+- send no longer requires navigation to complete
+- SendUpdatePack button protection logic cleaned up without TS errors
+- tsconfig warnings resolved after updating moduleResolution/baseUrl config and saving/restarting TS server
+
+Meaning:
+- core offline continuation flow is now stable and field-ready
+- remaining major offline gap is offline project creation on the stabilized branch
+- next subsystem target should be offline project creation only
+
+## Checkpoint: next target is offline project creation, and it must mirror the proven offline architecture
+
+Scope:
+- next chat should target offline project creation only
+
+Requirements:
+- offline project creation must mirror the proven offline architecture already used by offline proofs/attachments/approvals/sends
+- do not invent a weaker special-case pattern
+- use outbox/state/remap/flush discipline consistent with the existing offline system
+- preserve current working reconnect/send pipeline
+
+Carry-forward warning:
+- earlier obvious duplicate `saveRecentProject(...)` write bug was fixed on another branch
+- current restore-broken-state dashboard still contains multiple `saveRecentProject(...)` writes in offline project sync logic and must be re-audited so duplicate/recent-project state bugs are not reintroduced during offline project creation work
+
+## Checkpoint: offline project sync lifecycle cleanup
+
+Scope:
+- offline project sync only
+- no proof/attachment/approval/send architecture changes
+
+Changes:
+- removed duplicate saveRecentProject(...) write inside syncOfflineProjects()
+- added removeOfflineProject(record.id) after successful sync
+- replaced offline project entry in local projects state with synced server project
+
+Purpose:
+- prevent duplicate recent-project writes
+- prevent offline project record from lingering and re-syncing again
+- stabilize offline-project -> server-project replacement in UI state
+
+Meaning:
+- offline project sync lifecycle now includes cleanup instead of stopping after remap
+- next gate is full offline project creation E2E verification
+
+## Checkpoint: reconnect flow now resolves remapped project id after offline project sync
+
+Scope:
+- reconnect orchestration only
+- no outbox structure changes
+
+Changes:
+- runReconnectFlow now captures starting project id
+- after syncOfflineProjects(), reconnect flow resolves project id again using last-open-project state when starting from an offline project
+- downstream refresh/load steps now continue against the remapped server project id on the same reconnect pass
+
+Purpose:
+- prevent reconnect pipeline from continuing with stale offline project id after project remap
+- allow proof/approval/send follow-on sync to run against the newly synced server project immediately
+
+Meaning:
+- offline project creation path now has a reconnect handoff from project sync into dependent flushes
+- next gate is full offline-created-project E2E retest
+
+## Checkpoint: reconnect remapped-project-id patch did not resolve offline-created-project dependent flush failure
+
+Scope:
+- reconnect orchestration only
+- no outbox structure changes
+
+Test:
+- clean incognito
+- create new project offline
+- add client info
+- add entry
+- add approval
+- send update offline
+- send approval offline
+- reconnect
+- wait without navigating
+- hard refresh
+
+Observed:
+- project synced
+- no duplicate project
+- client info persisted
+- selected project persisted after refresh
+- proof remained draft
+- approval remained draft
+- waiting-to-send banner remained
+- outcome matched pre-patch behavior
+
+Meaning:
+- reconnect project-id handoff patch did not fix the dependent flush failure
+- root cause is more likely in outbox remap / dependent queue handling than in reconnect project-id resolution
+
+## Checkpoint: reverted unproven reconnect remapped-project-id patch
+
+Scope:
+- rollback of failed reconnect experiment
+
+Reason:
+- patch did not improve behavior
+- core reconnect path should not carry unproven edits forward
+
+Meaning:
+- branch returned to Step 1 project-sync-lifecycle cleanup state
+- next investigation should target outbox remap / dependent queue logic directly
+
+## Checkpoint: missing send outbox project-id remap identified
+
+Root cause:
+- offlineSendOutbox records retained old offline projectId after project sync
+- send pipeline could not resolve entries/approvals for new project id
+
+Fix:
+- added remapOfflineSendProjectId()
+- integrated into syncOfflineProjects alongside proof/attachment/approval remaps
+
+Meaning:
+- full dependency chain now remaps consistently after offline project sync
+- send pipeline can now operate on correct project id
+
+## Checkpoint: offline-created-project flow now completes through proof/update send; approval send remains isolated failure
+
+Test:
+- create project offline
+- add entry
+- add approval
+- send update offline
+- send approval offline
+- reconnect
+
+Observed:
+- project synced
+- entry finalized
+- update send completed
+- waiting-to-send banner cleared
+- approval remained draft
+
+Meaning:
+- project remap chain is now working
+- update send pipeline now survives offline-created-project path
+- remaining failure is isolated to approval-send-specific remap / flush logic
+
+## Checkpoint: approval send failure isolated to reconnect flush order
+
+Root cause:
+- offline approval send flush was running before offline approval attachment flush
+- approval send flush correctly refused to send while attachments were still pending / not yet visible on server
+
+Fix:
+- reordered reconnect flow so approval attachment flush runs before approval send flush
+- standard update send flush runs after approval-specific completion
+
+Meaning:
+- approval send should now complete on reconnect once the approval has been created and its attachments are synced
+
+## Checkpoint: approval send failure likely caused by stale project id in approval-send outbox
+
+Root cause:
+- approval send flush uses record.projectId to refresh server approvals before sending
+- approval-send outbox had its own projectId field and remap helper, but that queue was not remapped during offline project sync
+
+Fix:
+- added remapOfflineApprovalSendProjectId(...) to syncOfflineProjects alongside the other dependent remaps
+
+Meaning:
+- approval send queue should now follow the remapped server project after offline project creation
+- next gate is full offline-created-project approval send retest
