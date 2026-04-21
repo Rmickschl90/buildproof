@@ -293,7 +293,7 @@ export async function remapOfflineApprovalSendProjectId(
     return new Promise<void>((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, "readwrite");
         const store = tx.objectStore(STORE_NAME);
-        const index = store.index("projectId");
+        const index = store.index("by_projectId");
 
         const req = index.getAll(oldProjectId);
 
