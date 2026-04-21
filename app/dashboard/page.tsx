@@ -3735,7 +3735,7 @@ export default function DashboardPage() {
                                   ) : null}
                                 </div>
                               ) : null}
-                            </div>F
+                            </div>
                           </div>
 
                           {isOpen ? (
