@@ -23,25 +23,80 @@ export async function flushOfflineApprovalSendOutbox(
   isFlushing = true;
 
   try {
-    let pending = await getPendingOfflineApprovalSends();
+    const pending = await getPendingOfflineApprovalSends();
 
-    for (let pass = 0; pass < 2; pass++) {
-      for (const record of pending) {
-        if (!record.approvalId) {
+    for (const record of pending) {
+      if (!record.approvalId) {
+        await markOfflineApprovalSendPending(
+          record.id,
+          "Approval is not synced yet."
+        );
+        continue;
+      }
+
+      const stillHasRelatedAttachments =
+        await hasPendingOfflineApprovalAttachments({
+          approvalId: record.approvalId,
+          offlineApprovalId: record.offlineApprovalId,
+        });
+
+      if (stillHasRelatedAttachments) {
+        await markOfflineApprovalSendPending(
+          record.id,
+          "Waiting for approval attachments to finish syncing."
+        );
+        continue;
+      }
+
+      try {
+        const accessToken = await getAccessToken();
+
+        const listResponse = await fetch("/api/approvals/list", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            projectId: record.projectId,
+            includeArchived: true,
+          }),
+        });
+
+        let listData: any = null;
+        try {
+          listData = await listResponse.json();
+        } catch {}
+
+        if (!listResponse.ok) {
+          const message =
+            listData?.error ||
+            listData?.message ||
+            `Approval list refresh failed (${listResponse.status})`;
+
+          await markOfflineApprovalSendPending(record.id, message);
+          continue;
+        }
+
+        const matchedApproval = (listData?.approvals || []).find(
+          (item: any) => item.id === record.approvalId
+        );
+
+        if (!matchedApproval) {
           await markOfflineApprovalSendPending(
             record.id,
-            "Approval is not synced yet."
+            "Waiting for approval to appear on server."
           );
           continue;
         }
 
-        const stillHasRelatedAttachments =
-          await hasPendingOfflineApprovalAttachments({
-            approvalId: record.approvalId,
-            offlineApprovalId: record.offlineApprovalId,
-          });
+        const serverAttachmentCount = Array.isArray(
+          matchedApproval.attachments
+        )
+          ? matchedApproval.attachments.length
+          : 0;
 
-        if (stillHasRelatedAttachments) {
+        if (serverAttachmentCount < record.expectedAttachmentCount) {
           await markOfflineApprovalSendPending(
             record.id,
             "Waiting for approval attachments to finish syncing."
@@ -49,115 +104,52 @@ export async function flushOfflineApprovalSendOutbox(
           continue;
         }
 
+        await markOfflineApprovalSendProcessing(record.id);
+
+        const response = await fetch("/api/approvals/send", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            approvalId: record.approvalId,
+            idempotencyKey: record.sendIdempotencyKey,
+            expectedAttachmentCount: record.expectedAttachmentCount,
+          }),
+        });
+
+        let data: any = null;
         try {
-          const accessToken = await getAccessToken();
+          data = await response.json();
+        } catch {}
 
-          const listResponse = await fetch("/api/approvals/list", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({
-              projectId: record.projectId,
-              includeArchived: true,
-            }),
-          });
-
-          let listData: any = null;
-          try {
-            listData = await listResponse.json();
-          } catch {}
-
-          if (!listResponse.ok) {
-            const message =
-              listData?.error ||
-              listData?.message ||
-              `Approval list refresh failed (${listResponse.status})`;
-
-            await markOfflineApprovalSendPending(record.id, message);
-            continue;
-          }
-
-          const matchedApproval = (listData?.approvals || []).find(
-            (item: any) => item.id === record.approvalId
-          );
-
-          if (!matchedApproval) {
-            await markOfflineApprovalSendPending(
-              record.id,
-              "Waiting for approval to appear on server."
-            );
-            continue;
-          }
-
-          const serverAttachmentCount = Array.isArray(
-            matchedApproval.attachments
-          )
-            ? matchedApproval.attachments.length
-            : 0;
-
-          if (serverAttachmentCount < record.expectedAttachmentCount) {
-            await markOfflineApprovalSendPending(
-              record.id,
-              "Waiting for approval attachments to finish syncing."
-            );
-            continue;
-          }
-
-          await markOfflineApprovalSendProcessing(record.id);
-
-          const response = await fetch("/api/approvals/send", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({
-              approvalId: record.approvalId,
-              idempotencyKey: record.sendIdempotencyKey,
-              expectedAttachmentCount: record.expectedAttachmentCount,
-            }),
-          });
-
-          let data: any = null;
-          try {
-            data = await response.json();
-          } catch {}
-
-          if (!response.ok) {
-            const message =
-              data?.error ||
-              data?.message ||
-              `Approval send failed (${response.status})`;
-
-            await markOfflineApprovalSendPending(record.id, message);
-            continue;
-          }
-
-          await removeOfflineApprovalSend(record.id);
-
-          window.dispatchEvent(new CustomEvent("buildproof-data-changed"));
-          window.dispatchEvent(
-            new CustomEvent("buildproof-approval-send-complete", {
-              detail: {
-                approvalId: record.approvalId,
-                offlineApprovalId: record.offlineApprovalId,
-              },
-            })
-          );
-        } catch (error) {
+        if (!response.ok) {
           const message =
-            error instanceof Error ? error.message : "Approval send failed.";
+            data?.error ||
+            data?.message ||
+            `Approval send failed (${response.status})`;
 
           await markOfflineApprovalSendPending(record.id, message);
+          continue;
         }
-      }
 
-      pending = await getPendingOfflineApprovalSends();
+        await removeOfflineApprovalSend(record.id);
 
-      if (pending.length === 0) {
-        break;
+        window.dispatchEvent(new CustomEvent("buildproof-data-changed"));
+        window.dispatchEvent(
+          new CustomEvent("buildproof-approval-send-complete", {
+            detail: {
+              approvalId: record.approvalId,
+              offlineApprovalId: record.offlineApprovalId,
+            },
+          })
+        );
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Approval send failed.";
+
+        await markOfflineApprovalSendPending(record.id, message);
       }
     }
   } catch (error) {
