@@ -1160,6 +1160,12 @@ export default function DashboardPage() {
 
           await remapOfflineSendProjectId(record.id, data.id);
 
+          const { remapOfflineApprovalSendProjectId } = await import(
+            "@/lib/offlineApprovalSendOutbox"
+          );
+
+          await remapOfflineApprovalSendProjectId(record.id, data.id);
+
         } else {
           const result = await supabase
             .from("projects")
