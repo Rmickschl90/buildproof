@@ -147,3 +147,66 @@ Approval attachments (as originally planned)
 Reason:
 - builds on now-stable approval system
 - does not require altering core offline pipeline
+
+## 🟢 FULL OFFLINE FIELD TEST (LATEST VERIFIED)
+
+Full offline field test passed end-to-end:
+
+- create new project offline
+- add client info offline
+- edit client info offline
+- add entry with multiple attachments offline
+- create approval with multiple attachments offline
+- send update offline
+- send approval offline
+- reconnect
+- hard refresh
+
+Verified result:
+- project synced correctly
+- client info persisted correctly
+- entry synced and finalized correctly
+- approval synced and moved to pending correctly
+- entry attachments rendered correctly in UI and email
+- approval attachments rendered correctly in UI and email
+- update send completed correctly
+- approval send completed correctly
+- waiting banner cleared correctly
+- no duplicates observed
+- no disappearance after hard refresh
+
+Conclusion:
+- core offline lifecycle is now field-ready
+
+## 🟢 APPROVAL ATTACHMENTS STATUS (LATEST VERIFIED)
+
+Approval attachments are already working across:
+- online
+- offline
+- reconnect
+- hard refresh
+- send / post-send lock state
+
+Verified:
+- attachment visible before send
+- attachment visible after send
+- no duplicates observed
+- attachment remains correct after refresh
+- approval locks after send as expected
+
+Conclusion:
+- approval attachments are not a future build-from-scratch task
+- next work for this subsystem is refinement / consistency only where needed
+
+## 🔴 KNOWN PRODUCT GAP (NEW)
+
+Offline draft deletion is not fully implemented.
+
+Observed:
+- offline entry draft delete is blocked because the three-dot menu is disabled / grayed out
+- offline approval draft delete attempts server path and fails with "Failed to fetch"
+
+Required rule going forward:
+- any draft created offline must be deletable offline before send
+
+This is now the next clear product/system gap discovered after stabilizing the full offline lifecycle.

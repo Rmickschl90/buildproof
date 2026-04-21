@@ -157,3 +157,56 @@ DO:
 
 DO NOT:
 - stack patches blindly
+
+## 🔒 VERIFIED SYSTEM STATE — DO NOT REOPEN CORE WITHOUT CAUSE
+
+The following are now verified stable and should be treated as protected core behavior:
+
+- offline project creation
+- offline client save
+- offline client edit
+- offline entry creation
+- offline entry attachments
+- offline approval creation
+- offline approval attachments
+- offline update send
+- offline approval send
+- reconnect sync
+- hard refresh persistence
+- no duplicate records in verified full offline test
+
+Rule:
+- do not reopen core reconnect / remap / send pipeline unless a new reproducible regression is proven
+
+---
+
+## 🔒 APPROVAL ATTACHMENTS RULE
+
+Approval attachments are already working across:
+- online
+- offline
+- reconnect
+- refresh
+- send / post-send locked state
+
+Rule:
+- approval attachments are NOT a missing subsystem
+- future work should focus on rendering consistency and product rules only, not rebuilding attachment architecture
+
+---
+
+## 🔒 DRAFT DELETE RULE
+
+Any draft created offline must be deletable offline before send.
+
+This applies to:
+- entry drafts
+- approval drafts
+
+Failure modes discovered:
+- entry draft delete currently blocked by disabled UI state
+- approval draft delete currently hits online/server path and fails offline
+
+Rule:
+- draft delete must never depend on network availability
+- delete behavior must operate on offline/local records first

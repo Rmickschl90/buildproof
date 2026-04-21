@@ -690,3 +690,92 @@ Meaning:
 
 Status:
 - CORE OFFLINE SYSTEM: VERIFIED STABLE
+
+## Checkpoint: full offline field test passed end-to-end
+
+Test:
+- login online
+- go offline
+- create new project
+- add client info
+- edit client info
+- add entry with 2 attachments
+- create approval with 2 attachments
+- send update offline
+- send approval offline
+- reconnect
+- verify before refresh
+- hard refresh
+- verify again
+
+Observed:
+- project created successfully offline
+- client info saved offline
+- client edit persisted correctly
+- entry synced correctly
+- both entry attachments synced and rendered correctly
+- approval synced correctly
+- both approval attachments synced and rendered correctly
+- update send completed on reconnect
+- approval send completed on reconnect
+- entry finalized correctly
+- approval moved to pending correctly
+- update email included correct content and attachments
+- approval email included correct content and attachments
+- waiting banner cleared correctly
+- no duplicate records observed
+- no disappearance after hard refresh
+- system remained consistent after refresh
+
+Known note:
+- approval pending timestamp still appears 5 hours ahead in email / client-facing output and remains a later polish item
+
+Meaning:
+- full offline lifecycle is now verified across project creation, client save/edit, entry + attachments, approval + attachments, offline sends, reconnect, and hard refresh
+- core offline system is field-ready
+
+## Checkpoint: approval attachments verified across online/offline/reconnect/refresh/send
+
+Test:
+- create approval online with attachment
+- verify behavior before and after send
+- create approval offline with attachment
+- reconnect
+- verify attachment before refresh
+- hard refresh
+- verify again
+- send approval and verify lock behavior
+
+Observed:
+- approval attachment works online
+- approval attachment works offline
+- approval attachment survives reconnect
+- approval attachment remains visible after hard refresh
+- no duplicate attachments observed
+- after send, approval attachment remains visible
+- after send, approval is locked as expected
+- attachment state remains correct after refresh
+
+Meaning:
+- approval attachments do not require new core architecture work
+- approval attachments are already functioning across the full lifecycle
+- next work is product refinement / rule enforcement only where needed
+
+## Checkpoint: offline draft delete gap discovered
+
+Test:
+- create entry offline and attempt delete
+- create approval offline and attempt delete
+
+Observed:
+- entry three-dot menu is disabled / grayed out while offline draft exists
+- approval three-dot menu opens, but delete fails with "Failed to fetch"
+
+Meaning:
+- offline draft deletion is not fully implemented
+- entry draft delete is blocked at UI level offline
+- approval draft delete still relies on online/server path
+- this is now a defined product gap, not a vague usability issue
+
+Locked rule:
+- draft entries and draft approvals must always be deletable offline before send
