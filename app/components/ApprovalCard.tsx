@@ -347,6 +347,22 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
       const confirmed = window.confirm("Delete this draft approval?");
       if (!confirmed) return;
 
+      const isOffline =
+        typeof navigator !== "undefined" && !navigator.onLine;
+
+      if (isOffline) {
+        const { removeOfflineApproval } = await import(
+          "@/lib/offlineApprovalOutbox"
+        );
+
+        await removeOfflineApproval(approval.id);
+
+        window.dispatchEvent(new CustomEvent("buildproof-data-changed"));
+        setMenuOpen(false);
+        await onUpdated?.();
+        return;
+      }
+
       const { data, error } = await supabase.auth.getSession();
       if (error) throw error;
 
