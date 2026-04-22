@@ -902,9 +902,9 @@ export default async function SharePage(props: {
           <div className="brand">
             <div
               style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
+                width: 48,
+                height: 48,
+                borderRadius: 12,
                 overflow: "hidden",
                 border: "1px solid rgba(15,23,42,0.10)",
                 background: "#fff",
@@ -921,7 +921,7 @@ export default async function SharePage(props: {
                   width: "100%",
                   height: "100%",
                   objectFit: "contain",
-                  padding: 4,
+                  padding: 2,
                 }}
               />
             </div>
