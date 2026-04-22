@@ -3532,7 +3532,7 @@ export default function DashboardPage() {
                       const isLocked = offline ? false : !!proof.locked_at;
                       const isArchived = offline ? false : isArchivedProof(proof);
                       const working = !offline && workingProofId === proof.id;
-                      const isEditing = !offline && editingProofId === proof.id;
+                      const isEditing = editingProofId === proof.id;
 
                       return (
                         <div
