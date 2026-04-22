@@ -2173,23 +2173,31 @@ function getDateRange(
   approvals: ApprovalWithResponseRow[] = []
 ) {
   const proofDates = (proofs ?? [])
-    .map((p) => p.created_at)
-    .filter(Boolean);
+    .map((p) => ({
+      iso: p.created_at,
+      offset: p.created_timezone_offset_minutes ?? null,
+    }))
+    .filter((item) => !!item.iso);
 
   const approvalDates = (approvals ?? [])
-    .map((a) => a.sent_at || a.created_at)
-    .filter(Boolean) as string[];
+    .map((a) => ({
+      iso: a.sent_at || a.created_at,
+      offset: a.created_timezone_offset_minutes ?? null,
+    }))
+    .filter((item) => !!item.iso);
 
   const allDates = [...proofDates, ...approvalDates].sort(
-    (a, b) => new Date(a).getTime() - new Date(b).getTime()
+    (a, b) =>
+      new Date(String(a.iso)).getTime() - new Date(String(b.iso)).getTime()
   );
 
   if (allDates.length === 0) return "-";
 
   const first = allDates[0];
   const last = allDates[allDates.length - 1];
-  const a = formatDate(first);
-  const b = formatDate(last);
+
+  const a = formatDate(String(first.iso), first.offset);
+  const b = formatDate(String(last.iso), last.offset);
 
   return a === b ? a : `${a} - ${b}`;
 }
