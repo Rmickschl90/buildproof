@@ -6,6 +6,10 @@ import {
   loadCachedAttachments,
   saveCachedAttachments,
 } from "../../lib/offlineAttachmentCache";
+import {
+  getAllOfflineAttachmentRecords,
+  removeOfflineAttachmentRecord,
+} from "../../lib/offlineAttachmentOutbox";
 type Attachment = {
   id: string;
   proof_id: number;
@@ -17,7 +21,8 @@ type Attachment = {
 };
 
 type Props = {
-  proofId: number;
+  proofId?: number;
+  offlineProofId?: string;
   lockedAt?: string | null;
 };
 
@@ -58,19 +63,40 @@ function fileIcon(kind: string) {
   return "📎";
 }
 
-export default function AttachmentList({ proofId, lockedAt }: Props) {
+export default function AttachmentList({
+  proofId,
+  offlineProofId,
+  lockedAt,
+}: Props) {
   const [loading, setLoading] = useState(true);
-const [attachments, setAttachments] = useState<Attachment[]>(() =>
-  loadCachedAttachments(proofId) as Attachment[]
-);
-const [error, setError] = useState("");
-const [busyId, setBusyId] = useState("");
-const [isMobile, setIsMobile] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>(() =>
+    proofId ? ((loadCachedAttachments(proofId) as Attachment[]) || []) : []
+  );
+  const [offlineAttachments, setOfflineAttachments] = useState<any[]>([]);
+  const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState("");
+  const [isMobile, setIsMobile] = useState(false);
 
   const isLocked = !!lockedAt;
 
-    async function load() {
+  async function load() {
     setError("");
+
+    if (offlineProofId) {
+      const allOffline = await getAllOfflineAttachmentRecords();
+      const matches = allOffline.filter(
+        (a) => a.offlineProofId === offlineProofId
+      );
+      setOfflineAttachments(matches);
+    } else {
+      setOfflineAttachments([]);
+    }
+
+    if (!proofId) {
+      setAttachments([]);
+      setLoading(false);
+      return;
+    }
 
     const cached = loadCachedAttachments(proofId) as Attachment[];
     const hasCachedAttachments = cached.length > 0;
@@ -126,7 +152,15 @@ const [isMobile, setIsMobile] = useState(false);
       load();
     }
 
-    window.addEventListener("buildproof-attachment-complete", handleAttachmentComplete as EventListener);
+    function handleDataChanged() {
+      load();
+    }
+
+    window.addEventListener(
+      "buildproof-attachment-complete",
+      handleAttachmentComplete as EventListener
+    );
+    window.addEventListener("buildproof-data-changed", handleDataChanged as EventListener);
     window.addEventListener("online", handleOnline);
     window.addEventListener("focus", handleFocus);
 
@@ -135,11 +169,12 @@ const [isMobile, setIsMobile] = useState(false);
         "buildproof-attachment-complete",
         handleAttachmentComplete as EventListener
       );
+      window.removeEventListener("buildproof-data-changed", handleDataChanged as EventListener);
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("focus", handleFocus);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [proofId]);
+  }, [proofId, offlineProofId]);
 
   useEffect(() => {
     function checkMobile() {
@@ -193,9 +228,11 @@ const [isMobile, setIsMobile] = useState(false);
 
   const emptyText = useMemo(() => {
     if (loading) return "";
-    if (attachments.length === 0) return "No files yet.";
+    if (attachments.length === 0 && offlineAttachments.length === 0) {
+      return "No files yet.";
+    }
     return "";
-  }, [loading, attachments.length]);
+  }, [loading, attachments.length, offlineAttachments.length]);
 
   if (loading) {
     return (
@@ -499,6 +536,75 @@ const [isMobile, setIsMobile] = useState(false);
               </div>
             );
           })}
+        </div>
+      ) : null}
+
+      {offlineAttachments.length > 0 ? (
+        <div style={{ display: "grid", gap: 10 }}>
+          {offlineAttachments.map((a) => (
+            <div
+              key={a.id}
+              style={{
+                border: "1px solid rgba(15,23,42,0.08)",
+                borderRadius: 14,
+                padding: 10,
+                background: "#fff",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 12,
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 750,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    minWidth: 0,
+                  }}
+                  title={a.fileName}
+                >
+                  {a.fileName}
+                </div>
+
+                <div className="sub" style={{ opacity: 0.75, lineHeight: 1.35 }}>
+                  {[a.mimeType || "unknown", formatBytes(a.sizeBytes), a.createdAt ? formatWhenShort(a.createdAt) : ""]
+                    .filter(Boolean)
+                    .join(" • ")}
+                </div>
+              </div>
+
+              {!isLocked ? (
+                <button
+                  onClick={async () => {
+                    await removeOfflineAttachmentRecord(a.id);
+                    setOfflineAttachments((prev) =>
+                      prev.filter((x) => x.id !== a.id)
+                    );
+                    window.dispatchEvent(
+                      new CustomEvent("buildproof-data-changed")
+                    );
+                  }}
+                  style={{
+                    border: "1px solid rgba(239,68,68,0.18)",
+                    background: "rgba(239,68,68,0.06)",
+                    color: "#dc2626",
+                    borderRadius: 999,
+                    padding: "6px 10px",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    lineHeight: 1.1,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Remove
+                </button>
+              ) : null}
+            </div>
+          ))}
         </div>
       ) : null}
     </div>

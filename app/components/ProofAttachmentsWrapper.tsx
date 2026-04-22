@@ -88,13 +88,18 @@ export default function ProofAttachmentsWrapper({
         }}
       >
         <div key={refreshKey ?? 0}>
-          {proofId ? (
-            <AttachmentList proofId={proofId} lockedAt={lockedAt} />
+          {proofId || offlineProofId ? (
+            <AttachmentList
+              proofId={proofId}
+              offlineProofId={offlineProofId}
+              lockedAt={lockedAt}
+            />
           ) : (
             <div style={{ fontSize: 12, opacity: 0.6 }}>
               No uploaded attachments yet.
             </div>
           )}
+
         </div>
       </div>
 
