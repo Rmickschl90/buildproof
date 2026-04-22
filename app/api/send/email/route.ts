@@ -245,7 +245,12 @@ export async function POST(req: Request) {
       .order("created_at", { ascending: true });
 
     if (!includeArchived) {
-      approvalsQuery = approvalsQuery.is("archived_at", null);
+      approvalsQuery = approvalsQuery
+        .is("archived_at", null)
+        .in("status", ["pending", "approved", "declined"]); // ✅ EXCLUDE drafts
+    } else {
+      approvalsQuery = approvalsQuery
+        .in("status", ["pending", "approved", "declined"]); // ✅ still exclude drafts
     }
 
     const { data: approvalBaseRows, error: approvalsErr } = await approvalsQuery;
@@ -303,7 +308,7 @@ export async function POST(req: Request) {
       ),
     }));
 
-        // 🔥 Get locked entry ids for THIS send (so PDF matches update pack)
+    // 🔥 Get locked entry ids for THIS send (so PDF matches update pack)
     let lockedEntryIds: number[] = [];
 
     if (sendJobId) {
@@ -320,7 +325,7 @@ export async function POST(req: Request) {
       }
     }
 
-        // 🔥 Preview-finalize entries for PDF (do NOT touch DB)
+    // 🔥 Preview-finalize entries for PDF (do NOT touch DB)
     const finalizedProofs = (proofs ?? []).map((p: any) => {
       if (!p.locked_at && lockedEntryIds.includes(Number(p.id))) {
         return {
