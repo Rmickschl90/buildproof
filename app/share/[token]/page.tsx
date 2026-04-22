@@ -402,10 +402,7 @@ export default async function SharePage(props: {
   const proofIds = list.map((x) => x.id);
 
   let attachmentsByProof: Record<number, AttachmentView[]> = {};
-  let totalFiles = 0;
-  let totalImages = 0;
-  let totalPdfs = 0;
-  let totalApprovalAttachments = 0;
+  let totalAttachments = 0;
   const finalizedCount = list.filter((x) => !!x.locked_at).length;
   const approvalCount = approvals.length;
 
@@ -439,21 +436,14 @@ export default async function SharePage(props: {
         return acc;
       }, {} as Record<number, AttachmentView[]>);
 
-      totalFiles = signed.length;
-      totalImages = signed.filter((s) => s.kind === "image").length;
-      totalPdfs = signed.filter((s) => s.kind === "pdf").length;
+      totalAttachments = signed.length;
     }
   }
 
   // ✅ include approval attachments in summary counts
   for (const approval of approvals) {
-    for (const att of approval.attachments ?? []) {
-      const kind = guessKind(att.mime_type, att.filename);
-
-      if (kind === "image") totalImages += 1;
-      if (kind === "pdf") totalPdfs += 1;
-
-      totalFiles += 1;
+    for (const _att of approval.attachments ?? []) {
+      totalAttachments += 1;
     }
   }
 
@@ -1019,6 +1009,7 @@ export default async function SharePage(props: {
               )}
             </div>
             <div className="heroPill">{list.length} entries</div>
+            <div className="heroPill">{approvalCount} approvals</div>
             <div className="heroPill">{finalizedCount} finalized</div>
           </div>
         </div>
@@ -1033,8 +1024,7 @@ export default async function SharePage(props: {
             </div>
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              <span className="pill">Photos {totalImages}</span>
-              <span className="pill">PDFs {totalPdfs}</span>
+              <span className="pill">Attachments {totalAttachments}</span>
             </div>
           </div>
 
@@ -1048,20 +1038,12 @@ export default async function SharePage(props: {
               <div className="v">{approvalCount}</div>
             </div>
             <div className="stat">
-              <div className="k">Files</div>
-              <div className="v">{totalFiles}</div>
-            </div>
-            <div className="stat">
-              <div className="k">Photos</div>
-              <div className="v">{totalImages}</div>
+              <div className="k">Attachments</div>
+              <div className="v">{totalAttachments}</div>
             </div>
             <div className="stat">
               <div className="k">Finalized</div>
               <div className="v">{finalizedCount}</div>
-            </div>
-            <div className="stat">
-              <div className="k">PDFs</div>
-              <div className="v">{totalPdfs}</div>
             </div>
           </div>
         </div>
