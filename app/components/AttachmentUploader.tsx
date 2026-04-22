@@ -262,58 +262,11 @@ export default function AttachmentUploader({
         </div>
       ) : null}
 
-      {records.length > 0 ? (
-        <div style={{ display: "grid", gap: 8 }}>
-          {records.map((it) => {
-            const kind = fileKind(it.mimeType || "");
-            const icon = fileIcon(kind);
-
-            const statusLine =
-              it.status === "pending"
-                ? it.lastError
-                  ? `Retrying needed: ${it.lastError}`
-                  : "Queued"
-                : "Uploading…";
-
-            return (
-              <div
-                key={it.id}
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 10,
-                  border: "1px solid rgba(15,23,42,0.08)",
-                  borderRadius: 14,
-                  padding: 10,
-                  background: "#fff",
-                }}
-              >
-                <div style={{ fontSize: 18, lineHeight: 1 }}>{icon}</div>
-
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontWeight: 750,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {it.fileName}
-                  </div>
-                  <div className="sub" style={{ opacity: 0.75, marginTop: 2 }}>
-                    {formatBytes(it.sizeBytes)} • {statusLine}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="sub" style={{ opacity: 0.7 }}>
-          No files selected.
-        </div>
-      )}
+      {records.length === 0 ? (
+  <div className="sub" style={{ opacity: 0.7 }}>
+    No files selected.
+  </div>
+) : null}
 
       {process.env.NODE_ENV === "development" && proofId != null ? (
         <AttachmentDiagnosticsPanel projectId={projectId} proofId={proofId} />
