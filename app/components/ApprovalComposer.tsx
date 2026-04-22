@@ -634,6 +634,9 @@ export default function ApprovalComposer({
         draftApprovalIdRef.current = approvalId;
         setDraftApprovalId(approvalId);
         window.localStorage.setItem(draftStorageKey, approvalId);
+
+        // ✅ FIX: immediately notify app that a new draft exists
+        window.dispatchEvent(new CustomEvent("buildproof-data-changed"));
       }
 
       const isOffline =
@@ -887,7 +890,7 @@ export default function ApprovalComposer({
           message.includes("network") ||
           message.includes("fetch");
 
-                if (looksOffline) {
+        if (looksOffline) {
           await saveOffline();
           return;
         }
