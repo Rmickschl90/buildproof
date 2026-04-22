@@ -146,6 +146,7 @@ export default function AttachmentUploader({
       }
 
       await refreshRecords();
+      window.dispatchEvent(new CustomEvent("buildproof-data-changed"));
 
       if (typeof navigator !== "undefined" && !navigator.onLine) {
         setMessage("Files saved — will upload automatically when connection returns.");
@@ -153,6 +154,7 @@ export default function AttachmentUploader({
         setBusy(true);
         await flushOfflineAttachmentOutbox(getAccessToken);
         await refreshRecords();
+        window.dispatchEvent(new CustomEvent("buildproof-data-changed"));
         onUploaded?.();
         setMessage("Uploading automatically…");
       }
@@ -263,10 +265,10 @@ export default function AttachmentUploader({
       ) : null}
 
       {records.length === 0 ? (
-  <div className="sub" style={{ opacity: 0.7 }}>
-    No files selected.
-  </div>
-) : null}
+        <div className="sub" style={{ opacity: 0.7 }}>
+          No files selected.
+        </div>
+      ) : null}
 
       {process.env.NODE_ENV === "development" && proofId != null ? (
         <AttachmentDiagnosticsPanel projectId={projectId} proofId={proofId} />
