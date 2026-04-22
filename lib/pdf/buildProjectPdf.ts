@@ -198,6 +198,19 @@ export async function buildProjectPdf(
     return bTime - aTime; // newest first for standard project updates
   });
 
+  const projectDisplayTimezoneOffsetMinutes =
+    sortedProofs.find(
+      (p) =>
+        typeof p.created_timezone_offset_minutes === "number" &&
+        !Number.isNaN(p.created_timezone_offset_minutes)
+    )?.created_timezone_offset_minutes ??
+    sortedApprovals.find(
+      (a) =>
+        typeof a.created_timezone_offset_minutes === "number" &&
+        !Number.isNaN(a.created_timezone_offset_minutes)
+    )?.created_timezone_offset_minutes ??
+    null;
+
   const timelineItems = [
     ...sortedProofs.map((proof) => ({
       kind: "proof" as const,
@@ -240,6 +253,7 @@ export async function buildProjectPdf(
     dateRangeText: sanitizePdfText(getDateRange(sortedProofs, sortedApprovals)),
     counts: getCounts(sortedProofs, attachments, sortedApprovals),
     generatedAtIso: new Date().toISOString(),
+    generatedAtTimezoneOffsetMinutes: projectDisplayTimezoneOffsetMinutes,
     reportMode,
     timelineHash,
   });
@@ -1416,6 +1430,7 @@ function addCoverPage(opts: {
     approvalCount: number;
   };
   generatedAtIso: string;
+  generatedAtTimezoneOffsetMinutes?: number | null;
   reportMode: "standard" | "dispute";
   timelineHash?: string | null;
 }) {
@@ -1429,6 +1444,7 @@ function addCoverPage(opts: {
     dateRangeText,
     counts,
     generatedAtIso,
+    generatedAtTimezoneOffsetMinutes,
     reportMode,
     timelineHash,
   } = opts;
@@ -1584,13 +1600,15 @@ function addCoverPage(opts: {
       color: COLORS.text,
     });
 
-    page.drawText(formatDateTime(generatedAtIso), {
-      x: recordX + 160,
-      y: recordY + recordH - 108,
-      size: 10.5,
-      font,
-      color: COLORS.text,
-    });
+    page.drawText(
+      formatDateTime(generatedAtIso, generatedAtTimezoneOffsetMinutes),
+      {
+        x: recordX + 160,
+        y: recordY + recordH - 108,
+        size: 10.5,
+        font,
+        color: COLORS.text,
+      });
 
     page.drawText("Report type:", {
       x: recordX + 34,
@@ -1739,13 +1757,15 @@ function addCoverPage(opts: {
     color: COLORS.line,
   });
 
-  page.drawText(`Generated ${formatDateTime(generatedAtIso)}`, {
-    x: MARGIN,
-    y: 54,
-    size: 9.5,
-    font,
-    color: COLORS.muted,
-  });
+  page.drawText(
+    `Generated ${formatDateTime(generatedAtIso, generatedAtTimezoneOffsetMinutes)}`,
+    {
+      x: MARGIN,
+      y: 54,
+      size: 9.5,
+      font,
+      color: COLORS.muted,
+    });
 
   if (reportMode === "dispute" && timelineHash) {
     const shortHash = timelineHash.slice(0, 24);
