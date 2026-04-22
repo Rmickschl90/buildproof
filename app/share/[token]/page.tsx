@@ -405,7 +405,9 @@ export default async function SharePage(props: {
   let totalFiles = 0;
   let totalImages = 0;
   let totalPdfs = 0;
+  let totalApprovalAttachments = 0;
   const finalizedCount = list.filter((x) => !!x.locked_at).length;
+  const approvalCount = approvals.length;
 
   if (proofIds.length > 0) {
     const { data: rows, error: attErr } = await supabaseServer
@@ -440,6 +442,18 @@ export default async function SharePage(props: {
       totalFiles = signed.length;
       totalImages = signed.filter((s) => s.kind === "image").length;
       totalPdfs = signed.filter((s) => s.kind === "pdf").length;
+    }
+  }
+
+  // ✅ include approval attachments in summary counts
+  for (const approval of approvals) {
+    for (const att of approval.attachments ?? []) {
+      const kind = guessKind(att.mime_type, att.filename);
+
+      if (kind === "image") totalImages += 1;
+      if (kind === "pdf") totalPdfs += 1;
+
+      totalFiles += 1;
     }
   }
 
@@ -1030,6 +1044,10 @@ export default async function SharePage(props: {
               <div className="v">{list.length}</div>
             </div>
             <div className="stat">
+              <div className="k">Approvals</div>
+              <div className="v">{approvalCount}</div>
+            </div>
+            <div className="stat">
               <div className="k">Files</div>
               <div className="v">{totalFiles}</div>
             </div>
@@ -1040,6 +1058,10 @@ export default async function SharePage(props: {
             <div className="stat">
               <div className="k">Finalized</div>
               <div className="v">{finalizedCount}</div>
+            </div>
+            <div className="stat">
+              <div className="k">PDFs</div>
+              <div className="v">{totalPdfs}</div>
             </div>
           </div>
         </div>
