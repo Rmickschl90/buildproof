@@ -302,7 +302,7 @@ export default async function SharePage(props: {
 
   let approvalsQuery = supabaseServer
     .from("approval_requests")
-        .select(`
+    .select(`
       id,
       title,
       approval_type,
@@ -321,7 +321,12 @@ export default async function SharePage(props: {
     .order("created_at", { ascending: false });
 
   if (!includeArchived) {
-    approvalsQuery = approvalsQuery.is("archived_at", null);
+    approvalsQuery = approvalsQuery
+      .is("archived_at", null)
+      .in("status", ["pending", "approved", "declined"]);
+  } else {
+    approvalsQuery = approvalsQuery
+      .in("status", ["pending", "approved", "declined"]);
   }
 
   if (shareRow?.id) {
@@ -956,7 +961,7 @@ export default async function SharePage(props: {
           <div className="heroPills">
             <div className="heroPill">Created {createdAt || "—"}</div>
             <div className="heroPill">
-                            Last updated {formatDate(
+              Last updated {formatDate(
                 [
                   {
                     iso: proofs[0]?.created_at,
@@ -1058,11 +1063,11 @@ export default async function SharePage(props: {
                     <div className="entryBody">
                       <div className="entryTop">
                         <div className="entryDate">
-                                                    {approval.sent_at || approval.created_at
+                          {approval.sent_at || approval.created_at
                             ? formatDate(
-                                approval.sent_at || approval.created_at,
-                                approval.created_timezone_offset_minutes
-                              )
+                              approval.sent_at || approval.created_at,
+                              approval.created_timezone_offset_minutes
+                            )
                             : ""}
                         </div>
 
@@ -1155,7 +1160,7 @@ export default async function SharePage(props: {
                               marginTop: 6,
                             }}
                           >
-                                                        Responded: {formatDate(
+                            Responded: {formatDate(
                               approval.responded_at,
                               approval.created_timezone_offset_minutes
                             )}
@@ -1179,16 +1184,16 @@ export default async function SharePage(props: {
                   <div className="entryBody">
                     <div className="entryTop">
                       <div className="entryDate">
-                                                {entry.created_at
+                        {entry.created_at
                           ? formatDate(
-                              entry.created_at,
-                              entry.created_timezone_offset_minutes
-                            )
+                            entry.created_at,
+                            entry.created_timezone_offset_minutes
+                          )
                           : ""}
                       </div>
 
                       {entry.locked_at ? (
-                                                <div
+                        <div
                           className="badgeFinal"
                           title={`Finalized ${formatDate(
                             entry.locked_at,

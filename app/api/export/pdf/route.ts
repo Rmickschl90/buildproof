@@ -88,7 +88,12 @@ export async function POST(req: Request) {
       .order("created_at", { ascending: true });
 
     if (reportMode !== "dispute") {
-      approvalsQuery = approvalsQuery.is("archived_at", null);
+      approvalsQuery = approvalsQuery
+        .is("archived_at", null)
+        .in("status", ["pending", "approved", "declined"]);
+    } else {
+      approvalsQuery = approvalsQuery
+        .in("status", ["pending", "approved", "declined"]);
     }
 
     const { data: approvalBaseRows, error: approvalsErr } = await approvalsQuery;
