@@ -2211,6 +2211,14 @@ function getCounts(
     else fileCount += 1;
   }
 
+  for (const approval of approvals ?? []) {
+    for (const att of approval.attachments ?? []) {
+      const mt = (att.mime_type || "").toLowerCase();
+      if (mt.startsWith("image/")) photoCount += 1;
+      else fileCount += 1;
+    }
+  }
+
   return {
     entryCount,
     photoCount,
