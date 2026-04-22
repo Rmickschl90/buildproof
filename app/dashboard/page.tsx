@@ -2129,7 +2129,7 @@ export default function DashboardPage() {
     setEditDraftContent("");
   }
 
-  async function saveEditEntry(proofId: number) {
+  async function saveEditEntry(proofId: number | string) {
     if (!selectedProject) return;
 
     const next = editDraftContent.trim();
@@ -2138,11 +2138,41 @@ export default function DashboardPage() {
       return;
     }
 
+    const isOffline =
+      typeof navigator !== "undefined" && !navigator.onLine;
+
     try {
       setWorkingProofId(proofId);
       setProofStatus("Saving...");
 
-      const { error } = await supabase.from("proofs").update({ content: next }).eq("id", proofId);
+      if (isOffline) {
+        if (typeof proofId !== "string") {
+          throw new Error("Offline edit requires local draft id.");
+        }
+
+        const { updateOfflineProof } = await import(
+          "@/lib/offlineProofOutbox"
+        );
+
+        await updateOfflineProof(proofId, {
+          content: next,
+        });
+
+        await refreshOfflineProofs(selectedProject.id);
+
+        window.dispatchEvent(new CustomEvent("buildproof-data-changed"));
+
+        setProofStatus("Updated ✅");
+        setEditingProofId(null);
+        setEditDraftContent("");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("proofs")
+        .update({ content: next })
+        .eq("id", proofId);
+
       if (error) throw error;
 
       await loadProofs(selectedProject.id, showArchivedEntries);
@@ -3684,10 +3714,18 @@ export default function DashboardPage() {
                                     gap: 8,
                                   }}
                                 >
-                                  {!offline && !isLocked ? (
+                                  {!isLocked ? (
                                     <button
                                       className="btn"
                                       onClick={() => {
+                                        if (offline) {
+                                          setEditingProofId(proof.id);
+                                          setEditDraftContent(proof.content ?? "");
+                                          setProofMenuOpenId(null);
+                                          setOpenProofId(proof.id);
+                                          return;
+                                        }
+
                                         if (!serverProof) return;
                                         startEditEntry(serverProof);
                                       }}

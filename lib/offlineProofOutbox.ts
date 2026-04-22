@@ -252,6 +252,41 @@ export async function deleteOfflineProof(id: string): Promise<void> {
   }
 }
 
+export async function updateOfflineProof(
+  id: string,
+  updates: Partial<Pick<OfflineProofRecord, "content">>
+): Promise<void> {
+  const db = await openOfflineDb();
+
+  try {
+    const tx = db.transaction(PROOF_OUTBOX_STORE, "readwrite");
+    const store = tx.objectStore(PROOF_OUTBOX_STORE);
+    const existing = await promisifyRequest<OfflineProofRecord | undefined>(
+      store.get(id)
+    );
+
+    if (!existing) return;
+
+    const updated: OfflineProofRecord = {
+      ...existing,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+      status: "pending",
+      lastError: null,
+    };
+
+    await promisifyRequest(store.put(updated));
+
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error ?? new Error("Failed to update offline proof"));
+      tx.onabort = () => reject(tx.error ?? new Error("Offline proof update aborted"));
+    });
+  } finally {
+    db.close();
+  }
+}
+
 export async function remapOfflineProofProjectId(
   oldProjectId: string,
   newProjectId: string
