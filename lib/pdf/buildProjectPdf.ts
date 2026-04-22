@@ -1010,8 +1010,11 @@ export async function buildProjectPdf(
         const event = sortedContactEvents[i];
 
         const createdAt = sanitizePdfText(
-          event.created_at ? formatDateTime(event.created_at) : "Unknown date"
+          event.created_at
+            ? formatDateTime(event.created_at, projectDisplayTimezoneOffsetMinutes)
+            : "Unknown date"
         );
+
         const previousEmail = sanitizePdfText(event.previous_email || "Not set");
         const newEmail = sanitizePdfText(event.new_email || "Not set");
 
@@ -1160,7 +1163,9 @@ export async function buildProjectPdf(
         const recipient = sanitizePdfText(delivery.to_address || "Unknown recipient");
         const status = sanitizePdfText(delivery.status || "unknown");
         const createdAt = sanitizePdfText(
-          delivery.created_at ? formatDateTime(delivery.created_at) : "Unknown date"
+          delivery.created_at
+            ? formatDateTime(delivery.created_at, projectDisplayTimezoneOffsetMinutes)
+            : "Unknown date"
         );
         const errorText = sanitizePdfText(delivery.error || "");
 
@@ -1325,7 +1330,9 @@ export async function buildProjectPdf(
         const view = sortedShareViews[i];
 
         const viewedAt = sanitizePdfText(
-          view.viewed_at ? formatDateTime(view.viewed_at) : "Unknown date"
+          view.viewed_at
+            ? formatDateTime(view.viewed_at, projectDisplayTimezoneOffsetMinutes)
+            : "Unknown date"
         );
 
         const rowHeight = 70;
