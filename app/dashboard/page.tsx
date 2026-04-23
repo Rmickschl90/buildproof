@@ -2292,6 +2292,10 @@ export default function DashboardPage() {
       text: "Inspection Passed\n\nInspector:\nArea inspected:\nNotes:",
     },
     {
+      name: "Inspection Failed",
+      text: "Inspection Failed\n\nInspector:\nArea inspected:\nReason:\nAction required:\nFollow-up date:\nNotes:",
+    },
+    {
       name: "Weather Delay",
       text: "Weather Delay\n\nConditions:\nWork affected:\nNotes:",
     },
@@ -3592,23 +3596,10 @@ export default function DashboardPage() {
                                     wordBreak: "break-word",
                                     minWidth: 0,
                                     maxWidth: "100%",
+                                    fontWeight: 700,
                                   }}
                                 >
-                                  {proof.content.split("\n").map((line, index) => (
-                                    <div
-                                      key={index}
-                                      style={{
-                                        fontWeight: index === 0 ? 700 : 400,
-                                        marginBottom: index === 0 ? 6 : 0,
-                                        overflowWrap: "anywhere",
-                                        wordBreak: "break-word",
-                                        minWidth: 0,
-                                        maxWidth: "100%",
-                                      }}
-                                    >
-                                      {line}
-                                    </div>
-                                  ))}
+                                  {(proof.content || "").split("\n")[0]}
                                 </div>
                               )}
 
