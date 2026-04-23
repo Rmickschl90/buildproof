@@ -593,7 +593,7 @@ export default async function SharePage(props: {
           }
 
           .hero{
-            margin-top: 14px;
+            margin-top: 6px;
             overflow: hidden;
             background: linear-gradient(135deg, var(--hero1), var(--hero2) 58%, var(--hero3));
             color: #fff;
@@ -899,14 +899,14 @@ export default async function SharePage(props: {
 
       <div
         style={{
-          padding: "14px 0 12px",
+          padding: "14px 0 6px",
         }}
       >
         <div
           className="wrap"
           style={{
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-start",
             justifyContent: "space-between",
             gap: 16,
           }}
