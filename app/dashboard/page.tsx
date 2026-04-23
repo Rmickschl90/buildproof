@@ -3387,7 +3387,13 @@ export default function DashboardPage() {
                     />
 
                     {showTemplates ? (
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                          gap:10,
+                        }}
+                      >
                         {entryTemplates.map((template) => (
                           <button
                             key={template.name}
@@ -3402,6 +3408,13 @@ export default function DashboardPage() {
                                 const el = document.getElementById("new-entry-textarea") as HTMLTextAreaElement | null;
                                 el?.focus();
                               }, 50);
+                            }}
+                            style={{
+                              width: "100%",
+                              justifyContent: "center",
+                              padding: "10px 6px",
+                              fontSize: 13,
+                              borderRadius: 10,
                             }}
                           >
                             {template.name}
@@ -3596,10 +3609,37 @@ export default function DashboardPage() {
                                     wordBreak: "break-word",
                                     minWidth: 0,
                                     maxWidth: "100%",
-                                    fontWeight: 700,
                                   }}
                                 >
-                                  {(proof.content || "").split("\n")[0]}
+                                  {isOpen ? (
+                                    proof.content.split("\n").map((line, index) => (
+                                      <div
+                                        key={index}
+                                        style={{
+                                          fontWeight: index === 0 ? 700 : 400,
+                                          marginBottom: index === 0 ? 6 : 0,
+                                          overflowWrap: "anywhere",
+                                          wordBreak: "break-word",
+                                          minWidth: 0,
+                                          maxWidth: "100%",
+                                        }}
+                                      >
+                                        {line}
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <div
+                                      style={{
+                                        fontWeight: 700,
+                                        overflowWrap: "anywhere",
+                                        wordBreak: "break-word",
+                                        minWidth: 0,
+                                        maxWidth: "100%",
+                                      }}
+                                    >
+                                      {(proof.content || "").split("\n")[0]}
+                                    </div>
+                                  )}
                                 </div>
                               )}
 
