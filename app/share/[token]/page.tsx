@@ -593,7 +593,7 @@ export default async function SharePage(props: {
           }
 
           .hero{
-            margin-top: 3px;
+            margin-top: 0px;
             overflow: hidden;
             background: linear-gradient(135deg, var(--hero1), var(--hero2) 58%, var(--hero3));
             color: #fff;
