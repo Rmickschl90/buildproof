@@ -7,6 +7,38 @@ Offline-first system
 
 ---
 
+## CURRENT STATE CORRECTION (IMPORTANT)
+
+BuildProof’s full core lifecycle is functioning and has been tested.
+
+Verified working:
+- offline project creation
+- offline client save/edit
+- offline entry creation
+- offline entry attachments
+- offline approval creation
+- offline approval attachments
+- offline update send
+- offline approval send
+- reconnect sync
+- hard refresh persistence
+
+This means:
+- offline project creation must NOT be described as a future milestone
+- the app should now be treated as functionally complete at the core system level
+
+Current development mode:
+- targeted bug fixing
+- polish
+- UI/product refinements
+- rollout preparation
+- no broad architecture rewrites
+
+Additional note:
+- `saveRecentProject(...)` was re-audited in the current `app/dashboard/page.tsx`
+- no duplicate same-block double-write was found in the current file
+- the earlier duplicate-write concern should now be treated as resolved unless a new reproducible regression appears
+
 ## 🧠 CURRENT STATE
 
 Working from:

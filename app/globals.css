@@ -285,3 +285,10 @@ a:hover{
   .card{ padding: 12px; }
   .btn{ padding: 11px 12px; } /* slightly bigger tap targets */
 }
+
+@media (max-width: 480px) {
+  .btn,
+  .projectBtn {
+    color: var(--text) !important;
+  }
+}

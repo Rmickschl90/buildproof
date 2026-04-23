@@ -1,5 +1,37 @@
 # 🧱 BUILDPROOF OFFLINE PLAYBOOK (MASTER)
 
+## VERIFIED CURRENT SYSTEM STATE (IMPORTANT CORRECTION)
+
+The full core offline lifecycle is already functioning and has been tested.
+
+This includes:
+- offline project creation
+- offline client save/edit
+- offline entry creation
+- offline entry attachments
+- offline approval creation
+- offline approval attachments
+- offline update send
+- offline approval send
+- reconnect sync
+- hard refresh persistence
+
+Meaning:
+- offline project creation is NOT a future milestone
+- offline project creation is already part of the verified working system
+
+Current rule going forward:
+- do not treat core offline architecture as missing
+- do not rebuild offline project creation from scratch
+- do not reopen protected reconnect/remap/send systems without a proven reproducible regression
+
+Current priority mode:
+- targeted bug fixes
+- UI/product polish
+- client-facing consistency
+- tester-readiness
+- small refinements only
+
 ## 🎯 CORE PRINCIPLE
 
 Offline is NOT a feature — it is the system.
