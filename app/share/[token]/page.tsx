@@ -918,8 +918,15 @@ export default async function SharePage(props: {
             >
               <div
                 style={{
-                  width: "clamp(180px, 28vw, 260px)",
-                  maxWidth: "100%",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "10px 16px",
+                  borderRadius: 20,
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.10)",
+                  backdropFilter: "blur(6px)",
+                  width: "fit-content",
                 }}
               >
                 <img
@@ -927,9 +934,10 @@ export default async function SharePage(props: {
                   alt="BuildProof"
                   style={{
                     display: "block",
-                    width: "100%",
+                    width: "clamp(180px, 28vw, 260px)",
                     height: "auto",
                     objectFit: "contain",
+                    filter: "contrast(1.05) brightness(0.98)",
                   }}
                 />
               </div>
