@@ -1224,8 +1224,6 @@ export default async function SharePage(props: {
                     {entry.content ? <div className="content">{entry.content}</div> : null}
 
                     <div className="metaRow">
-                      <div>Entry #{entry.id}</div>
-                      <div>•</div>
                       <div>{atts.length} file{atts.length === 1 ? "" : "s"}</div>
                       {images.length ? (
                         <>
