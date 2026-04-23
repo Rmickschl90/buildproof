@@ -210,3 +210,234 @@ Failure modes discovered:
 Rule:
 - draft delete must never depend on network availability
 - delete behavior must operate on offline/local records first
+
+## OFFLINE_PLAYBOOK.md
+
+# BUILDPROOF OFFLINE PLAYBOOK
+
+## LOCKED PRODUCT REQUIREMENT
+
+While already signed in, the user must be able to:
+
+* open the app
+* see recently used projects
+* open one of those projects offline
+* view that project’s timeline and client info
+* add entries
+* add attachments
+* create approvals
+* have everything sync later
+
+This remains non-negotiable.
+
+---
+
+## CORE RULES
+
+### 1. Freeze core systems unless directly targeted
+
+Do not casually touch:
+
+* offline queue/reconnect orchestration
+* send queue/system
+* approval lifecycle
+* attachment queue/system
+* PDF generation core
+* delivery history
+* share token architecture
+
+Only patch proven issues inside the exact subsystem being worked on.
+
+---
+
+### 2. One subsystem branch at a time
+
+Do not mix:
+
+* offline queue work
+* send work
+* share work
+* PDF work
+* UI polish
+
+Keep scope isolated.
+
+---
+
+### 3. Restore point before core changes
+
+Before editing any core subsystem:
+
+* commit current working state
+* create safe restore point / safe branch if needed
+* record exact files being changed
+
+---
+
+### 4. End-to-end gate after core changes
+
+After any core system change, verify:
+
+* project create/open
+* client save/edit
+* entry create
+* entry attachment
+* approval create
+* approval attachment
+* send update
+* send approval
+* reconnect behavior
+* refresh behavior
+* no duplicates
+* attachment rendering remains intact
+
+---
+
+### 5. One owner rule
+
+Only one orchestrator owns reconnect/flush logic.
+
+Locked rule:
+
+* dashboard owns reconnect execution
+* bootstrap/external listeners may trigger
+* they must NOT duplicate orchestrator logic
+
+---
+
+### 6. Full-batch guards
+
+Outbox guards must wrap the full batch operation, not individual items.
+
+No overlapping reconnect flushes.
+No duplicate flush runs.
+
+---
+
+### 7. Offline navigation is state-based
+
+Offline restore must be driven by cached state, not route assumptions.
+
+Use:
+
+* cached selected project
+* recent projects
+* last-open project id
+
+Do not rely on router state offline.
+
+---
+
+### 8. Cache-first render for critical state
+
+Critical offline state must initialize synchronously from cache where required.
+
+Never depend on late `useEffect` restore for the first render of critical offline/project state.
+
+---
+
+### 9. Reconnect architecture rule
+
+Reconnect detection may live outside React lifecycle, but reconnect execution must stay inside the dashboard orchestrator.
+
+Communication between them should happen via event trigger, not duplicate reconnect logic.
+
+---
+
+## UI / PRODUCT RULES
+
+### 10. Timeline is scan-first
+
+Timeline cards should support fast scanning.
+
+Locked rule for entries:
+
+* closed card = title / first-line summary only
+* full content lives behind View
+
+Do not let template body content bloat the timeline.
+
+---
+
+### 11. Client-facing outputs must follow product intent
+
+Client-visible surfaces must only show what is intentionally client-facing.
+
+Locked rules:
+
+* draft approvals are internal only
+* only pending / approved / declined approvals are client-facing
+* client-facing counts must include anything visible in the document
+* share/update package should favor simplified summaries over forensic breakdown
+
+---
+
+### 12. If it works, don’t touch it
+
+Current phase is refinement, not rebuild.
+
+Working rule:
+
+* If it works → don’t touch it
+* If it’s rare → log it, don’t rebuild it
+* If it’s visible to users → fix it
+
+---
+
+## ACCEPTED LIMITATIONS / DEFERRED ITEMS
+
+### 13. Rare offline edit edge case
+
+Editing the same entry offline, reconnecting, then going offline again and trying to edit the same field can still be inconsistent.
+
+Accepted for now because:
+
+* rare path
+* no data-loss catastrophe
+* fixing it risks expanding offline edit complexity too far
+
+Do not chase this unless it becomes a true field blocker.
+
+---
+
+### 14. Minor logo asset halo
+
+The transparent BuildProof logo has a subtle halo on dark surfaces.
+
+Accepted for V1.
+Treat as asset cleanup later, not a code/system issue.
+
+---
+
+## CURRENT PRIORITY MODE
+
+BuildProof is in:
+
+* issue burn-down
+* usability tightening
+* client-facing consistency polish
+* pre-tester stabilization
+
+Not in:
+
+* major feature expansion
+* architecture rewrite
+* broad offline experimentation
+
+---
+
+## CURRENT SAFE DIRECTION
+
+Allowed:
+
+* isolated visible bug fixes
+* UI cleanup
+* client-facing consistency fixes
+* template/timeline usability polish
+* soft-launch prep
+
+Avoid:
+
+* revisiting locked architecture
+* broad offline edit expansion
+* mixing new systems into stable flows

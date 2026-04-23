@@ -779,3 +779,354 @@ Meaning:
 
 Locked rule:
 - draft entries and draft approvals must always be deletable offline before send
+
+## Checkpoint: offline approval draft delete is only partially fixed
+
+Test:
+- delete approval draft created offline in same offline session
+- attempt delete on other draft approvals while offline
+
+Observed:
+- same-session offline-created draft approval deletes successfully offline
+- other draft approvals not created in that same offline state do not delete offline
+
+Meaning:
+- offline approval delete currently works for local same-session draft state only
+- broader offline draft delete behavior is still incomplete
+- product rule remains: all draft approvals should be deletable offline before send
+
+## Checkpoint: offline entry edit partially functional
+
+Test:
+- offline → create entry → add attachments → reconnect → success
+- second offline cycle → edit entry text → save → no visible confirmation
+- reconnect → text still present in UI but not committed until saved again online
+
+Observed:
+- offline edit UI opens and allows typing
+- save action does not consistently persist offline edit state
+- attachments still queue correctly in same session
+- UI may not repaint immediately after offline actions in subsequent offline cycles
+
+Meaning:
+- offline entry edit path exists but is not fully reliable across sessions
+- likely gap in offline proof update persistence or refresh trigger after save
+- requires targeted investigation before expanding further offline work
+
+## Checkpoint: offline entry edit persistence confirmed
+
+Test:
+- go offline
+- create entry
+- edit entry text to "A"
+- save
+- refresh while still offline
+
+Observed:
+- entry remained present after offline refresh
+- edited text "A" remained present after offline refresh
+
+Meaning:
+- offline entry edit is persisting correctly
+- earlier concern is not data loss
+- remaining issue is likely offline save feedback / repaint clarity rather than persistence failure
+
+## Checkpoint: offline edit limited to local draft state only
+
+Test:
+- edit server-backed draft while offline after reconnect
+- attempt save and attachment add
+
+Observed:
+- save action does not persist offline
+- attachments do not visibly add until reconnect
+- after reconnect:
+  - attachments appear (queued correctly)
+  - edited text remains in UI but not committed until saved online
+
+Meaning:
+- offline edit currently only works for drafts created in same offline session
+- server-backed drafts do not enter offline edit pipeline
+- this is a known limitation, not a regression
+- full support would require mapping server drafts into offline outbox system
+
+## Fix: approval draft created via attachment now visible immediately
+
+Issue:
+- create approval → add attachment → exit without saving
+- draft not visible on timeline
+- later action (saving another approval) caused it to appear
+
+Root cause:
+- attachment flow triggered draft creation
+- but did not dispatch UI refresh event
+
+Fix:
+- added buildproof-data-changed dispatch after draft creation in attachment flow
+
+Result:
+- approval drafts created via attachment now appear immediately on timeline
+- eliminates delayed/ghost draft behavior
+
+## Fix: approval draft created via attachment now visible immediately
+
+Issue:
+- creating an approval attachment could force draft creation
+- exiting composer immediately after did not show the new draft on timeline
+- later approval activity caused the draft to suddenly appear
+
+Root cause:
+- attachment flow created the draft
+- but did not dispatch a timeline/UI refresh event after creation
+
+Fix:
+- added buildproof-data-changed dispatch after attachment-triggered draft creation in ApprovalComposer
+
+Result:
+- approval drafts created via attachment now appear immediately on timeline
+- eliminated delayed/ghost draft appearance behavior
+
+## Fix: exclude draft approvals from all client-facing update surfaces
+
+Issue:
+- draft approvals were appearing in client-facing update surfaces
+- this included update pack/share view, project-menu PDF export, and dispute packet
+
+Product rule:
+- drafts are internal only
+- only pending, approved, and declined approvals should be client-visible
+
+Fix:
+- added approval status filtering to client-facing approval queries
+- client-facing surfaces now include only: pending, approved, declined
+- drafts are excluded from update email/share/export flows
+
+Result:
+- draft approvals no longer appear in client-visible update documents
+- pending approvals still appear as intended
+
+## Fix: normalize remaining client-facing PDF/dispute timestamps
+
+Issue:
+- approval and entry cards displayed correct local times
+- but dispute packet header/footer and several dispute-only record sections showed times 5 hours ahead
+
+Root cause:
+- buildProjectPdf had correct timezone-aware rendering for entry/approval cards
+- but export-time header/footer and dispute-only sections were still calling formatDateTime without a display offset
+
+Fix:
+- derived projectDisplayTimezoneOffsetMinutes inside buildProjectPdf
+- applied that offset to:
+  - official project record/export header time
+  - PDF footer generated time
+  - communication event timestamps
+  - delivery history timestamps
+  - project view record timestamps
+
+Result:
+- client-facing PDF/dispute timestamps now match the expected local display time
+- entry and approval card timestamps remained correct
+
+## Fix: share/update package summary counts now include approvals but use simplified client-facing totals
+
+Issue:
+- share/update package summary counts did not include approval attachments
+- after adding approval attachment counting, the summary became too busy and confusing for client-facing use
+
+Product decision:
+- share/update package should use simplified summary counts
+- client-facing summary should show:
+  - entries
+  - approvals
+  - attachments
+  - finalized
+- do not break attachments down into separate files/photos/PDF buckets on this page
+
+Fix:
+- updated share/update package summary logic to count all client-visible attachments together
+- included approvals in summary counts
+- simplified hero and stat cards to remove redundant subtype breakdowns
+
+Result:
+- share/update package summary now reflects all visible client-facing content
+- presentation is cleaner and more consistent for V1
+
+## 🧱 BUILDPROOF REGRESSION LEDGER UPDATE
+
+### 📍 Checkpoint Name
+
+share-page-header-and-pdf-alignment-polish
+
+---
+
+## ✅ WHAT WAS COMPLETED
+
+### 🟢 Share Page Header Refactor
+
+* Removed heavy topbar system
+* Introduced minimal header strip:
+
+  * Left: BuildProof logo (transparent asset)
+  * Right: Read-only + archived pills
+* Removed duplicate branding inside hero
+* Branding now handled ONLY in header
+
+---
+
+### 🟢 Hero Layout Cleanup
+
+* Removed logo from hero (resolved contrast + layout conflict)
+* Hero now contains:
+
+  * project title
+  * description
+  * summary pills
+* Reduced hero margin-top for tighter spacing
+* Matched spacing:
+
+  * header → hero
+  * logo → top of page
+
+---
+
+### 🟢 Logo System Fix
+
+* Replaced white background logo with transparent PNG
+* Minor halo remains (accepted for V1)
+* No further time investment at this stage
+
+---
+
+### 🟢 Approval System Fix (CRITICAL)
+
+* Removed draft approvals from all client-facing outputs:
+
+  * update emails
+  * update pack
+  * dispute packet
+* Only allowed:
+
+  * pending
+  * approved
+  * declined
+* Drafts remain internal-only
+
+---
+
+### 🟢 Timestamp System Alignment (CRITICAL)
+
+* Fixed 5-hour offset bug across:
+
+  * PDF header
+  * dispute packet
+  * footer timestamps
+* Standardized use of:
+  created_timezone_offset_minutes
+* Applied consistently across:
+
+  * entries
+  * approvals
+  * PDF generation
+  * dispute exports
+
+---
+
+### 🟢 Project Date Range Fix (CRITICAL)
+
+* Replaced raw ISO usage
+* Now reflects:
+
+  * earliest visible timeline item
+  * latest visible timeline item
+* Fully timezone-aware
+
+---
+
+### 🟢 Attachment Count Fix (Client Docs)
+
+* Included approval attachments in all counts
+* Unified totals across:
+
+  * entries
+  * approvals
+
+---
+
+### 🟢 Update Package Summary Simplification
+
+* Removed confusing breakdown (photos vs files)
+* Standardized to:
+
+  * Entries
+  * Approvals
+  * Attachments
+  * Finalized
+* Consistent across all client-facing outputs
+
+---
+
+### 🟢 UI + Attachment UX Fixes
+
+* Fixed 3-dot menu layering issue
+* Enabled attachment removal
+* Removed duplicate attachment display in uploader
+* Fixed delayed attachment rendering bug
+
+---
+
+## ⚠️ KNOWN ACCEPTED LIMITATIONS
+
+### 1. Offline Editing Edge Case
+
+* Editing same entry offline → reconnect → offline again may not persist immediately
+* Requires online save
+* Accepted as rare edge case
+* Do NOT expand offline edit system further
+
+---
+
+### 2. Logo Transparency Halo
+
+* Slight edge artifact on dark backgrounds
+* Caused by asset, not code
+* Accepted for V1
+* Future: cleaner export
+
+---
+
+## 🚫 LOCKED SYSTEMS (DO NOT TOUCH)
+
+* Offline queue + reconnect orchestration
+* Send system / job creation pipeline
+* PDF generation structure
+* Approval lifecycle logic
+* Attachment system core
+
+---
+
+## 🧭 CURRENT STATE
+
+BuildProof = Production-ready V1 candidate
+
+* Core flows stable
+* Client-facing output consistent
+* Offline usable in real-world conditions
+* UI clean and coherent
+
+---
+
+## 🎯 NEXT DIRECTION (LOCKED)
+
+* Fix remaining isolated issues only
+* No architectural changes
+* No new systems
+* Prepare for real user testing
+
+---
+
+## 🧠 DEV RULE GOING FORWARD
+
+If it works → don’t touch it
+If it’s rare → log it, don’t rebuild it
+If it’s visible to users → fix it
