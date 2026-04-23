@@ -897,6 +897,38 @@ export default async function SharePage(props: {
         }}
       />
 
+      <div
+        style={{
+          padding: "16px 0 10px",
+          borderBottom: "1px solid rgba(15,23,42,0.06)",
+        }}
+      >
+        <div
+          className="wrap"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 16,
+          }}
+        >
+          <img
+            src="/buildproof-logo.png"
+            alt="BuildProof"
+            style={{
+              height: 40,
+              width: "auto",
+              display: "block",
+            }}
+          />
+
+          <div style={{ display: "flex", gap: 10 }}>
+            <span className="pill">🔒 Read-only</span>
+            {includeArchived ? <span className="pill">📦 Archived included</span> : null}
+          </div>
+        </div>
+      </div>
+
       <div className="wrap">
         <div className="card hero">
           <div
@@ -916,31 +948,6 @@ export default async function SharePage(props: {
                 flex: "1 1 520px",
               }}
             >
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "10px 16px",
-                  borderRadius: 20,
-                  background: "rgba(255,255,255,0.06)",
-                  border: "1px solid rgba(255,255,255,0.10)",
-                  backdropFilter: "blur(6px)",
-                  width: "fit-content",
-                }}
-              >
-                <img
-                  src="/buildproof-logo.png"
-                  alt="BuildProof"
-                  style={{
-                    display: "block",
-                    width: "clamp(180px, 28vw, 260px)",
-                    height: "auto",
-                    objectFit: "contain",
-                    filter: "contrast(1.05) brightness(0.98)",
-                  }}
-                />
-              </div>
 
               <div>
                 <div className="heroTitle">{project.title || "Shared Project"}</div>
@@ -950,19 +957,7 @@ export default async function SharePage(props: {
               </div>
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                gap: 10,
-                alignItems: "center",
-                flexWrap: "wrap",
-                justifyContent: "flex-end",
-                flex: "0 0 auto",
-              }}
-            >
-              <span className="pill">🔒 Read-only</span>
-              {includeArchived ? <span className="pill">📦 Archived included</span> : null}
-            </div>
+            
           </div>
 
           <div className="heroPills">
