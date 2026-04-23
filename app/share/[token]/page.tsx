@@ -899,8 +899,7 @@ export default async function SharePage(props: {
 
       <div
         style={{
-          padding: "16px 0 10px",
-          borderBottom: "1px solid rgba(15,23,42,0.06)",
+          padding: "14px 0 12px",
         }}
       >
         <div
@@ -916,7 +915,7 @@ export default async function SharePage(props: {
             src="/buildproof-logo.png"
             alt="BuildProof"
             style={{
-              height: 40,
+              height: 68,
               width: "auto",
               display: "block",
             }}
@@ -957,7 +956,7 @@ export default async function SharePage(props: {
               </div>
             </div>
 
-            
+
           </div>
 
           <div className="heroPills">
