@@ -2964,7 +2964,7 @@ export default function DashboardPage() {
                               display: "grid",
                               gap: 8,
                               boxSizing: "border-box",
-                              overflow: "hidden",
+                              overflow: "visible",
                             }}
                           >
                             {!renaming ? (
@@ -3733,7 +3733,7 @@ export default function DashboardPage() {
                                     position: "absolute",
                                     right: 0,
                                     top: 44,
-                                    zIndex: 999,
+                                    zIndex: 9999,
                                     width: 220,
                                     maxWidth: "min(220px, 88vw)",
                                     border: "1px solid rgba(15,23,42,0.12)",
