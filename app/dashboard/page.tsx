@@ -3574,7 +3574,7 @@ export default function DashboardPage() {
                             boxShadow: "0 10px 24px rgba(15,23,42,0.06)",
                             opacity: isArchived ? 0.9 : 1,
                             position: "relative",
-                            zIndex: !offline && proofMenuOpenId === proof.id ? 50 : 1,
+                            zIndex: proofMenuOpenId === proof.id ? 10000 : 1,
                           }}
                         >
                           <div className="row" style={{ alignItems: "flex-start" }}>
@@ -3793,7 +3793,7 @@ export default function DashboardPage() {
 
                                   {!isLocked ? (
                                     <button
-                                      className="btn btnDanger"
+                                      className="btn btnDelete"
                                       onClick={() => {
                                         deleteEntry(proof.id);
                                       }}

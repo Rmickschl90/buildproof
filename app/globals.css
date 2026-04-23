@@ -286,3 +286,12 @@ a:hover{
   .btn{ padding: 11px 12px; } /* slightly bigger tap targets */
 }
 
+.btnDanger {
+  background: #dc2626; /* solid red */
+  color: white;
+  border: none;
+}
+
+.btnDanger:hover {
+  background: #b91c1c;
+}

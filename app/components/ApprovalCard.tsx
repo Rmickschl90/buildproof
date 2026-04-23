@@ -558,7 +558,7 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
                         Edit Draft
                       </button>
 
-                      <button className="btn btnDanger" onClick={deleteDraft}>
+                      <button className="btn btnDelete" onClick={deleteDraft}>
                         Delete Draft
                       </button>
                     </>
