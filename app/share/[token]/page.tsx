@@ -1332,7 +1332,7 @@ export default async function SharePage(props: {
         )}
 
         <div className="foot">
-          Powered by <b>BuildProof</b> • This journal is shared read-only • Link access can be revoked by the contractor.
+          Powered by <b>BuildProof</b> • This journal is shared read-only
         </div>
       </div>
     </div>
