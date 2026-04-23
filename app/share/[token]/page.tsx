@@ -897,68 +897,63 @@ export default async function SharePage(props: {
         }}
       />
 
-      <div className="topbar">
-        <div className="wrap topbarInner">
-          <div className="brand">
-            <div
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 12,
-                overflow: "hidden",
-                border: "1px solid rgba(15,23,42,0.10)",
-                background: "#fff",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <img
-                src="/buildproof-logo.png"
-                alt="BuildProof"
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "contain",
-                  padding: 2,
-                }}
-              />
-            </div>
-            <div className="brandText">
-              <div className="h1">{project.title || "Shared Project"}</div>
-              <div className="sub">
-                Project journal • Read-only link{includeArchived ? " • Includes archived entries" : ""}
-              </div>
-            </div>
-          </div>
-
+      <div className="wrap">
+        <div className="card hero">
           <div
             style={{
               display: "flex",
-              gap: 10,
-              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 18,
+              alignItems: "flex-start",
               flexWrap: "wrap",
-              justifyContent: "flex-end",
             }}
           >
-            <span className="pill">🔒 Read-only</span>
-            {includeArchived ? <span className="pill">📦 Archived included</span> : null}
-
-
-          </div>
-        </div>
-      </div>
-
-      <div className="wrap">
-        <div className="card hero">
-          <div className="heroTop">
-            <div>
-              <div className="eyebrow">BuildProof Project Journal</div>
-              <div className="heroTitle">{project.title || "Shared Project"}</div>
-              <div className="heroText">
-                A clean, read-only timeline of project updates, notes, photos, and attached files.
+            <div
+              style={{
+                display: "grid",
+                gap: 14,
+                minWidth: 0,
+                flex: "1 1 520px",
+              }}
+            >
+              <div
+                style={{
+                  width: "clamp(180px, 28vw, 260px)",
+                  maxWidth: "100%",
+                }}
+              >
+                <img
+                  src="/buildproof-logo.png"
+                  alt="BuildProof"
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    height: "auto",
+                    objectFit: "contain",
+                  }}
+                />
               </div>
+
+              <div>
+                <div className="heroTitle">{project.title || "Shared Project"}</div>
+                <div className="heroText">
+                  A clean, read-only timeline of project updates, notes, photos, and attached files.
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                alignItems: "center",
+                flexWrap: "wrap",
+                justifyContent: "flex-end",
+                flex: "0 0 auto",
+              }}
+            >
+              <span className="pill">🔒 Read-only</span>
+              {includeArchived ? <span className="pill">📦 Archived included</span> : null}
             </div>
           </div>
 
