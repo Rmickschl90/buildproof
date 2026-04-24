@@ -3409,6 +3409,7 @@ export default function DashboardPage() {
               {isApprovalMode && (
                 <ApprovalComposer
                   projectId={selectedProject.id}
+                  projectClientEmail={selectedProject.client_email ?? null}
                   initialApproval={editingApproval}
                   onComplete={async () => {
                     window.localStorage.removeItem(`approval-draft:${selectedProject.id}`);

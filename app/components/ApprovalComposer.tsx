@@ -50,6 +50,7 @@ type InitialApproval = {
 
 type Props = {
   projectId: string;
+  projectClientEmail?: string | null;
   onComplete?: () => void | Promise<void>;
   initialApproval?: InitialApproval | null;
 };
@@ -65,6 +66,7 @@ function toDateTimeLocalValue(value?: string | null) {
 
 export default function ApprovalComposer({
   projectId,
+  projectClientEmail: projectClientEmailProp,
   onComplete,
   initialApproval,
 }: Props) {
@@ -73,7 +75,9 @@ export default function ApprovalComposer({
   const [description, setDescription] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
-  const [projectClientEmail, setProjectClientEmail] = useState<string | null>(null);
+  const [projectClientEmail, setProjectClientEmail] = useState<string | null>(
+    projectClientEmailProp ?? null
+  );
   const [costDelta, setCostDelta] = useState("");
   const [scheduleDelta, setScheduleDelta] = useState("");
 
@@ -92,6 +96,12 @@ export default function ApprovalComposer({
   const draftStorageKey = useMemo(() => {
     return `approval-draft:${projectId}`;
   }, [projectId]);
+
+  useEffect(() => {
+  if (projectClientEmailProp !== undefined) {
+    setProjectClientEmail(projectClientEmailProp);
+  }
+}, [projectClientEmailProp]);
 
   useEffect(() => {
     async function loadProjectContact() {
