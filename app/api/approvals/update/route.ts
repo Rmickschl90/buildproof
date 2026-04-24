@@ -31,8 +31,8 @@ export async function POST(req: Request) {
 
     const costDelta =
       body?.costDelta === "" ||
-      body?.costDelta === null ||
-      body?.costDelta === undefined
+        body?.costDelta === null ||
+        body?.costDelta === undefined
         ? null
         : Number(body.costDelta);
 
@@ -91,6 +91,26 @@ export async function POST(req: Request) {
       );
     }
 
+    const { data: project, error: projectError } = await supabaseServer
+      .from("projects")
+      .select("id, client_email")
+      .eq("id", approval.project_id)
+      .single();
+
+    if (projectError || !project) {
+      return NextResponse.json({ error: "Project not found." }, { status: 404 });
+    }
+
+    const projectClientEmail =
+      typeof project.client_email === "string"
+        ? project.client_email.trim().toLowerCase()
+        : "";
+
+    const recipientSource =
+      projectClientEmail && recipientEmail === projectClientEmail
+        ? "project"
+        : "custom";
+
     const { data: updatedApproval, error: updateError } = await supabaseServer
       .from("approval_requests")
       .update({
@@ -99,6 +119,7 @@ export async function POST(req: Request) {
         description,
         recipient_name: recipientName,
         recipient_email: recipientEmail,
+        recipient_source: recipientSource,
         cost_delta: costDelta,
         schedule_delta: scheduleDelta,
         due_at: dueAt,

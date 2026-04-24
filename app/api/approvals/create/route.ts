@@ -82,7 +82,7 @@ export async function POST(req: Request) {
 
     const { data: project, error: projectError } = await supabaseServer
       .from("projects")
-      .select("id, user_id")
+      .select("id, user_id, client_email")
       .eq("id", projectId)
       .single();
 
@@ -94,6 +94,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Not authorized." }, { status: 403 });
     }
 
+    const projectClientEmail =
+      typeof project.client_email === "string"
+        ? project.client_email.trim().toLowerCase()
+        : "";
+
+    const recipientSource =
+      projectClientEmail && recipientEmail === projectClientEmail
+        ? "project"
+        : "custom";
+
     const { data: approval, error: insertError } = await supabaseServer
       .from("approval_requests")
       .insert({
@@ -104,6 +114,7 @@ export async function POST(req: Request) {
         description,
         recipient_name: recipientName,
         recipient_email: recipientEmail,
+        recipient_source: recipientSource,
         cost_delta: costDelta,
         schedule_delta: scheduleDelta,
         due_at: dueAt,
