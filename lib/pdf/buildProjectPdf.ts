@@ -72,6 +72,7 @@ export type ApprovalRow = {
   archived_at: string | null;
   recipient_name: string | null;
   recipient_email: string | null;
+  recipient_source?: string | null;
   created_timezone_id?: string | null;
   created_timezone_offset_minutes?: number | null;
 };
@@ -468,9 +469,30 @@ export async function buildProjectPdf(
         color: COLORS.muted,
       });
 
+      const recipientLine = sanitizePdfText(
+        approval.recipient_name
+          ? `${approval.recipient_name} (${approval.recipient_email || "Unknown"})`
+          : approval.recipient_email || "Unknown"
+      );
+
+      const isCustomRecipient =
+        approval.recipient_source &&
+        approval.recipient_source.toLowerCase() === "custom";
+
+      page.drawText(
+        `Sent To: ${recipientLine}${isCustomRecipient ? " — custom recipient" : ""}`,
+        {
+          x: cardX + 22,
+          y: top - 76,
+          size: 10,
+          font,
+          color: isCustomRecipient ? COLORS.warningText : COLORS.muted,
+        }
+      );
+
       page.drawText(`Cost Impact: ${costImpact}`, {
         x: cardX + 22,
-        y: top - 82,
+        y: top - 96,
         size: 10.5,
         font,
         color: COLORS.text,
@@ -478,7 +500,7 @@ export async function buildProjectPdf(
 
       page.drawText(`Schedule Impact: ${scheduleImpact}`, {
         x: cardX + 240,
-        y: top - 82,
+        y: top - 96,
         size: 10.5,
         font,
         color: COLORS.text,
@@ -486,7 +508,7 @@ export async function buildProjectPdf(
 
       page.drawText(`Sent: ${sentAt}`, {
         x: cardX + 22,
-        y: top - 100,
+        y: top - 114,
         size: 10,
         font,
         color: COLORS.muted,
@@ -495,14 +517,14 @@ export async function buildProjectPdf(
       if (respondedAt) {
         page.drawText(`Responded: ${respondedAt}`, {
           x: cardX + 240,
-          y: top - 100,
+          y: top - 114,
           size: 10,
           font,
           color: COLORS.muted,
         });
       }
 
-      let detailY = top - 118;
+      let detailY = top - 132;
 
       if (visibleDescLines.length > 0) {
         for (const line of visibleDescLines) {
