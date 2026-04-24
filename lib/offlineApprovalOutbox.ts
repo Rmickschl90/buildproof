@@ -11,6 +11,7 @@ export type OfflineApprovalRecord = {
     description: string;
     recipientName: string;
     recipientEmail: string;
+    recipientSource?: "project" | "custom";
     costDelta: number | null;
     scheduleDelta: string | null;
     dueAt?: string | null;
@@ -255,3 +256,4 @@ export async function remapOfflineApprovalProjectId(
     tx.onerror = () => reject(tx.error);
   });
 }
+

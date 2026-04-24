@@ -304,6 +304,13 @@ export default function ApprovalComposer({
     if (status) setStatus("");
   }
 
+  function getRecipientSource(): "project" | "custom" {
+    const projectEmail = projectClientEmail?.trim().toLowerCase();
+    const approvalEmail = recipientEmail.trim().toLowerCase();
+
+    return projectEmail && approvalEmail === projectEmail ? "project" : "custom";
+  }
+
   function hasMeaningfulContent() {
     return (
       !!title.trim() ||
@@ -399,6 +406,7 @@ export default function ApprovalComposer({
       description,
       recipientName,
       recipientEmail,
+      recipientSource: getRecipientSource(),
       costDelta: costDelta === "" ? null : Number(costDelta),
       scheduleDelta,
       createdTimezoneId,
@@ -494,6 +502,7 @@ export default function ApprovalComposer({
           description,
           recipientName,
           recipientEmail,
+          recipientSource: getRecipientSource(),
           costDelta: costDelta === "" ? null : Number(costDelta),
           scheduleDelta,
         });
@@ -510,6 +519,7 @@ export default function ApprovalComposer({
           description,
           recipientName,
           recipientEmail,
+          recipientSource: getRecipientSource(),
           costDelta: costDelta === "" ? null : Number(costDelta),
           scheduleDelta,
         });
@@ -829,6 +839,7 @@ export default function ApprovalComposer({
             description,
             recipientName,
             recipientEmail,
+            recipientSource: getRecipientSource(),
             costDelta: costDelta === "" ? null : Number(costDelta),
             scheduleDelta: scheduleDelta || null,
           });
@@ -843,6 +854,7 @@ export default function ApprovalComposer({
             description,
             recipientName,
             recipientEmail,
+            recipientSource: getRecipientSource(),
             costDelta: costDelta === "" ? null : Number(costDelta),
             scheduleDelta: scheduleDelta || null,
           });
@@ -855,6 +867,7 @@ export default function ApprovalComposer({
             description,
             recipientName,
             recipientEmail,
+            recipientSource: getRecipientSource(),
             costDelta: costDelta === "" ? null : Number(costDelta),
             scheduleDelta: scheduleDelta || null,
           });
