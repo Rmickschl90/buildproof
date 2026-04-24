@@ -1130,3 +1130,385 @@ BuildProof = Production-ready V1 candidate
 If it works → don’t touch it
 If it’s rare → log it, don’t rebuild it
 If it’s visible to users → fix it
+
+## REGRESSION_LEDGER.md
+
+## Checkpoint: client-facing polish + template timeline cleanup
+
+### Scope
+
+* client-facing share/update page polish
+* client-facing PDF/dispute polish
+* template/timeline usability polish
+* no core offline architecture rewrites
+* no send system rewrites
+* no approval lifecycle rewrites
+
+### Completed
+
+#### 1. Approval attachment-created draft visibility fixed
+
+Issue:
+
+* creating an approval attachment could create a draft behind the scenes
+* exiting the composer did not immediately show that draft on timeline
+* later approval activity caused it to suddenly appear
+
+Root cause:
+
+* attachment flow created the approval draft
+* UI refresh event was not dispatched immediately after draft creation
+
+Fix:
+
+* dispatched `buildproof-data-changed` after attachment-triggered draft creation in `ApprovalComposer`
+
+Result:
+
+* approval drafts created by attachment now appear immediately on timeline
+* removed delayed/ghost draft behavior
+
+---
+
+#### 2. Draft approvals removed from all client-facing surfaces
+
+Issue:
+
+* draft approvals were appearing in:
+
+  * update emails
+  * update pack/share page
+  * standard PDF export
+  * dispute packet
+
+Product rule locked:
+
+* drafts are internal only
+* only `pending`, `approved`, and `declined` approvals should be client-visible
+
+Fix:
+
+* added approval status filtering across client-facing approval queries
+* client-facing outputs now exclude `draft`
+
+Result:
+
+* draft approvals no longer appear in client-facing documents or share/update surfaces
+* pending/approved/declined still appear correctly
+
+---
+
+#### 3. Client-facing timestamp alignment fixed
+
+Issue:
+
+* entry/approval card timestamps were correct
+* but client-facing PDF/dispute header/footer and record sections were showing times 5 hours ahead
+
+Root cause:
+
+* `buildProjectPdf` still had export-time timestamps calling date formatting without the proper display offset in a few sections
+
+Fix:
+
+* derived `projectDisplayTimezoneOffsetMinutes`
+* applied it to:
+
+  * official project record/export header time
+  * PDF footer generated time
+  * communication event timestamps
+  * delivery history timestamps
+  * project view record timestamps
+
+Result:
+
+* PDF/dispute timestamps now match the expected local display time
+* card timestamps remained correct
+
+---
+
+#### 4. Project summary date range fixed in PDF/dispute exports
+
+Issue:
+
+* project summary date range did not reflect the true range of visible activity
+* range could disagree with the actual entry/approval card dates
+
+Root cause:
+
+* date range logic used raw ISO timestamps instead of the same display-time logic used by visible cards
+
+Fix:
+
+* updated `getDateRange(...)` in `buildProjectPdf.ts`
+* now uses:
+
+  * proof `created_at` + proof timezone offset
+  * approval `sent_at || created_at` + approval timezone offset
+
+Result:
+
+* project summary date range now matches earliest and latest visible timeline activity dates
+
+---
+
+#### 5. Client-facing attachment counts fixed
+
+Issue:
+
+* client-facing document counts only reflected entry attachments
+* approval attachments were visible in documents but not reflected in the summary counts
+
+Fix:
+
+* updated PDF/doc counting to include approval attachments
+* updated share/update package summary counts to include approval attachments too
+
+Result:
+
+* counts now reflect all client-visible attachments across entries + approvals
+
+---
+
+#### 6. Share/update package summary simplified
+
+Issue:
+
+* after counting everything correctly, the share/update summary became too busy and confusing
+* separate files/photos/PDFs breakdown was too much for client-facing use
+
+Product decision locked:
+
+* share/update package should show:
+
+  * Entries
+  * Approvals
+  * Attachments
+  * Finalized
+
+Fix:
+
+* simplified share/update package summary and hero pills
+* removed subtype breakdown from the client-facing share/update summary
+
+Result:
+
+* cleaner client-facing summary
+* still accurate
+* better aligned with V1 usability goals
+
+---
+
+#### 7. Share page header/hero branding polish
+
+Issue:
+
+* original logo treatment in the share hero/top area looked weak, redundant, or visually awkward
+* branding and project title were duplicating each other
+
+Fix:
+
+* restored a minimal top header strip
+* header now holds:
+
+  * BuildProof logo
+  * read-only pill
+  * archived-included pill (when relevant)
+* removed duplicate hero logo treatment
+* simplified hero so it focuses on:
+
+  * project title
+  * description
+  * summary pills
+
+Result:
+
+* stronger hierarchy
+* cleaner client-facing share page
+* acceptable V1 branding state
+
+Accepted limitation:
+
+* transparent logo asset still has a very subtle halo on dark backgrounds
+* accepted for V1
+* asset cleanup can happen later if needed
+
+---
+
+#### 8. Template entry timeline cleanup
+
+Issue:
+
+* template-based entries made timeline cards too tall
+* template body text was rendering directly in the timeline, hurting scanability especially on mobile
+
+Product decision locked:
+
+* timeline should show title only for entry cards
+* full content should remain behind View
+
+Fix:
+
+* updated dashboard proof card rendering:
+
+  * closed card = first line only
+  * open/view state = full multiline content
+
+Result:
+
+* timeline is much cleaner
+* full content still available on demand
+* template entries no longer bloat the timeline
+
+---
+
+#### 9. Added new template: Inspection Failed
+
+Issue:
+
+* template list had `Inspection Passed` but no matching `Inspection Failed`
+
+Fix:
+
+* added `Inspection Failed` template with structured fields:
+
+  * Inspector
+  * Area inspected
+  * Reason
+  * Action required
+  * Follow-up date
+  * Notes
+
+Result:
+
+* more complete documentation workflow
+* better real-world inspection coverage
+
+---
+
+#### 10. Template grid restored to 2-column layout
+
+Issue:
+
+* template buttons were wrapping awkwardly and taking too much vertical space
+
+Fix:
+
+* updated template layout to a 2-column grid
+* buttons fill width of the cards more cleanly
+
+Result:
+
+* cleaner template picker
+* better mobile/desktop balance
+
+---
+
+### Accepted / deferred
+
+1. Mobile plain button text color inconsistency
+
+* desktop button text appears black
+* mobile plain button text can appear blue
+* likely browser/platform styling difference
+* deferred to next chat to keep scope controlled
+
+2. Logo transparency halo
+
+* subtle and not worth further time right now
+* accepted for V1
+
+### Locked systems preserved
+
+* offline queue / reconnect orchestration
+* send system / create-job / process-job
+* approval lifecycle
+* attachment core architecture
+* PDF core generation pipeline
+* delivery history architecture
+
+### Current state
+
+BuildProof remains in:
+
+* production refinement
+* usability tightening
+* pre-tester rollout preparation
+
+Current rule remains:
+
+* fix visible issues
+* do not rewrite stable systems
+* no architecture drift
+
+## Checkpoint: documentation corrected to reflect verified full system state
+
+Scope:
+- documentation alignment only
+- no code changes
+- no offline architecture changes
+- no reconnect/send pipeline changes
+
+Observed:
+- some handoff/playbook text still described offline project creation as a future milestone
+- verified testing state already confirms offline project creation works
+- current dashboard code audit also confirms duplicate `saveRecentProject(...)` back-to-back bug is not present in the current `app/dashboard/page.tsx`
+
+Meaning:
+- documentation had drifted behind the actual tested product state
+- BuildProof should now be treated as having a full working core lifecycle:
+  - offline project creation
+  - offline client save/edit
+  - offline entry creation
+  - offline entry attachments
+  - offline approval creation
+  - offline approval attachments
+  - offline update send
+  - offline approval send
+  - reconnect sync
+  - hard refresh persistence
+
+Result:
+- current work is no longer core offline buildout
+- current work is targeted bug fixing, polish, and product refinement only
+
+Note:
+- `saveRecentProject(...)` was re-audited in the current dashboard file
+- no duplicate same-block double-write was found in the current version
+- future duplicate issues, if any, are more likely to come from multiple flows firing unexpectedly rather than a simple duplicated adjacent call
+
+## Checkpoint: no active known issues after UI polish pass
+
+Scope:
+- UI polish only
+- no offline architecture changes
+- no send/reconnect pipeline changes
+- no approval lifecycle changes
+
+Completed:
+- removed incorrect update package footer wording about link revocation
+- removed internal entry number from update package entry cards
+- fixed Pending Sync entry action menu layering so dropdown is not hidden behind the card below
+- added isolated solid-red delete styling using `btnDelete`
+- restored `btnDanger` to original outline behavior
+- applied solid-red styling only to destructive delete actions:
+  - entry Delete
+  - approval Delete Draft
+
+Verified:
+- Delete buttons are solid red with white text
+- Archive buttons remain original outline style
+- Cancel / Logout / non-delete buttons are back to normal
+- Pending Sync three-dot menu layers correctly
+- app is currently operating with no active known issues reported by user
+
+Current state:
+- BuildProof core functionality is working
+- full offline lifecycle remains protected and stable
+- current remaining work is no longer bug fixing
+- next work should be suggestion review, product polish, and rollout-readiness decisions
+
+Rule going forward:
+- continue one small scoped change at a time
+- preserve working systems
+- do not reopen offline/send/reconnect architecture without a reproducible issue
