@@ -1512,3 +1512,37 @@ Rule going forward:
 - continue one small scoped change at a time
 - preserve working systems
 - do not reopen offline/send/reconnect architecture without a reproducible issue
+
+## Checkpoint: project notes system added and verified
+
+Scope:
+- new core feature: private project notes (internal only)
+- no changes to send/share/PDF systems
+
+Completed:
+- added `private_notes` column to projects
+- added Project Notes UI in project menu
+- implemented autosave (debounced)
+- implemented offline support using project outbox pattern
+- ensured reconnect sync preserves notes
+- ensured notes are never included in:
+  - update packs
+  - PDFs
+  - share views
+  - approvals
+
+Verified:
+- notes save and persist online
+- notes persist after refresh
+- notes persist across project switching
+- offline notes save correctly
+- reconnect sync preserves notes
+- no UI conflicts or regressions observed
+
+Result:
+- feature is stable and production-ready
+- app now includes internal documentation layer per project
+
+Rule:
+- do not expand notes system beyond single-field scope for V1
+- avoid adding formatting, attachments, or multi-note structures
