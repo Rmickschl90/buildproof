@@ -286,12 +286,14 @@ a:hover{
   .btn{ padding: 11px 12px; } /* slightly bigger tap targets */
 }
 
-.btnDanger {
-  background: #dc2626; /* solid red */
-  color: white;
-  border: none;
+.btnDelete {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
 }
 
-.btnDanger:hover {
+.btnDelete:hover {
   background: #b91c1c;
+  border-color: #b91c1c;
+  color: #fff;
 }
