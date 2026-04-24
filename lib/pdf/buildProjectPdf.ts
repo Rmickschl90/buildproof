@@ -296,6 +296,8 @@ export async function buildProjectPdf(
 
       const approval = item.approval;
 
+      console.log("PDF APPROVAL DEBUG:", approval.recipient_email, approval.recipient_source);
+
       const title = sanitizePdfText(approval.title || "Approval Request");
       const type = sanitizePdfText(approval.approval_type || "Approval");
       const description = sanitizePdfText(approval.description || "");
