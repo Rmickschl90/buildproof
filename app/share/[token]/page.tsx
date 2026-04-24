@@ -1,4 +1,5 @@
 import { supabaseServer } from "../../../lib/supabaseServer";
+import { headers } from "next/headers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -224,10 +225,20 @@ export default async function SharePage(props: {
 
   const projectId = share.project_id;
 
+  const requestHeaders = await headers();
+  const forwardedFor = requestHeaders.get("x-forwarded-for");
+  const realIp = requestHeaders.get("x-real-ip");
+
+  const ipAddress =
+    forwardedFor?.split(",")[0]?.trim() ||
+    realIp ||
+    null;
+
   try {
     await supabaseServer.from("share_views").insert({
       project_id: projectId,
       share_token: token,
+      ip_address: ipAddress,
     });
   } catch {
     // never let share-view logging break the share page
