@@ -79,6 +79,35 @@ export async function GET(
       return NextResponse.json({ error: attErr.message }, { status: 400 });
     }
 
+    const { data: approvals, error: approvalsErr } = await supabaseServer
+      .from("approval_requests")
+      .select(`
+    id,
+    project_id,
+    title,
+    approval_type,
+    description,
+    cost_delta,
+    schedule_delta,
+    status,
+    created_at,
+    sent_at,
+    responded_at,
+    expired_at,
+    archived_at,
+    recipient_name,
+    recipient_email,
+    recipient_source,
+    created_timezone_id,
+    created_timezone_offset_minutes
+  `)
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: true });
+
+    if (approvalsErr) {
+      return NextResponse.json({ error: approvalsErr.message }, { status: 400 });
+    }
+
     // 5) Build PDF
     const { pdfBuffer, filename } = await buildProjectPdf({
       project: {
@@ -88,6 +117,7 @@ export async function GET(
       },
       proofs: (proofs ?? []) as any,
       attachments: (attachments ?? []) as any,
+      approvals: (approvals ?? []) as any,
       supabase: supabaseServer,
     });
 
