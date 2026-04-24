@@ -52,6 +52,7 @@ type Project = {
   client_email: string | null;
   client_phone: string | null;
   project_address: string | null;
+  private_notes?: string | null;
   archived_at?: string | null;
   created_at?: string | null;
 };
@@ -289,6 +290,12 @@ export default function DashboardPage() {
   const [clientPhoneDraft, setClientPhoneDraft] = useState("");
   const [projectAddressDraft, setProjectAddressDraft] = useState("");
 
+  // ---- Project notes ----
+  // ---- Project notes ----
+  const [projectNotesOpen, setProjectNotesOpen] = useState(false);
+  const [projectNotesDraft, setProjectNotesDraft] = useState("");
+  const projectNotesSaveTimerRef = useRef<number | null>(null);
+
   // ---- Project menu ----
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -410,6 +417,14 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setHasMounted(true);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (projectNotesSaveTimerRef.current) {
+        window.clearTimeout(projectNotesSaveTimerRef.current);
+      }
+    };
   }, []);
 
   // ---------------- AUTH BOOT ----------------
@@ -731,6 +746,7 @@ export default function DashboardPage() {
     setClientEmailDraft(selectedProject.client_email ?? "");
     setClientPhoneDraft(selectedProject.client_phone ?? "");
     setProjectAddressDraft(selectedProject.project_address ?? "");
+    setProjectNotesDraft(selectedProject.private_notes ?? "");
 
     const hasAnyClient =
       !!(selectedProject.client_name && selectedProject.client_name.trim()) ||
@@ -740,6 +756,7 @@ export default function DashboardPage() {
     setClientEditing(!hasAnyClient);
 
     setProjectMenuOpen(false);
+    setProjectNotesOpen(false);
     setRenaming(false);
     setRenameTitle(selectedProject.title || "");
     setProofMenuOpenId(null);
@@ -1129,9 +1146,10 @@ export default function DashboardPage() {
               client_email: record.clientEmail,
               client_phone: record.clientPhone,
               project_address: record.projectAddress,
+              private_notes: null,
             })
             .select(
-              "id,title,user_id,client_name,client_email,client_phone,project_address,archived_at,created_at"
+              "id,title,user_id,client_name,client_email,client_phone,project_address,private_notes,archived_at,created_at"
             )
             .single();
 
@@ -1175,10 +1193,11 @@ export default function DashboardPage() {
               client_email: record.clientEmail,
               client_phone: record.clientPhone,
               project_address: record.projectAddress,
+              private_notes: record.privateNotes ?? null,
             })
             .eq("id", record.id)
             .select(
-              "id,title,user_id,client_name,client_email,client_phone,project_address,archived_at,created_at"
+              "id,title,user_id,client_name,client_email,client_phone,project_address,private_notes,archived_at,created_at"
             )
             .single();
 
@@ -1343,7 +1362,7 @@ export default function DashboardPage() {
     }
     const { data, error } = await supabase
       .from("projects")
-      .select("id,title,user_id,client_name,client_email,client_phone,project_address,archived_at,created_at")
+      .select("id,title,user_id,client_name,client_email,client_phone,project_address,private_notes,archived_at,created_at")
       .eq("user_id", uid)
       .is("archived_at", null)
       .order("created_at", { ascending: false });
@@ -1550,6 +1569,7 @@ export default function DashboardPage() {
           clientEmail: null,
           clientPhone: null,
           projectAddress: null,
+          privateNotes: null,
           createdAt: now,
           updatedAt: now,
           status: "pending",
@@ -1568,6 +1588,7 @@ export default function DashboardPage() {
           client_email: null,
           client_phone: null,
           project_address: null,
+          private_notes: null,
           archived_at: null,
           created_at: now,
         };
@@ -2210,6 +2231,7 @@ export default function DashboardPage() {
           clientEmail: payload.client_email,
           clientPhone: payload.client_phone,
           projectAddress: payload.project_address,
+          privateNotes: selectedProject.private_notes ?? projectNotesDraft ?? null,
           createdAt: selectedProject.created_at || new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           status: "pending",
@@ -2275,6 +2297,83 @@ export default function DashboardPage() {
     } catch (e: any) {
       setStatus(e?.message ?? "Save failed");
     }
+  }
+
+  async function saveProjectNotes(nextNotes: string) {
+    if (!selectedProject || !userId) return;
+
+    const payload = {
+      private_notes: nextNotes,
+    };
+
+    try {
+      if (!navigator.onLine) {
+        await putOfflineProject({
+          id: selectedProject.id,
+          name: selectedProject.title,
+          clientName: selectedProject.client_name ?? null,
+          clientEmail: selectedProject.client_email ?? null,
+          clientPhone: selectedProject.client_phone ?? null,
+          projectAddress: selectedProject.project_address ?? null,
+          privateNotes: nextNotes,
+          createdAt: selectedProject.created_at || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          status: "pending",
+          syncAttemptCount: 0,
+          lastSyncAttemptAt: null,
+          lastError: null,
+        });
+
+        const updatedProject = {
+          ...selectedProject,
+          private_notes: nextNotes,
+        };
+
+        setSelectedProjectWithTrace(updatedProject, "offline project notes save");
+        setProjects((list) =>
+          list.map((p) =>
+            p.id === selectedProject.id ? updatedProject : p
+          )
+        );
+        cacheProjectSnapshot({ project: updatedProject });
+
+        return;
+      }
+
+      const { error } = await supabase
+        .from("projects")
+        .update(payload)
+        .eq("id", selectedProject.id);
+
+      if (error) throw error;
+
+      const updatedProject = {
+        ...selectedProject,
+        private_notes: nextNotes,
+      };
+
+      setSelectedProjectWithTrace(updatedProject, "project notes save");
+      setProjects((list) =>
+        list.map((p) =>
+          p.id === selectedProject.id ? updatedProject : p
+        )
+      );
+      cacheProjectSnapshot({ project: updatedProject });
+    } catch (e) {
+      console.error("Project notes save failed", e);
+    }
+  }
+
+  function scheduleProjectNotesSave(nextNotes: string) {
+    setProjectNotesDraft(nextNotes);
+
+    if (projectNotesSaveTimerRef.current) {
+      window.clearTimeout(projectNotesSaveTimerRef.current);
+    }
+
+    projectNotesSaveTimerRef.current = window.setTimeout(() => {
+      void saveProjectNotes(nextNotes);
+    }, 900);
   }
 
   async function logout() {
@@ -2998,6 +3097,17 @@ export default function DashboardPage() {
 
                                 <button
                                   className="btn"
+                                  style={{ width: "100%" }}
+                                  onClick={() => {
+                                    setProjectNotesOpen(true);
+                                    setProjectMenuOpen(false);
+                                  }}
+                                >
+                                  Project Notes
+                                </button>
+
+                                <button
+                                  className="btn"
                                   style={{
                                     width: "100%",
                                     background: "rgba(37,99,235,0.10)",
@@ -3391,7 +3501,7 @@ export default function DashboardPage() {
                         style={{
                           display: "grid",
                           gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                          gap:10,
+                          gap: 10,
                         }}
                       >
                         {entryTemplates.map((template) => (
@@ -3870,6 +3980,72 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+      {projectNotesOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,0.35)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+          onClick={() => setProjectNotesOpen(false)}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 720,
+              background: "white",
+              borderRadius: 16,
+              padding: 16,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+              display: "grid",
+              gap: 12,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontWeight: 600 }}>
+              Project Notes
+            </div>
+
+            <div
+              style={{
+                fontSize: 12,
+                opacity: 0.6,
+              }}
+            >
+              Private (not shared with client)
+            </div>
+
+            <textarea
+              value={projectNotesDraft}
+              onChange={(e) => scheduleProjectNotesSave(e.target.value)}
+              placeholder="Write notes for this project..."
+              style={{
+                width: "100%",
+                minHeight: 220,
+                borderRadius: 12,
+                border: "1px solid rgba(15,23,42,0.15)",
+                padding: 12,
+                fontSize: 14,
+                resize: "vertical",
+              }}
+            />
+
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button
+                className="btn"
+                onClick={() => setProjectNotesOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
