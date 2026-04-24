@@ -81,7 +81,7 @@ export async function POST(req: Request) {
   archived_at,
   recipient_name,
   recipient_email,
-  recipient_source,F
+  recipient_source,
   created_timezone_id,
   created_timezone_offset_minutes
 `)
