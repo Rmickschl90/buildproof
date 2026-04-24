@@ -73,6 +73,7 @@ export default function ApprovalComposer({
   const [description, setDescription] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
+  const [projectClientEmail, setProjectClientEmail] = useState<string | null>(null);
   const [costDelta, setCostDelta] = useState("");
   const [scheduleDelta, setScheduleDelta] = useState("");
 
@@ -103,6 +104,8 @@ export default function ApprovalComposer({
         .single();
 
       if (!data) return;
+
+      setProjectClientEmail(data.client_email || null);
 
       setRecipientName((current) => current || data.client_name || "");
       setRecipientEmail((current) => current || data.client_email || "");
@@ -1134,6 +1137,21 @@ export default function ApprovalComposer({
             setRecipientEmail(e.target.value);
           }}
         />
+
+        {projectClientEmail &&
+          recipientEmail &&
+          recipientEmail.trim().toLowerCase() !==
+          projectClientEmail.trim().toLowerCase() && (
+            <div
+              style={{
+                fontSize: 12,
+                color: "#b91c1c",
+                marginTop: 6,
+              }}
+            >
+              Sending to a different email than project client
+            </div>
+          )}
 
         <input
           className="input"
