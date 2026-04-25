@@ -54,6 +54,7 @@ export type ShareViewRow = {
   project_id: string;
   share_token: string;
   viewed_at: string | null;
+  ip_address?: string | null;
 };
 
 export type ApprovalRow = {
@@ -1430,6 +1431,14 @@ export async function buildProjectPdf(
           size: 10.5,
           font,
           color: COLORS.text,
+        });
+
+        page.drawText(`IP Address: ${sanitizePdfText(view.ip_address || "Unknown")}`, {
+          x: cardX + 16,
+          y: y - 72,
+          size: 10,
+          font,
+          color: COLORS.muted,
         });
 
         y = cardY - 14;

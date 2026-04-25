@@ -183,7 +183,7 @@ export async function POST(req: Request) {
 
       const { data: shareViewRows, error: shareViewsErr } = await supabaseServer
         .from("share_views")
-        .select("id,project_id,share_token,viewed_at")
+        .select("id,project_id,share_token,viewed_at,ip_address")
         .eq("project_id", projectId)
         .order("viewed_at", { ascending: true });
 
