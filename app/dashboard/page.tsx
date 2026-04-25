@@ -3173,10 +3173,11 @@ export default function DashboardPage() {
                 <div
                   style={{
                     fontWeight: 900,
-                    fontSize: 26,
-                    lineHeight: 1.2,
+                    fontSize: 32,
+                    lineHeight: 1.12,
                     marginTop: 8,
                     wordBreak: "break-word",
+                    color: "#111827",
                   }}
                 >
                   {selectedProject.title}
@@ -3219,7 +3220,7 @@ export default function DashboardPage() {
 
                       <div
                         style={{
-                          fontSize: 15,
+                          fontSize: 13,
                           fontWeight: 500,
                           opacity: 0.82,
                         }}
