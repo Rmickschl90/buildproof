@@ -3220,7 +3220,7 @@ export default function DashboardPage() {
 
                       <div
                         style={{
-                          fontSize: 13,
+                          fontSize: 16,
                           fontWeight: 500,
                           opacity: 0.82,
                         }}
