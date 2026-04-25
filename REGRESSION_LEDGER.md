@@ -1546,3 +1546,100 @@ Result:
 Rule:
 - do not expand notes system beyond single-field scope for V1
 - avoid adding formatting, attachments, or multi-note structures
+
+## Checkpoint: project notes + approval traceability complete
+
+Scope:
+- Project Notes core feature
+- Approval recipient traceability
+- Offline-safe UI guardrails
+- PDF/dispute documentation visibility
+
+Completed:
+- added private per-project notes
+- notes live behind Project menu as “Project Notes”
+- notes autosave
+- notes work online, offline, after refresh, across project switching, and after reconnect
+- added approval recipient source tracking:
+  - project = recipient matches project client email
+  - custom = recipient differs from project client email
+- added UI warning when approval recipient differs from project client
+- warning works online and offline by passing project client email into ApprovalComposer
+- added recipient visibility to PDF/dispute package:
+  - recipient name
+  - recipient email
+  - custom recipient label when applicable
+- fixed dashboard/export PDF path so approval recipient source is included correctly
+
+Verified:
+- Project Notes tested online
+- Project Notes tested offline
+- Project Notes tested across multiple projects
+- Project Notes preserved after reconnect
+- Approval warning appears when using a different recipient email
+- Approval warning works offline
+- Custom approval recipient persists through offline/reconnect/send
+- PDF/dispute package shows correct approval recipient
+- PDF/dispute package shows custom recipient marker correctly
+- build passed after changes
+- project creation offline is confirmed working and should be removed from active TODOs
+
+Current state:
+- no active known issue with offline project creation
+- Project Notes are V1-ready
+- Approval traceability is V1-ready
+- remaining work should be treated as suggestions/product polish unless a reproducible bug appears
+
+Regression rule:
+- do not reopen offline project creation unless a new reproducible failure is reported
+- do not alter send/reconnect/offline core systems without a safe branch and exact regression target
+- failed edits that do not move toward the stated goal should be reverted instead of layered over
+
+## V2 Candidate — Enhanced View & Approval Traceability
+
+Context:
+Current system captures:
+- approval response IP address
+- share view IP address
+- timestamps across all events
+- approval recipient source (project vs custom)
+
+This provides strong dispute-grade documentation for V1.
+
+Proposed V2 enhancements (do NOT implement in V1):
+
+1. Share View Metadata Expansion
+- capture user_agent for share views
+- display device + browser in dispute package (same as approvals)
+
+2. Approximate Location Labeling
+- derive rough location from IP (city/region level only)
+- example: "Milwaukee, WI (approx)"
+- must be clearly labeled as approximate (non-authoritative)
+
+3. Cross-Event Correlation (UI only)
+- visually group:
+  - view event → approval event
+  - matching IPs / close timestamps
+- improves readability in dispute scenarios
+
+4. Lightweight Device Fingerprinting (optional)
+- non-invasive fingerprint (no tracking across projects)
+- used only to strengthen “same device” narrative
+- must remain privacy-conscious and minimal
+
+5. Audit Summary Block (PDF)
+- optional summary at top of dispute package:
+  - total views
+  - unique IP count
+  - approvals sent vs responded
+- quick-glance credibility layer
+
+Constraints:
+- must not compromise performance
+- must not add fragile dependencies to core offline system
+- must not introduce privacy risk without clear labeling
+
+Status:
+- deferred intentionally to protect V1 stability
+- revisit after real-world usage feedback

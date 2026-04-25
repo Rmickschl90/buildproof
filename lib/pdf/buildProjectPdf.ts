@@ -1360,7 +1360,7 @@ export async function buildProjectPdf(
             : "Unknown date"
         );
 
-        const rowHeight = 70;
+        const rowHeight = 86;
 
         if (y - rowHeight < MARGIN + 24) {
           pageNumber += 1;
@@ -1435,7 +1435,7 @@ export async function buildProjectPdf(
 
         page.drawText(`IP Address: ${sanitizePdfText(view.ip_address || "Unknown")}`, {
           x: cardX + 16,
-          y: y - 72,
+          y: y - 74,
           size: 10,
           font,
           color: COLORS.muted,
