@@ -2944,7 +2944,16 @@ export default function DashboardPage() {
                     }}
                   >
                     <div style={{ display: "grid", gap: 2, textAlign: "left" }}>
-                      <div>{p.title}</div>
+                      <div
+                        style={{
+                          fontSize: 22,
+                          fontWeight: 900,
+                          color: "#0f172a",
+                          lineHeight: 1.15,
+                        }}
+                      >
+                        {p.title}
+                      </div>
                       {p.client_name || p.client_email || p.client_phone || p.project_address ? (
                         <div className="sub" style={{ opacity: 0.7, fontSize: 12 }}>
                           {[p.client_name, p.client_email, p.client_phone, p.project_address]
