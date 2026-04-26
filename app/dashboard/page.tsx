@@ -2946,7 +2946,7 @@ export default function DashboardPage() {
                     <div style={{ display: "grid", gap: 2, textAlign: "left" }}>
                       <div
                         style={{
-                          fontSize: 22,
+                          fontSize: 19,
                           fontWeight: 900,
                           color: "#0f172a",
                           lineHeight: 1.15,
