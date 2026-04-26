@@ -1,3 +1,5 @@
+import { readFile } from "fs/promises";
+import path from "path";
 import { PDFDocument, PDFName, StandardFonts, rgb } from "pdf-lib";
 import { normalizeImageForPdf } from "@/lib/pdfImageNormalizer";
 
@@ -242,6 +244,15 @@ export async function buildProjectPdf(
   }
 
   const pdf = await PDFDocument.create();
+  let logoImage: any = null;
+
+  try {
+    const logoPath = path.join(process.cwd(), "public", "buildproof-logo.png");
+    const logoBytes = await readFile(logoPath);
+    logoImage = await pdf.embedPng(logoBytes);
+  } catch (e) {
+    console.error("Failed to load BuildProof logo", e);
+  }
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
 
@@ -249,6 +260,7 @@ export async function buildProjectPdf(
     pdf,
     font,
     fontBold,
+    logoImage,
     projectTitle: sanitizePdfText(project.title || "Project"),
     clientName: sanitizePdfText(project.client_name || "Not set"),
     clientEmail: sanitizePdfText(project.client_email || "Not set"),
@@ -1458,6 +1470,7 @@ function addCoverPage(opts: {
   pdf: PDFDocument;
   font: any;
   fontBold: any;
+  logoImage?: any;
   projectTitle: string;
   clientName: string;
   clientEmail: string;
@@ -1478,6 +1491,7 @@ function addCoverPage(opts: {
     pdf,
     font,
     fontBold,
+    logoImage,
     projectTitle,
     clientName,
     clientEmail,
@@ -1517,13 +1531,24 @@ function addCoverPage(opts: {
     borderWidth: 0,
   });
 
-  page.drawText("BuildProof", {
-    x: MARGIN,
-    y: PAGE_HEIGHT - 76,
-    size: 30,
-    font: fontBold,
-    color: COLORS.white,
-  });
+  if (logoImage) {
+    const logoDims = logoImage.scale(0.18);
+
+    page.drawImage(logoImage, {
+      x: MARGIN,
+      y: PAGE_HEIGHT - 92,
+      width: logoDims.width,
+      height: logoDims.height,
+    });
+  } else {
+    page.drawText("BuildProof", {
+      x: MARGIN,
+      y: PAGE_HEIGHT - 76,
+      size: 30,
+      font: fontBold,
+      color: COLORS.white,
+    });
+  }
 
   page.drawText(
     reportMode === "dispute"
