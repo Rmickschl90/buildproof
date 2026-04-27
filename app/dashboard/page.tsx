@@ -2943,24 +2943,54 @@ export default function DashboardPage() {
                       scrollBackToOnboarding(700);
                     }}
                   >
-                    <div style={{ display: "grid", gap: 2, textAlign: "left" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                        gap: 12,
+                        textAlign: "left",
+                        width: "100%",
+                      }}
+                    >
+                      <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 19,
+                            fontWeight: 900,
+                            color: "#0f172a",
+                            lineHeight: 1.15,
+                          }}
+                        >
+                          {p.title}
+                        </div>
+
+                        {p.client_name || p.client_email || p.client_phone || p.project_address ? (
+                          <div className="sub" style={{ opacity: 0.7, fontSize: 12 }}>
+                            {[p.client_name, p.client_email, p.client_phone, p.project_address]
+                              .filter(Boolean)
+                              .join(" • ")}
+                          </div>
+                        ) : null}
+                      </div>
+
                       <div
                         style={{
-                          fontSize: 19,
-                          fontWeight: 900,
-                          color: "#0f172a",
-                          lineHeight: 1.15,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          opacity: 0.55,
+                          whiteSpace: "nowrap",
+                          paddingTop: 4,
                         }}
                       >
-                        {p.title}
+                        {p.created_at
+                          ? new Date(p.created_at).toLocaleDateString("en-US", {
+                            month: "numeric",
+                            day: "numeric",
+                            year: "2-digit",
+                          })
+                          : ""}
                       </div>
-                      {p.client_name || p.client_email || p.client_phone || p.project_address ? (
-                        <div className="sub" style={{ opacity: 0.7, fontSize: 12 }}>
-                          {[p.client_name, p.client_email, p.client_phone, p.project_address]
-                            .filter(Boolean)
-                            .join(" • ")}
-                        </div>
-                      ) : null}
                     </div>
                   </button>
                 ))}
