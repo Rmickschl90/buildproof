@@ -1532,22 +1532,11 @@ function addCoverPage(opts: {
   });
 
   if (logoImage) {
-    const logoDims = logoImage.scale(0.23);
-    const logoX = MARGIN;
-    const logoY = PAGE_HEIGHT - 104;
-
-    page.drawRectangle({
-      x: logoX - 10,
-      y: logoY - 8,
-      width: logoDims.width + 20,
-      height: logoDims.height + 16,
-      color: COLORS.white,
-      opacity: 0.92,
-    });
+    const logoDims = logoImage.scale(0.14);
 
     page.drawImage(logoImage, {
-      x: logoX,
-      y: logoY,
+      x: MARGIN,
+      y: PAGE_HEIGHT - 82,
       width: logoDims.width,
       height: logoDims.height,
     });
