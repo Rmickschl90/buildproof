@@ -1531,24 +1531,21 @@ function addCoverPage(opts: {
     borderWidth: 0,
   });
 
-  if (logoImage) {
-    const logoDims = logoImage.scale(0.14);
+  page.drawText("Build", {
+    x: MARGIN,
+    y: PAGE_HEIGHT - 76,
+    size: 30,
+    font: fontBold,
+    color: COLORS.white,
+  });
 
-    page.drawImage(logoImage, {
-      x: MARGIN,
-      y: PAGE_HEIGHT - 82,
-      width: logoDims.width,
-      height: logoDims.height,
-    });
-  } else {
-    page.drawText("BuildProof", {
-      x: MARGIN,
-      y: PAGE_HEIGHT - 76,
-      size: 30,
-      font: fontBold,
-      color: COLORS.white,
-    });
-  }
+  page.drawText("Proof", {
+    x: MARGIN + 76,
+    y: PAGE_HEIGHT - 76,
+    size: 30,
+    font: fontBold,
+    color: rgb(0.36, 0.58, 0.95),
+  });
 
   page.drawText(
     reportMode === "dispute"
