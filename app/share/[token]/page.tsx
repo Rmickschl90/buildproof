@@ -258,15 +258,9 @@ export default async function SharePage(props: {
     );
   }
 
-  const { data: sendJob } = await supabaseServer
-    .from("send_jobs")
-    .select("locked_entry_ids")
-    .eq("share_id", token ? undefined : null) // placeholder, will override below
-    .limit(1)
-    .maybeSingle();
-
   // correct lookup by joining via project_shares
   let lockedEntryIds: number[] = [];
+  let isSendShare = false;
 
   const { data: shareRow } = await supabaseServer
     .from("project_shares")
@@ -275,13 +269,31 @@ export default async function SharePage(props: {
     .maybeSingle();
 
   if (shareRow?.id) {
-    const { data: job } = await supabaseServer
+    const { data: jobByShareId } = await supabaseServer
       .from("send_jobs")
       .select("locked_entry_ids")
       .eq("share_id", shareRow.id)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    let job = jobByShareId;
+
+    if (!job) {
+      const { data: jobByShareUrl } = await supabaseServer
+        .from("send_jobs")
+        .select("locked_entry_ids")
+        .ilike("share_url", `%/share/${token}%`)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      job = jobByShareUrl;
+    }
+
+    if (job) {
+      isSendShare = true;
+    }
 
     if (Array.isArray(job?.locked_entry_ids)) {
       lockedEntryIds = job.locked_entry_ids
@@ -296,8 +308,12 @@ export default async function SharePage(props: {
     .eq("project_id", projectId)
     .order("created_at", { ascending: false });
 
-  if (lockedEntryIds.length > 0) {
-    proofsQuery = proofsQuery.in("id", lockedEntryIds);
+  if (isSendShare) {
+    if (lockedEntryIds.length > 0) {
+      proofsQuery = proofsQuery.in("id", lockedEntryIds);
+    } else {
+      proofsQuery = proofsQuery.in("id", [-1]);
+    }
   }
 
   const { data: proofs, error: proofsErr } = await proofsQuery;
@@ -340,7 +356,7 @@ export default async function SharePage(props: {
       .in("status", ["pending", "approved", "declined"]);
   }
 
-  if (shareRow?.id) {
+  if (isSendShare && shareRow?.id) {
     const { data: job } = await supabaseServer
       .from("send_jobs")
       .select("processed_at")
