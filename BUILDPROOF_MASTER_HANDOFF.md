@@ -622,3 +622,43 @@ The app is in:
 
 * final tightening
 * not foundation-building
+
+## Current Pick-Up Point — V1 Testing Phase
+
+BuildProof is now entering a V1 real-world readiness testing phase.
+
+Recent completed work:
+- Project Notes added as private, user-only project notes in the project menu.
+- Notes autosave and work online/offline/reconnect.
+- Approval recipient traceability completed.
+- Approval custom recipient warning works online/offline.
+- Approval recipient/source now appears in dispute package.
+- Share view IP tracking added and shown in dispute package.
+- Dashboard project cards now show dominant project title, secondary client info, and creation date.
+- PDF cover branding improved with readable BuildProof wordmark.
+- Offline project creation is confirmed working and should not remain on the active TODO list.
+
+Important next priority:
+- Do extensive end-to-end testing before real-world release.
+- Avoid new feature work until testing is complete unless a critical blocker appears.
+
+Known launch-readiness requirement:
+- Preview deployments currently need auth redirect cleanup so testing can happen before production promotion.
+- This should be addressed before broad V1 rollout.
+
+Testing focus for next chat:
+- Full online run
+- Full offline run
+- Offline refresh/reconnect run
+- Send update
+- Send approval
+- Project notes
+- Client edits
+- Entry attachments
+- Approval attachments
+- Dashboard project cards
+- Standard PDF
+- Dispute package PDF
+- Share view tracking
+- Approval response tracking
+- No duplicate/stuck queue regressions

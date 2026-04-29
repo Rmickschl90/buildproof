@@ -473,3 +473,48 @@ Avoid:
 * revisiting locked architecture
 * broad offline edit expansion
 * mixing new systems into stable flows
+
+## Offline Playbook Update — Current V1 Offline Status
+
+Confirmed working:
+- Offline project creation
+- Offline project open/reopen from recent projects
+- Offline client info edits
+- Offline project notes autosave
+- Offline entry creation
+- Offline entry attachments
+- Offline approval creation
+- Offline approval attachments
+- Offline approval recipient-source tracking
+- Offline custom-recipient warning
+- Offline send update queue
+- Offline send approval queue
+- Reconnect sync for the above systems
+
+Current rule:
+- Offline project creation is no longer an active TODO.
+- Do not redesign offline project creation unless a new reproducible bug appears.
+- Future offline edits must be limited to the exact failing subsystem.
+
+Required V1 offline testing gate:
+- online dashboard open
+- go offline
+- create project
+- add client info
+- add project notes
+- add entry
+- add entry attachment
+- create approval
+- change approval recipient email
+- confirm offline warning appears
+- add approval attachment
+- queue send update
+- queue send approval
+- refresh while offline
+- reopen project
+- reconnect
+- confirm project remaps cleanly
+- confirm entries/attachments/approvals sync
+- confirm sends complete
+- confirm no duplicate projects, entries, approvals, or stuck banners
+- export dispute package and verify recipient/IP records

@@ -1643,3 +1643,88 @@ Constraints:
 Status:
 - deferred intentionally to protect V1 stability
 - revisit after real-world usage feedback
+
+## V1 Pre-Launch Requirement — Preview Testing Without Production Promotion
+
+Problem:
+- Vercel preview deployments currently cannot be tested cleanly because magic-link auth redirects back to production.
+- This forces risky production promotion before full verification.
+
+Requirement:
+- Preview deployments must support login/testing before promotion.
+- Production should only be promoted after preview validation.
+
+Likely fix areas:
+- Supabase Auth redirect URLs
+- magic link redirectTo handling
+- NEXT_PUBLIC_APP_URL / window.location.origin behavior
+- /auth/finish route handling preview domains correctly
+
+Goal:
+- push branch
+- open Vercel preview
+- log in via magic link
+- test full app in preview
+- promote only after validation
+
+Status:
+- required before broad V1 rollout
+
+## Checkpoint: V1 polish + documentation-readiness pass
+
+Scope:
+- Project Notes
+- Approval traceability
+- Share view IP tracking
+- PDF/dispute package evidence
+- Dashboard project card polish
+- PDF branding readability
+- V1 launch-readiness planning
+
+Completed:
+- Project Notes confirmed working online, offline, after refresh, across projects, and after reconnect.
+- Offline project creation confirmed working and removed from active TODOs.
+- Approval recipient traceability completed:
+  - recipient email tracked
+  - recipient source tracked as project/custom
+  - custom recipient warning added
+  - warning works online and offline
+  - recipient/source shown in PDF/dispute package
+- Share view IP tracking added:
+  - `share_views.ip_address` column added
+  - share page records viewer IP
+  - dispute package displays view IP
+- Approval response IP/device/browser evidence remains intact.
+- Dashboard project cards improved:
+  - project title made visually dominant
+  - client info remains secondary
+  - project creation date shown as `M/D/YY`
+- PDF cover branding adjusted for V1:
+  - replaced low-contrast logo image with readable BuildProof text wordmark on dark header
+  - full PDF redesign deferred to V2
+- V2 traceability candidates noted:
+  - share view user agent
+  - approximate IP location
+  - audit summary block
+  - cross-event correlation
+- V1 pre-launch requirement identified:
+  - fix preview testing/auth redirect flow so production promotion is not required before testing.
+
+Verified:
+- Build passed after major changes.
+- Project Notes passed online/offline/reconnect testing.
+- Approval custom recipient tracking passed online/offline/PDF testing.
+- Share view IP appears in Supabase and dispute package.
+- Dashboard card date/title layout visually confirmed.
+- PDF wordmark is readable enough for V1.
+
+Current state:
+- App is very close to V1 real-world testing.
+- Next chat should focus on extensive end-to-end testing, not new feature work.
+- Do not reopen completed systems unless a reproducible bug appears.
+
+Regression rules:
+- Failed edits that do not move toward the exact goal must be reverted.
+- Do not touch send/reconnect/offline core systems without a safe checkpoint.
+- Test before promoting whenever preview auth is fixed.
+- Until preview auth is fixed, production promotion remains a launch-readiness risk.
