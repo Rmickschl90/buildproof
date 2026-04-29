@@ -290,18 +290,33 @@ export async function POST(req: Request) {
       effectiveShareUrl = emailJson?.shareUrl || effectiveShareUrl;
     }
 
-    await supabaseServer
+    const { data: claimedJob, error: claimErr } = await supabaseServer
       .from("send_jobs")
       .update({
-        status: "finalizing",
-        share_id: effectiveShareId,
-        share_url: effectiveShareUrl,
+        status: alreadyDelivered ? "finalizing" : "processing",
+        attempt_count: nextAttemptNumber,
+        started_at: job.started_at || new Date().toISOString(),
         last_error: null,
         last_error_at: null,
         next_retry_at: null,
       })
       .eq("id", jobId)
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .in("status", ["pending", "retrying"])
+      .select("id")
+      .maybeSingle();
+
+    if (claimErr) {
+      throw new Error(claimErr.message || "Failed to claim send job.");
+    }
+
+    if (!claimedJob && !alreadyDelivered) {
+      return NextResponse.json({
+        ok: true,
+        status: "processing",
+        alreadyRunning: true,
+      });
+    }
 
     const lockedIds = Array.isArray(job.locked_entry_ids) ? job.locked_entry_ids : [];
 

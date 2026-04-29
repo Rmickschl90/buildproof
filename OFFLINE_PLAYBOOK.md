@@ -46,6 +46,38 @@ All offline flows must:
 
 ## 🔒 NON-NEGOTIABLE RULES
 
+### 🔒 SYSTEM CONTEXT RULE — ASSUME CONNECTED SYSTEMS
+
+Never edit a file as if it only affects one thing.
+
+Before changing logic, assume the code may be connected to:
+- offline behavior
+- reconnect behavior
+- send queues
+- refresh/repaint behavior
+- cached state
+- client-facing outputs
+- duplicate prevention
+
+Rule:
+- inspect the surrounding system before editing
+- identify why the current code may exist
+- do not remove guards, triggers, retries, or duplicate-looking logic without understanding what they protect
+- if unsure, pause and inspect related files first
+
+Editing blindly without system context is not acceptable BuildProof practice.
+
+### 🔒 ASSUMPTION RULE — VERIFY BEFORE MODIFYING
+
+Do NOT assume behavior from memory.
+
+Before changing logic:
+- verify the user’s exact observed behavior
+- identify the exact failing subsystem
+- do not modify working systems based on guesses
+
+If unsure, ask before editing.
+
 ### 1. ONE ORCHESTRATOR ONLY
 
 Reconnect logic must have ONE owner.
@@ -97,6 +129,19 @@ Send only after:
 Full offline → reconnect → refresh cycle REQUIRED
 
 ---
+
+## 🧪 BUG REPORT FORMAT REQUIRED
+
+When something fails, report exactly:
+
+- Step being performed
+- Expected result
+- Actual result
+- Online or offline?
+- After refresh or not?
+- Screenshot if possible
+
+No fix should be attempted without this.
 
 ## 🚨 RED FLAGS
 

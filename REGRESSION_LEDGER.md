@@ -1779,3 +1779,48 @@ Observed:
 Meaning:
 - attachment is being stored but not surfaced in draft state
 - likely missing linkage or refresh in draft approval load path
+
+## Checkpoint: approval attachment visibility fixed without save draft
+
+Scope:
+- approval composer attachment flow only
+- no offline system changes
+- no send/reconnect changes
+
+Issue:
+- attachments added to draft approval were not visible unless:
+  - Save Draft was clicked
+  - another attachment was added
+
+Root cause:
+- dashboard was not notified after attachment insert
+- approval list reload did not include newly attached files
+
+Fix:
+- dispatch buildproof-data-changed after attachment upload completes
+
+Result:
+- attachments appear immediately after upload
+- no need to save draft
+- no delayed/ghost attachment behavior
+
+## Checkpoint: duplicate update email received during online send test
+
+Scope:
+- online send update flow
+- email delivery / send job behavior
+- no approval send tested yet
+
+Test:
+- online project update send
+- update email content looked correct
+
+Observed:
+- duplicate update emails were received
+- expected only one update email
+- this is the first duplicate email observed after extensive prior update-send testing
+
+Meaning:
+- possible duplicate send trigger, duplicate process-job call, duplicate delivery, or double job creation
+- must investigate before continuing approval send test
+- do not modify offline/reconnect systems unless directly proven involved
