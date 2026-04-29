@@ -1728,3 +1728,54 @@ Regression rules:
 - Do not touch send/reconnect/offline core systems without a safe checkpoint.
 - Test before promoting whenever preview auth is fixed.
 - Until preview auth is fixed, production promotion remains a launch-readiness risk.
+
+## Checkpoint: V1 testing protocol locked
+
+Scope:
+- documentation/process only
+- no code changes
+- no offline architecture changes
+- no send/reconnect changes
+
+Rule added:
+- do not assume behavior before changing logic
+- verify exact user-observed behavior first
+- if unsure, ask before modifying
+
+Bug report format required before fixes:
+- Step being performed
+- Expected result
+- Actual result
+- Online or offline?
+- After refresh or not?
+- Screenshot if possible
+
+Meaning:
+- V1 testing must proceed through reproducible failures only
+- no speculative fixes
+- no broad rewrites
+- working systems remain protected
+
+## Checkpoint: approval attachment not visible until save draft
+
+Scope:
+- approval composer UI / draft visibility only
+- no offline queue changes
+- no send/reconnect changes
+
+Test:
+- create approval
+- add attachment
+- exit without saving
+- reopen draft
+
+Observed:
+- attachment is not visible in draft
+- attachment appears only after:
+  - adding another attachment OR
+  - clicking Save Draft
+- hard refresh does NOT make attachment appear
+
+Meaning:
+- attachment is being stored but not surfaced in draft state
+- likely missing linkage or refresh in draft approval load path

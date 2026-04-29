@@ -98,10 +98,10 @@ export default function ApprovalComposer({
   }, [projectId]);
 
   useEffect(() => {
-  if (projectClientEmailProp !== undefined) {
-    setProjectClientEmail(projectClientEmailProp);
-  }
-}, [projectClientEmailProp]);
+    if (projectClientEmailProp !== undefined) {
+      setProjectClientEmail(projectClientEmailProp);
+    }
+  }, [projectClientEmailProp]);
 
   useEffect(() => {
     async function loadProjectContact() {
@@ -727,6 +727,9 @@ export default function ApprovalComposer({
 
         // refresh after direct upload
         await refreshDraftAttachments(token, approvalId);
+
+        // ✅ CRITICAL FIX — notify dashboard AFTER attachments are fully inserted
+        window.dispatchEvent(new CustomEvent("buildproof-data-changed"));
 
       } else {
         // 🟡 OFFLINE = QUEUE
