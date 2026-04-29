@@ -458,7 +458,14 @@ export default async function SharePage(props: {
     }
   }
 
-  const createdAt = project.created_at ? formatShortDate(project.created_at) : "";
+  const createdAt = project.created_at
+    ? formatDate(
+      project.created_at,
+      proofs[0]?.created_timezone_offset_minutes ??
+      approvals[0]?.created_timezone_offset_minutes ??
+      null
+    )
+    : "";
   const lastUpdatedIso = list.length ? list[list.length - 1].created_at : project.created_at;
   const lastUpdated = lastUpdatedIso ? formatShortDate(lastUpdatedIso) : "";
 
