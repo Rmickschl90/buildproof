@@ -296,16 +296,8 @@ export default async function SharePage(props: {
     .eq("project_id", projectId)
     .order("created_at", { ascending: false });
 
-  // Detect if this share is tied to a send job
-  const isSendShare = lockedEntryIds.length > 0;
-
-  if (isSendShare) {
-    if (lockedEntryIds.length > 0) {
-      proofsQuery = proofsQuery.in("id", lockedEntryIds);
-    } else {
-      // Freeze empty snapshot (no entries should show)
-      proofsQuery = proofsQuery.in("id", [-1]);
-    }
+  if (lockedEntryIds.length > 0) {
+    proofsQuery = proofsQuery.in("id", lockedEntryIds);
   }
 
   const { data: proofs, error: proofsErr } = await proofsQuery;
