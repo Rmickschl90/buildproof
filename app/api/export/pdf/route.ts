@@ -36,18 +36,37 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const proofsSource =
-      reportMode === "dispute"
-        ? "proofs"
-        : includeArchived
-          ? "proofs"
-          : "proofs_active";
+    // 🔒 ALWAYS use latest sent snapshot (no drafts ever)
 
-    const { data: proofs, error: proofsErr } = await supabaseServer
-      .from(proofsSource)
+    const { data: latestSentJob } = await supabaseServer
+      .from("send_jobs")
+      .select("locked_entry_ids, processed_at")
+      .eq("project_id", projectId)
+      .eq("user_id", userId)
+      .eq("status", "sent")
+      .order("processed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const lockedEntryIds = Array.isArray(latestSentJob?.locked_entry_ids)
+      ? latestSentJob.locked_entry_ids
+        .map((id: any) => Number(id))
+        .filter((id: number) => Number.isFinite(id))
+      : [];
+
+    let proofsQuery = supabaseServer
+      .from("proofs")
       .select("id,content,created_at,locked_at,project_id,created_timezone_id,created_timezone_offset_minutes")
       .eq("project_id", projectId)
       .order("created_at", { ascending: true });
+
+    if (lockedEntryIds.length > 0) {
+      proofsQuery = proofsQuery.in("id", lockedEntryIds);
+    } else {
+      proofsQuery = proofsQuery.in("id", [-1]);
+    }
+
+    const { data: proofs, error: proofsErr } = await proofsQuery;
 
     if (proofsErr) {
       return NextResponse.json({ error: proofsErr.message }, { status: 400 });
