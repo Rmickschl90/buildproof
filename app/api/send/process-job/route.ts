@@ -243,8 +243,8 @@ export async function POST(req: Request) {
             toEmail: job.to_email,
             includeArchived: job.include_archived,
             sendJobId: job.id,
-            shareUrl: null,
-            shareId: null,
+            shareUrl: job.share_url,
+            shareId: job.share_id,
             skipFinalize: false,
           }),
         });
