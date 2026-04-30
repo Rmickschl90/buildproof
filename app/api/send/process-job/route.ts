@@ -290,6 +290,10 @@ export async function POST(req: Request) {
       effectiveShareUrl = emailJson?.shareUrl || effectiveShareUrl;
     }
 
+    // ✅ FORCE use of snapshot share from job
+    effectiveShareId = job.share_id;
+    effectiveShareUrl = job.share_url;
+
     const { data: claimedJob, error: claimErr } = await supabaseServer
       .from("send_jobs")
       .update({
