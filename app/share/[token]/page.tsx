@@ -297,7 +297,11 @@ export default async function SharePage(props: {
     .order("created_at", { ascending: false });
 
   if (lockedEntryIds.length > 0) {
+    // 🔒 Snapshot mode (send link)
     proofsQuery = proofsQuery.in("id", lockedEntryIds);
+  } else {
+    // 🔒 Manual share → NO drafts (finalized only)
+    proofsQuery = proofsQuery.not("locked_at", "is", null);
   }
 
   const { data: proofs, error: proofsErr } = await proofsQuery;

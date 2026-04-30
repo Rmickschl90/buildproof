@@ -46,6 +46,31 @@ All offline flows must:
 
 ## 🔒 NON-NEGOTIABLE RULES
 
+### 🔒 CLIENT-FACING NO-DRAFT RULE
+
+Drafts are only visible inside the authenticated user dashboard.
+
+Client-facing surfaces must NEVER show drafts.
+
+Applies to:
+- client update links
+- manual share links
+- email PDF attachments
+- PDF exports
+- dispute packages
+
+Allowed outside the dashboard:
+- finalized entries only
+- approvals with status: pending, approved, declined
+
+Not allowed outside the dashboard:
+- draft entries
+- draft approvals
+
+Rule:
+- client-facing routes must not query live proof data without filtering
+- use locked_entry_ids or finalized records only
+
 ### 🔒 SYSTEM CONTEXT RULE — ASSUME CONNECTED SYSTEMS
 
 Never edit a file as if it only affects one thing.

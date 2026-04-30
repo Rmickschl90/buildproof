@@ -1824,3 +1824,29 @@ Meaning:
 - possible duplicate send trigger, duplicate process-job call, duplicate delivery, or double job creation
 - must investigate before continuing approval send test
 - do not modify offline/reconnect systems unless directly proven involved
+
+## Checkpoint: client-facing no-draft rule locked
+
+Scope:
+- product rule
+- PDF/export behavior
+- share/timeline behavior
+- dispute package behavior
+
+Rule:
+- drafts are only visible in the authenticated dashboard timeline
+- client-facing outputs must never include draft entries or draft approvals
+
+Allowed outside dashboard:
+- finalized entries
+- approvals with status pending, approved, declined
+
+Reason:
+- prevents accidental draft exposure
+- keeps client records clean
+- protects dispute documentation integrity
+- simplifies testing and future development
+
+Status:
+- timeline update snapshot fixed
+- standard PDF/export and dispute package draft filtering verified working
