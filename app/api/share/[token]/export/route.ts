@@ -57,12 +57,37 @@ export async function GET(
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // 3) Fetch proofs
-    const { data: proofs, error: proofsErr } = await supabaseServer
+    // 3) Fetch proofs for this share.
+    // Send-created links use locked_entry_ids snapshot.
+    // Manual/coworker links keep current live behavior.
+    const { data: sendJob } = await supabaseServer
+      .from("send_jobs")
+      .select("locked_entry_ids")
+      .eq("share_id", share.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const lockedEntryIds = Array.isArray(sendJob?.locked_entry_ids)
+      ? sendJob.locked_entry_ids
+        .map((id: any) => Number(id))
+        .filter((id: number) => Number.isFinite(id))
+      : [];
+
+    let proofsQuery = supabaseServer
       .from("proofs_active")
-      .select("id,content,created_at,locked_at")
+      .select("id,content,created_at,locked_at,created_timezone_id,created_timezone_offset_minutes")
       .eq("project_id", projectId)
       .order("created_at", { ascending: true });
+
+    if (sendJob) {
+      proofsQuery =
+        lockedEntryIds.length > 0
+          ? proofsQuery.in("id", lockedEntryIds)
+          : proofsQuery.in("id", [-1]);
+    }
+
+    const { data: proofs, error: proofsErr } = await proofsQuery;
 
     if (proofsErr) {
       return NextResponse.json({ error: proofsErr.message }, { status: 400 });
