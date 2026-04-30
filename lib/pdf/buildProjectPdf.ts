@@ -390,7 +390,16 @@ export async function buildProjectPdf(
           ? imageApprovalAttachments.slice(0, 2).length * (approvalPreviewBoxH + approvalPreviewGap) + 6
           : 0;
 
-      const cardHeight = 122 + descHeight + evidenceHeight + attachmentHeight + approvalImageHeight;
+      const approvalImageBottomPadding =
+        imageApprovalAttachments.length > 0 ? 70 : 0;
+
+      const cardHeight =
+        122 +
+        descHeight +
+        evidenceHeight +
+        attachmentHeight +
+        approvalImageHeight +
+        approvalImageBottomPadding;
 
       if (y - cardHeight < MARGIN + 24) {
         pageNumber += 1;
