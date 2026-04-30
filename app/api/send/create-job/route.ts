@@ -150,6 +150,32 @@ export async function POST(req: Request) {
       );
     }
 
+    // ✅ Create a dedicated share link for this send
+    const { data: newShare, error: shareErr } = await supabaseServer
+      .from("project_shares")
+      .insert({
+        project_id: projectId,
+        created_at: new Date().toISOString(),
+      })
+      .select("id, token")
+      .single();
+
+    if (shareErr || !newShare) {
+      return NextResponse.json(
+        { error: shareErr?.message || "Failed to create share link" },
+        { status: 500 }
+      );
+    }
+
+    const shareId = newShare.id;
+    const shareToken = newShare.token;
+
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      "https://buildproof-kappa.vercel.app";
+
+    const shareUrl = `${baseUrl}/share/${shareToken}`;
+
     const { data: job, error: insertErr } = await supabaseServer
       .from("send_jobs")
       .insert({
@@ -162,6 +188,8 @@ export async function POST(req: Request) {
         email_subject: null,
         email_message: null,
         locked_entry_ids: lockedEntryIds,
+        share_id: shareId,
+        share_url: shareUrl,
         next_retry_at: new Date().toISOString(),
         idempotency_key: idempotencyKey,
       })
