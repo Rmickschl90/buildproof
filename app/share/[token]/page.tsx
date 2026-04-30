@@ -267,7 +267,6 @@ export default async function SharePage(props: {
 
   // correct lookup by joining via project_shares
   let lockedEntryIds: number[] = [];
-  let isSendShare = false;
 
   const { data: shareRow } = await supabaseServer
     .from("project_shares")
@@ -284,10 +283,6 @@ export default async function SharePage(props: {
       .limit(1)
       .maybeSingle();
 
-    if (job) {
-      isSendShare = true;
-    }
-
     if (Array.isArray(job?.locked_entry_ids)) {
       lockedEntryIds = job.locked_entry_ids
         .map((id: any) => Number(id))
@@ -301,12 +296,8 @@ export default async function SharePage(props: {
     .eq("project_id", projectId)
     .order("created_at", { ascending: false });
 
-  if (isSendShare) {
-    if (lockedEntryIds.length > 0) {
-      proofsQuery = proofsQuery.in("id", lockedEntryIds);
-    } else {
-      proofsQuery = proofsQuery.in("id", [-1]);
-    }
+  if (lockedEntryIds.length > 0) {
+    proofsQuery = proofsQuery.in("id", lockedEntryIds);
   }
 
   const { data: proofs, error: proofsErr } = await proofsQuery;
