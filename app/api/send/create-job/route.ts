@@ -155,6 +155,7 @@ export async function POST(req: Request) {
       .from("project_shares")
       .insert({
         project_id: projectId,
+        created_by: userId,
         created_at: new Date().toISOString(),
       })
       .select("id, token")
