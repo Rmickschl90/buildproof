@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { randomUUID } from "crypto";
 
 export const runtime = "nodejs";
 
@@ -156,6 +157,7 @@ export async function POST(req: Request) {
       .insert({
         project_id: projectId,
         created_by: userId,
+        token: randomUUID(),
         created_at: new Date().toISOString(),
       })
       .select("id, token")
