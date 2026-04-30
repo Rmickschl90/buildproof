@@ -681,15 +681,18 @@ export async function buildProjectPdf(
             });
 
             if (embedded) {
+              const captionSpace = 26;
+
               const fit = fitInside(
                 embedded.width,
                 embedded.height,
                 approvalPreviewBoxW - 12,
-                approvalPreviewBoxH - 30
+                approvalPreviewBoxH - captionSpace - 18
               );
 
               const imgX = boxX + (approvalPreviewBoxW - fit.width) / 2;
-              const imgY = boxY + 6 + (approvalPreviewBoxH - 30 - fit.height) / 2;
+              const imgY =
+                boxY + captionSpace + (approvalPreviewBoxH - captionSpace - 18 - fit.height) / 2;
 
               page.drawImage(embedded.image, {
                 x: imgX,
@@ -742,7 +745,10 @@ export async function buildProjectPdf(
     const imagesHeight = embeddableImages.length > 0 ? imageRows * 192 + 26 : 0;
     const filesHeight = otherFiles.length > 0 ? 34 + otherFiles.length * 15 : 0;
 
-    const cardHeight = 100 + noteHeight + imagesHeight + filesHeight + 18;
+    const photoBottomPadding = embeddableImages.length > 0 ? 42 : 0;
+
+    const cardHeight =
+      100 + noteHeight + imagesHeight + filesHeight + photoBottomPadding + 18;
 
     if (y - cardHeight < MARGIN + 24) {
       pageNumber += 1;
