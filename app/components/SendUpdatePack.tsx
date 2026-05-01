@@ -1175,6 +1175,17 @@ export default function SendUpdatePack({
           </div>
         </div>
 
+        <div
+          className="sub"
+          style={{
+            fontSize: 12,
+            color: "rgba(15,23,42,0.6)",
+            lineHeight: 1.35,
+          }}
+        >
+          This link updates as the project progresses. Sent updates provide a fixed record.
+        </div>
+
 
 
         {process.env.NODE_ENV === "development" ? (
