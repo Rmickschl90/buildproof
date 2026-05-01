@@ -1850,3 +1850,109 @@ Reason:
 Status:
 - timeline update snapshot fixed
 - standard PDF/export and dispute package draft filtering verified working
+
+## V2 Polish: PDF layout refinement
+
+Approval and entry attachment images render correctly, but some image/caption spacing can be improved later:
+- keep approval attachment captions below images
+- improve card height calculation for large image groups
+- tighten photo grid spacing
+- prevent minor visual overflow near card bottoms
+
+Not a V1 blocker because attachments are present, readable, and tied to the correct records.
+
+## ✅ Snapshot Integrity + Share Behavior + PDF Consistency (FINALIZED)
+
+### 🎯 Goal
+Eliminate all draft leakage and ensure consistent behavior across:
+- dashboard
+- share link
+- send snapshot
+- PDF / dispute exports
+
+---
+
+### 🔧 What Changed
+
+#### 1. Snapshot Approval Fix (CRITICAL)
+- Snapshot approval filtering changed from:
+  - ❌ created_at
+  - ✅ sent_at
+- Prevents approvals that existed as drafts at send time from appearing later after being sent
+
+#### 2. Snapshot Integrity Enforcement
+- Snapshot now strictly respects:
+  - entries → locked_entry_ids
+  - approvals → sent_at <= processed_at
+- Eliminates retroactive data appearing in snapshots
+
+#### 3. Share Link Behavior Locked
+- Manual share link is now:
+  - ✅ LIVE (updates with project)
+  - ✅ finalized entries only (locked_at)
+  - ❌ no drafts
+
+#### 4. Client-Facing Consistency Rule
+- All client-facing surfaces now follow:
+
+  Dashboard:
+  - drafts visible (internal only)
+
+  Share link:
+  - live finalized view
+
+  Send link:
+  - frozen snapshot
+
+  PDF / dispute:
+  - frozen snapshot
+
+#### 5. PDF Fixes
+- Approval attachments:
+  - fixed overflow issues inside card
+- Entry attachments:
+  - improved spacing to prevent visual overflow
+- Removed all draft entries from:
+  - PDF
+  - dispute exports
+
+#### 6. UI Clarity Improvement
+- Added helper text near share link buttons:
+
+  "This link updates as the project progresses. Sent updates provide a fixed record."
+
+- Clarifies difference between:
+  - live share
+  - snapshot send
+
+---
+
+### 🧪 Verified Behavior
+
+- No drafts appear in any client-facing surface ✅
+- Snapshot does NOT update after send (entries + approvals) ✅
+- Share link updates correctly with project changes ✅
+- No retroactive approvals appear in snapshots ✅
+- PDF / dispute match snapshot behavior ✅
+
+---
+
+### ⚠️ Edge Case (Accepted)
+
+- Snapshot cutoff is based on `processed_at`, not button click moment
+- Very small timing window exists during send processing
+- Determined safe for real-world usage
+
+---
+
+### 📌 Notes
+
+- Snapshot logic MUST always use client-visible timestamps:
+  - entries → locked_at
+  - approvals → sent_at
+
+- NEVER use:
+  - created_at for snapshot filtering
+
+- Core system now considered:
+  → PRODUCTION-STABLE FOR V1
