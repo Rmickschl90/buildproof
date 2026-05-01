@@ -354,7 +354,9 @@ export default async function SharePage(props: {
       .maybeSingle();
 
     if (job?.processed_at) {
-      approvalsQuery = approvalsQuery.lte("created_at", job.processed_at);
+      approvalsQuery = approvalsQuery
+        .not("sent_at", "is", null)
+        .lte("sent_at", job.processed_at);
     }
   }
 
