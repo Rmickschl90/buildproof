@@ -26,7 +26,7 @@ export async function flushOfflineApprovalOutbox(
   try {
     const records = await getPendingOfflineApprovals();
 
-    for (const record of records) {
+       for (const record of records) {
       try {
         const isNewOfflineApproval = record.id.startsWith("offline-");
 
@@ -99,12 +99,6 @@ export async function flushOfflineApprovalOutbox(
 
         if (isNewOfflineApproval) {
           await attachServerApprovalIdToOfflineApprovalAttachments(record.id, approvalId);
-
-          const { flushOfflineApprovalAttachmentOutbox } = await import(
-            "@/lib/offlineApprovalAttachmentFlush"
-          );
-
-          await flushOfflineApprovalAttachmentOutbox(getAccessToken);
 
           await remapOfflineApprovalSendApprovalId({
             offlineApprovalId: record.id,
