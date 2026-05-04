@@ -25,7 +25,7 @@ export default function OfflineAttachmentBootstrap() {
 
       isFlushingRef.current = true;
 
-      try {
+            try {
         await flushOfflineApprovalOutbox(getAccessToken);
         await flushOfflineApprovalAttachmentOutbox(getAccessToken);
         await flushOfflineApprovalSendOutbox(getAccessToken);
@@ -36,26 +36,27 @@ export default function OfflineAttachmentBootstrap() {
       }
     }
 
-    function scheduleSecondFlush() {
-      window.setTimeout(() => {
-        void runFlush();
-      }, 2500);
-    }
-
     function handleOnline() {
-      void runFlush();
-      scheduleSecondFlush();
-    }
+  void runFlush();
+
+  const fn = (window as any).__runDashboardReconnect;
+  if (typeof fn === "function") {
+    void fn();
+  }
+}
 
     function handleFocus() {
-      void runFlush();
-      scheduleSecondFlush();
-    }
+  void runFlush();
+
+  const fn = (window as any).__runDashboardReconnect;
+  if (typeof fn === "function") {
+    void fn();
+  }
+}
 
     function handleVisibility() {
       if (document.visibilityState === "visible") {
         void runFlush();
-        scheduleSecondFlush();
       }
     }
 
