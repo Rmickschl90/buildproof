@@ -875,26 +875,16 @@ export default function SendUpdatePack({
       setUiStatus("sent", "Update sent");
     }
 
-    async function handleAttachmentComplete() {
-      await flushOfflineSendOutbox({
-        getAccessToken,
-      });
-
-      await refreshSendMetaWithoutShare();
-    }
-
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisible);
     window.addEventListener("online", handleOnline);
     window.addEventListener("buildproof-send-complete", handleSendComplete);
-    window.addEventListener("buildproof-attachment-complete", handleAttachmentComplete);
 
     return () => {
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisible);
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("buildproof-send-complete", handleSendComplete);
-      window.removeEventListener("buildproof-attachment-complete", handleAttachmentComplete);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
