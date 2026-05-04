@@ -225,7 +225,12 @@ export default function ApprovalComposer({
         });
 
         const token = await getAccessToken();
+
+        await flushOfflineApprovalAttachmentOutbox(getAccessToken);
+
         await refreshDraftAttachments(token, approvalId);
+
+        window.dispatchEvent(new CustomEvent("buildproof-data-changed"));
 
         setStatus("Approval synced.");
 
