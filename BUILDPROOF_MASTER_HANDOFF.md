@@ -1,3 +1,18 @@
+## 🔴 CURRENT STATE — ORCHESTRATION ISSUE (MOBILE)
+
+System is stable in isolated subsystems but fails under full combined offline flow on mobile.
+
+Primary issue is now identified as:
+
+> Offline refresh + reconnect state inconsistency causing race conditions between IndexedDB, UI cache, and send orchestration.
+
+Do NOT continue modifying send/attachment logic until this layer is stabilized.
+
+Next development focus:
+- offline refresh behavior
+- state restoration consistency
+- elimination of UI flicker / session instability
+
 🧱 BUILDPROOF — MASTER HANDOFF (UPDATED)
 🎯 PRODUCT
 

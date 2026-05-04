@@ -195,6 +195,39 @@ Implementation rule:
 Regression rule:
 - explicitly audit for duplicate `saveRecentProject(...)` / duplicate local write paths before and after any offline project creation edit
 
+## ⚠️ Critical Rule — Combined Flow Stability
+
+When multiple offline subsystems are used together (entries + attachments + approvals + sends):
+
+- Individual subsystem success does NOT guarantee combined success
+- Order of operations can expose hidden race conditions
+- Mobile environments have fewer lifecycle triggers → stricter sequencing
+
+### Required discipline:
+- Never patch send logic to fix combined failures without verifying state layer
+- Always isolate:
+  1. entry system
+  2. attachment system
+  3. approval system
+  4. send system
+- Only after all pass individually should combined flow be tested
+
+### Offline refresh rule:
+- Offline refresh must restore:
+  - project
+  - entries
+  - approvals
+- If UI flickers or state disappears:
+  → treat as state-layer bug, NOT send bug
+
+### Anti-pattern (DO NOT DO AGAIN):
+- stacking fixes across:
+  - send
+  - attachment
+  - approval
+  - reconnect
+- without reverting between attempts
+
 ## 🔒 CRITICAL RULE — INDEX CONSISTENCY
 
 IndexedDB index names MUST match exactly between:

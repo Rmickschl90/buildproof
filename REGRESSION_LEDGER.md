@@ -1956,3 +1956,116 @@ Eliminate all draft leakage and ensure consistent behavior across:
 
 - Core system now considered:
   → PRODUCTION-STABLE FOR V1
+
+  ## Checkpoint: mobile approval attachment/send investigation paused after active composer fix
+
+Scope:
+- offline approval attachment + approval send behavior
+- mobile Safari verification issue
+- no broad offline/reconnect rewrite
+
+Observed:
+- full approval offline send with attachment passes on laptop after active composer fix
+- mobile Safari continued to show:
+  - composer stayed open
+  - status: "Approval synced."
+  - approval remained draft
+  - attachment missing
+  - approval email not received
+- mobile result may be stale because Safari/service worker cache may still be serving an older build after production promotion
+
+Current active commit:
+- `da89ef76 Ensure approval attachment flush after offline approval sync (mobile fix)`
+
+Reverted failed edits:
+- delayed bootstrap second flush was reverted
+- approval flush internal attachment flush attempt was reverted
+
+Meaning:
+- active composer fix did not break laptop/offline approval send path
+- mobile result is not yet trustworthy until build freshness can be verified
+- do not stack more approval/offline patches on top of this state
+
+Next rule:
+- stop code changes
+- verify mobile against confirmed fresh build before further approval attachment/send edits
+- if mobile still fails on confirmed fresh build, inspect mobile Safari/service-worker behavior before touching approval/send logic again
+
+## Checkpoint: mobile approval attachment + send fully resolved
+
+Scope:
+- approval attachments missing on mobile after offline send
+- approval stuck in draft / queued state on mobile
+- attachment not included in email
+
+Root cause:
+- approval attachment flush in ApprovalComposer used unstable token getter reference
+- caused silent flush failure on mobile only
+- desktop masked issue via retry/timing behavior
+
+Fix:
+- replaced direct getAccessToken reference with stable async tokenGetter
+- executed flushOfflineApprovalAttachmentOutbox with proper token resolution inside approval sync handler
+
+Files changed:
+- app/components/ApprovalComposer.tsx
+
+Verification:
+- laptop approval send with attachment (offline → reconnect) passes
+- mobile approval send with attachment (offline → reconnect) passes
+- approval transitions to pending correctly
+- attachments visible in UI
+- attachments included in email
+- composer exits correctly after sync/send
+
+Additional validation:
+- entry + attachment + send flow tested on both laptop and mobile
+- no regression observed
+- immediate send + delayed send both pass
+
+Cleanup:
+- removed temporary build version indicator from layout
+
+System status:
+- production-ready for full V1 test restart
+
+## Checkpoint: Combined mobile offline send orchestration investigation
+
+Scope:
+- full offline flow: entry + attachment + approval + attachment + send update + send approval
+- mobile-specific failure reproduction
+
+What works:
+- entry system stable in isolation
+- entry attachment system stable in isolation
+- approval + approval attachment + send stable (mobile + desktop)
+- update send stable when system is settled
+
+What fails:
+- combined flow (mobile only) with:
+  - send update first → send approval second
+  - offline refresh before reconnect
+
+Observed failures:
+- entry attachment missing from update
+- entry remains draft or disappears temporarily
+- update send stuck (banner persists)
+- approval attachment inconsistently missing depending on sequence
+- offline refresh causes UI instability (sign-in flicker)
+- temporary data loss / duplication until reconnect
+
+Key discoveries:
+- ordering dependency exists (approval must complete before update for consistent results)
+- premature send issue was real and fixed (send now correctly blocked)
+- remaining issue is NOT send logic — it is orchestration/state consistency
+- mobile exposes race conditions not visible on desktop
+- offline refresh introduces state desync between IndexedDB, cache, and UI
+
+Reverted:
+- proof "syncing" treated as pending (caused duplication + disappearance)
+- UI-triggered retry mechanisms
+- additional flush stacking
+
+Conclusion:
+- system requires stabilization of offline refresh + reconnect state restoration
+- do NOT continue patching send/attachment logic until state layer is stable
