@@ -1,4 +1,3 @@
-import { getPendingOfflineAttachments } from "@/lib/offlineAttachmentOutbox";
 import {
   getFlushableOfflineSendRecords,
   markOfflineSendHandedOff,
@@ -8,6 +7,9 @@ import {
   type OfflineSendRecord,
 } from "@/lib/offlineSendOutbox";
 import { listPendingOfflineProofs } from "@/lib/offlineProofOutbox";
+import { getPendingOfflineAttachments } from "@/lib/offlineAttachmentOutbox";
+import { getPendingOfflineApprovalAttachments } from "@/lib/offlineApprovalAttachmentOutbox";
+import { getPendingOfflineApprovals } from "@/lib/offlineApprovalOutbox";
 import type { SendUiStatus } from "@/lib/sendStatus";
 
 type FlushStatusCallback = (
@@ -141,7 +143,7 @@ async function waitForTerminalJobStatus(
       return job;
     }
 
-    await processSendJob(jobId, token).catch(() => { });
+    await processSendJob(jobId, token).catch(() => {});
 
     await sleep(delayMs);
   }
@@ -199,14 +201,29 @@ export async function flushOfflineSendOutbox(
           (att) => att.projectId === record.projectId
         );
 
-        if (hasPendingProofsForProject || hasPendingAttachmentsForProject) {
+        const pendingApprovals = await getPendingOfflineApprovals();
+        const hasPendingApprovalsForProject = pendingApprovals.some(
+          (approval) => approval.projectId === record.projectId
+        );
+
+        const pendingApprovalAttachments =
+          await getPendingOfflineApprovalAttachments();
+        const hasPendingApprovalAttachments =
+          pendingApprovalAttachments.length > 0;
+
+        if (
+          hasPendingProofsForProject ||
+          hasPendingAttachmentsForProject ||
+          hasPendingApprovalsForProject ||
+          hasPendingApprovalAttachments
+        ) {
           await markOfflineSendPending(
             record.id,
-           "Entries or attachments still syncing — try again in a moment."
+            "Entries, approvals, or attachments still syncing — try again in a moment."
           );
 
           onStatus?.("queued_offline", {
-            message: "Waiting for latest entries to finish syncing...",
+            message: "Waiting for all project data to finish syncing...",
           });
 
           continue;
