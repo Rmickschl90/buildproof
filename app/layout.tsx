@@ -30,6 +30,20 @@ export default function RootLayout({
         <OfflineSendIndicator />
         {children}
         <OfflineSendBootstrap />
+
+        {/* TEMP VERSION CHECK */}
+        <div
+          style={{
+            position: "fixed",
+            bottom: 4,
+            right: 6,
+            fontSize: 10,
+            opacity: 0.5,
+            zIndex: 9999,
+          }}
+        >
+          v1-mobile-test
+        </div>
       </body>
     </html>
   );
