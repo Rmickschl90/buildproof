@@ -164,7 +164,12 @@ export async function listPendingOfflineProofs(): Promise<OfflineProofRecord[]> 
     const allRecords = await promisifyRequest<OfflineProofRecord[]>(store.getAll());
 
     return allRecords
-      .filter((record) => record.status === "pending" || record.status === "failed")
+      .filter(
+        (record) =>
+          record.status === "pending" ||
+          record.status === "failed" ||
+          record.status === "syncing"
+      )
       .sort((a, b) => {
         return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       });
