@@ -1,3 +1,4 @@
+import { getPendingOfflineAttachments } from "@/lib/offlineAttachmentOutbox";
 import {
   getFlushableOfflineSendRecords,
   markOfflineSendHandedOff,
@@ -193,10 +194,15 @@ export async function flushOfflineSendOutbox(
           (proof) => proof.projectId === record.projectId
         );
 
-        if (hasPendingProofsForProject) {
+        const pendingAttachments = await getPendingOfflineAttachments();
+        const hasPendingAttachmentsForProject = pendingAttachments.some(
+          (att) => att.projectId === record.projectId
+        );
+
+        if (hasPendingProofsForProject || hasPendingAttachmentsForProject) {
           await markOfflineSendPending(
             record.id,
-            "Entries still syncing — try again in a moment."
+           "Entries or attachments still syncing — try again in a moment."
           );
 
           onStatus?.("queued_offline", {
