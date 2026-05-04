@@ -226,7 +226,17 @@ export default function ApprovalComposer({
 
         const token = await getAccessToken();
 
-        await flushOfflineApprovalAttachmentOutbox(getAccessToken);
+        const tokenGetter = async () => {
+          const { data, error } = await supabase.auth.getSession();
+          if (error) throw error;
+
+          const token = data.session?.access_token;
+          if (!token) throw new Error("Missing bearer token");
+
+          return token;
+        };
+
+        await flushOfflineApprovalAttachmentOutbox(tokenGetter);
 
         await refreshDraftAttachments(token, approvalId);
 
