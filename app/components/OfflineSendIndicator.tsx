@@ -5,21 +5,26 @@ import { getFlushableOfflineSendRecords } from "@/lib/offlineSendOutbox";
 
 export default function OfflineSendIndicator() {
   const [queuedCount, setQueuedCount] = useState(0);
+  const [topReason, setTopReason] = useState<string | null>(null);
 
   async function refreshQueuedCount() {
-  try {
-    const records = await getFlushableOfflineSendRecords();
+    try {
+      const records = await getFlushableOfflineSendRecords();
 
-    const trulyQueued = records.filter((record: any) => {
-      const status = String(record?.status || "").toLowerCase();
-      return status === "pending" || status === "syncing";
-    });
+      const trulyQueued = records.filter((record: any) => {
+        const status = String(record?.status || "").toLowerCase();
+        return status === "pending" || status === "syncing";
+      });
 
-    setQueuedCount(trulyQueued.length);
-  } catch {
-    setQueuedCount(0);
+      setQueuedCount(trulyQueued.length);
+
+      const first = trulyQueued[0];
+      setTopReason(first?.waitReason || null);
+    } catch {
+      setQueuedCount(0);
+      setTopReason(null);
+    }
   }
-}
 
   useEffect(() => {
     function handleFocus() {
@@ -78,7 +83,13 @@ export default function OfflineSendIndicator() {
         textAlign: "center",
       }}
     >
-      ⚡ {queuedCount} update{queuedCount === 1 ? "" : "s"} waiting to send
+      ⚡ {
+        topReason === "entry_attachments"
+          ? "Waiting for attachments to finish uploading..."
+          : topReason === "entries"
+            ? "Waiting for entries to finish syncing..."
+            : `${queuedCount} update${queuedCount === 1 ? "" : "s"} waiting to send`
+      }
     </div>
   );
 }
