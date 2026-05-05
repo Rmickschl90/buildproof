@@ -27,12 +27,36 @@ export default function OfflineSendIndicator() {
   }
 
   useEffect(() => {
+    async function tryFlushSends() {
+      if (!navigator.onLine) return;
+
+      try {
+        const { flushOfflineSendOutbox } = await import("@/lib/offlineSendFlush");
+        const { supabase } = await import("@/lib/supabase");
+
+        const { data, error } = await supabase.auth.getSession();
+        if (error) return;
+
+        const token = data.session?.access_token;
+        if (!token) return;
+
+        await flushOfflineSendOutbox({
+          getAccessToken: async () => token,
+        });
+
+        await refreshQueuedCount();
+      } catch {
+        // keep indicator silent
+      }
+    }
+
     function handleFocus() {
       refreshQueuedCount();
     }
 
     function handleOnline() {
       refreshQueuedCount();
+      void tryFlushSends();
     }
 
     function handleVisibility() {
@@ -54,6 +78,7 @@ export default function OfflineSendIndicator() {
     window.addEventListener("focus", handleFocus);
     window.addEventListener("online", handleOnline);
     window.addEventListener("buildproof-send-complete", handleSendComplete as EventListener);
+    window.addEventListener("buildproof-attachment-complete", tryFlushSends);
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
@@ -61,6 +86,7 @@ export default function OfflineSendIndicator() {
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("buildproof-send-complete", handleSendComplete as EventListener);
+      window.removeEventListener("buildproof-attachment-complete", tryFlushSends);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, []);
@@ -83,13 +109,12 @@ export default function OfflineSendIndicator() {
         textAlign: "center",
       }}
     >
-      ⚡ {
-        topReason === "entry_attachments"
-          ? "Waiting for attachments to finish uploading..."
-          : topReason === "entries"
-            ? "Waiting for entries to finish syncing..."
-            : `${queuedCount} update${queuedCount === 1 ? "" : "s"} waiting to send`
-      }
+      ⚡{" "}
+      {topReason === "entry_attachments"
+        ? "Waiting for attachments to finish uploading..."
+        : topReason === "entries"
+          ? "Waiting for entries to finish syncing..."
+          : `${queuedCount} update${queuedCount === 1 ? "" : "s"} waiting to send`}
     </div>
   );
 }
