@@ -7,6 +7,7 @@ import {
   type OfflineSendRecord,
 } from "@/lib/offlineSendOutbox";
 import { listPendingOfflineProofs } from "@/lib/offlineProofOutbox";
+import { getAllOfflineAttachmentRecords } from "@/lib/offlineAttachmentOutbox";
 import type { SendUiStatus } from "@/lib/sendStatus";
 
 type FlushStatusCallback = (
@@ -24,6 +25,16 @@ let flushInProgress = false;
 function isOnline(): boolean {
   if (typeof navigator === "undefined") return true;
   return navigator.onLine;
+}
+
+async function hasUnfinishedEntryAttachmentsForProject(projectId: string) {
+  const attachments = await getAllOfflineAttachmentRecords();
+
+  return attachments.some(
+    (attachment) =>
+      attachment.projectId === projectId &&
+      (attachment.status === "pending" || attachment.status === "uploading")
+  );
 }
 
 function sleep(ms: number) {
@@ -201,6 +212,22 @@ export async function flushOfflineSendOutbox(
 
           onStatus?.("queued_offline", {
             message: "Waiting for latest entries to finish syncing...",
+          });
+
+          continue;
+        }
+
+        const hasUnfinishedAttachmentsForProject =
+          await hasUnfinishedEntryAttachmentsForProject(record.projectId);
+
+        if (hasUnfinishedAttachmentsForProject) {
+          await markOfflineSendPending(
+            record.id,
+            "Entry attachments still uploading — try again in a moment."
+          );
+
+          onStatus?.("queued_offline", {
+            message: "Waiting for entry attachments to finish uploading...",
           });
 
           continue;
