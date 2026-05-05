@@ -1997,3 +1997,28 @@ Verified:
 Status:
 - FIXED
 - core mobile combined offline flow restored
+
+## ❌ FAILED EDIT — DO NOT REPEAT
+
+Change:
+Triggered runReconnectFlow() from buildproof-attachment-complete event in dashboard.
+
+Files:
+- app/dashboard/page.tsx
+
+Result:
+- Entry disappeared from UI after reconnect
+- Approval remained in draft state
+- Approval attachments disappeared
+- Update banner remained stuck
+- System entered inconsistent state
+
+Root Cause:
+Violates single-orchestrator rule — introduces competing reconnect/send flows while attachment + proof sync still in progress.
+
+Status:
+❌ REVERTED (commit 0c68182a)
+
+Rule:
+Do NOT trigger reconnect/send flow directly from attachment-complete events.
+All send orchestration must remain within the single reconnect flow owner.
