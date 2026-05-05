@@ -655,7 +655,7 @@ export default function DashboardPage() {
 
       await flushOfflineProofs();
 
-      
+
 
       const getAccessToken = async () => {
         const { data, error } = await supabase.auth.getSession();
@@ -665,7 +665,7 @@ export default function DashboardPage() {
         return token;
       };
 
-      
+
       await flushOfflineApprovalOutbox(getAccessToken);
 
       const { flushOfflineSendOutbox } = await import(
@@ -815,12 +815,21 @@ export default function DashboardPage() {
       await refreshOfflineApprovals(selectedProject.id);
     }
 
+    function handleAttachmentComplete() {
+      if (!navigator.onLine) return;
+      if (!selectedProject?.id) return;
+
+      console.log("🧱 ATTACHMENT COMPLETE - rerun reconnect/send flow");
+      void runReconnectFlow();
+    }
+
     window.addEventListener("buildproof-data-changed", handleBuildProofDataChanged);
     window.addEventListener(
       "buildproof-offline-approval-sync-complete",
       handleOfflineApprovalSyncComplete as EventListener
     );
     window.addEventListener("buildproof-send-complete", handleSendComplete);
+    window.addEventListener("buildproof-attachment-complete", handleAttachmentComplete);
 
     return () => {
       window.removeEventListener("buildproof-data-changed", handleBuildProofDataChanged);
@@ -829,6 +838,7 @@ export default function DashboardPage() {
         handleOfflineApprovalSyncComplete as EventListener
       );
       window.removeEventListener("buildproof-send-complete", handleSendComplete);
+      window.removeEventListener("buildproof-attachment-complete", handleAttachmentComplete);
     };
   }, [selectedProject?.id, showArchivedEntries]);
 
