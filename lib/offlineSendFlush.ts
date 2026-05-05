@@ -207,7 +207,8 @@ export async function flushOfflineSendOutbox(
         if (hasPendingProofsForProject) {
           await markOfflineSendPending(
             record.id,
-            "Entries still syncing — try again in a moment."
+            "Entries still syncing — try again in a moment.",
+            "entries"
           );
 
           onStatus?.("queued_offline", {
@@ -223,7 +224,8 @@ export async function flushOfflineSendOutbox(
         if (hasUnfinishedAttachmentsForProject) {
           await markOfflineSendPending(
             record.id,
-            "Entry attachments still uploading — try again in a moment."
+            "Entry attachments still uploading — try again in a moment.",
+            "entry_attachments"
           );
 
           onStatus?.("queued_offline", {
