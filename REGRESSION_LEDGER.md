@@ -1956,3 +1956,44 @@ Eliminate all draft leakage and ensure consistent behavior across:
 
 - Core system now considered:
   → PRODUCTION-STABLE FOR V1
+
+  ## Checkpoint: mobile combined offline flow fixed
+
+Scope:
+- mobile Safari / iPhone full combined offline flow
+- offline project creation
+- entry + attachment
+- approval + attachment
+- offline update send
+- offline approval send
+- reconnect without navigation
+
+Root cause:
+- duplicate reconnect attachment flush in `app/dashboard/page.tsx`
+- `flushOfflineProofs()` already remapped and flushed entry attachments after proof creation
+- reconnect flow then called `flushOfflineAttachmentOutbox()` a second time
+- mobile timing exposed a race where attachment records could be skipped or missed during the combined flow
+
+Fix:
+- removed the duplicate reconnect-level `flushOfflineAttachmentOutbox()` call
+- kept attachment flushing owned by `flushOfflineProofs()` after proof remap
+- preserved `getAccessToken` because approval/update flushes still require it
+
+Related app-shell/cache fix:
+- prevented service worker from caching auth/signing-in pages as `/dashboard`
+- added service-worker control reload guard
+- mobile Safari required clearing website data once to remove poisoned old cache
+
+Verified:
+- full mobile combined flow passed with Send Approval first, then Send Update
+- full mobile combined flow passed with Send Update first, then Send Approval
+- approval moved to pending
+- approval attachment visible in UI and email
+- entry finalized
+- entry attachment visible in UI and email
+- waiting banner cleared
+- no navigation or manual resend required
+
+Status:
+- FIXED
+- core mobile combined offline flow restored
