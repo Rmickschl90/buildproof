@@ -9,7 +9,21 @@ export default function OfflineAppShellBootstrap() {
 
     const register = async () => {
       try {
-        await navigator.serviceWorker.register("/sw.js");
+        const registration = await navigator.serviceWorker.register("/sw.js");
+
+        await registration.update();
+        await navigator.serviceWorker.ready;
+
+        if (!navigator.serviceWorker.controller) {
+          const reloadKey = "buildproof-sw-control-reload";
+
+          if (!sessionStorage.getItem(reloadKey)) {
+            sessionStorage.setItem(reloadKey, "1");
+            window.location.reload();
+          }
+        } else {
+          sessionStorage.removeItem("buildproof-sw-control-reload");
+        }
       } catch (error) {
         console.error("Service worker registration failed", error);
       }
