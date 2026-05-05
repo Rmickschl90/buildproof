@@ -17,6 +17,7 @@ export type OfflineSendRecord = {
   syncAttemptCount: number;
   lastSyncAttemptAt: string | null;
   lastError: string | null;
+  waitReason: string | null;
 
   serverJobId: string | null;
 };
@@ -146,6 +147,7 @@ export async function createOfflineSendRecord(input: {
     syncAttemptCount: 0,
     lastSyncAttemptAt: null,
     lastError: null,
+    waitReason: null,
 
     serverJobId: null,
   };
@@ -208,17 +210,20 @@ export async function markOfflineSendSyncing(id: string): Promise<OfflineSendRec
     syncAttemptCount: record.syncAttemptCount + 1,
     lastSyncAttemptAt: new Date().toISOString(),
     lastError: null,
+    waitReason: null,
   }));
 }
 
 export async function markOfflineSendPending(
   id: string,
-  errorMessage: string | null = null
+  errorMessage: string | null = null,
+  waitReason: string | null = null
 ): Promise<OfflineSendRecord> {
   return updateOfflineSendRecord(id, (record) => ({
     ...record,
     status: "pending",
     lastError: errorMessage,
+    waitReason,
   }));
 }
 
@@ -231,6 +236,7 @@ export async function markOfflineSendHandedOff(
     status: "handed_off",
     serverJobId,
     lastError: null,
+    waitReason: null,
   }));
 }
 
