@@ -655,9 +655,7 @@ export default function DashboardPage() {
 
       await flushOfflineProofs();
 
-      const { flushOfflineAttachmentOutbox } = await import(
-        "@/lib/offlineAttachmentFlush"
-      );
+      
 
       const getAccessToken = async () => {
         const { data, error } = await supabase.auth.getSession();
@@ -667,7 +665,7 @@ export default function DashboardPage() {
         return token;
       };
 
-      await flushOfflineAttachmentOutbox(getAccessToken);
+      
       await flushOfflineApprovalOutbox(getAccessToken);
 
       const { flushOfflineSendOutbox } = await import(
