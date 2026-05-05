@@ -45,8 +45,10 @@ self.addEventListener("fetch", (event) => {
       (async () => {
         try {
           const response = await fetch(request);
-          const cache = await caches.open(CACHE_NAME);
-          cache.put("/dashboard", response.clone());
+          if (url.pathname === "/dashboard" && response.ok) {
+            const cache = await caches.open(CACHE_NAME);
+            cache.put("/dashboard", response.clone());
+          }
           return response;
         } catch {
           const cachedDashboard = await caches.match("/dashboard");
@@ -82,7 +84,7 @@ self.addEventListener("fetch", (event) => {
       return;
     }
 
-        event.respondWith(
+    event.respondWith(
       (async () => {
         const cached = await caches.match(request);
         if (cached) return cached;
