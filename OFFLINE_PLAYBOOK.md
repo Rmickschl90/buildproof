@@ -25,6 +25,28 @@ Field-ready requirement:
 - Sends must never complete with missing attachments.
 - If uploads fail, the queue must remain retryable and the send gate must keep blocking incomplete updates.
 
+### Diagnostic Comparison — Library vs Camera
+
+Successful library-only run:
+- 7 entry attachments uploaded sequentially.
+- Every prepare request succeeded.
+- Every storage upload succeeded.
+- Every metadata insert succeeded.
+- All outbox records were removed.
+- Total entry attachment flush took about 23 seconds.
+
+Failed camera-included run:
+- Remap still worked and records had server `proofId`.
+- Several uploads succeeded first.
+- One camera-included run failed during upload prepare.
+- `/api/attachments/upload` returned HTML/non-JSON after about 60 seconds.
+- The failing file did not reach signed upload completion or storage upload.
+
+Rule reinforced:
+- A passing library-only test and failing camera-included test means the next fix belongs before queue insertion.
+- Normalize/compress camera-originated mobile images before they enter the outbox.
+- Preserve the existing send gate because it correctly prevents incomplete updates from sending.
+
 ## VERIFIED CURRENT SYSTEM STATE (IMPORTANT CORRECTION)
 
 The full core offline lifecycle is already functioning and has been tested.

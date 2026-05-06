@@ -2129,3 +2129,37 @@ Changes reverted:
 Next target:
 - Inspect and implement a focused mobile image normalization pipeline before entry attachment queue insertion.
 - Do not reopen core reconnect/remap/send architecture unless new evidence proves it is failing.
+
+## Checkpoint: successful library-only diagnostic compared against failed camera diagnostic
+
+Scope:
+- mobile attachment diagnostics comparison
+- entry attachment upload pipeline
+- no code changes in this checkpoint
+
+Successful library-only diagnostic:
+- Full mobile mixed test with photo-library-only entry attachments passed.
+- Entry proof remap worked.
+- All 7 entry attachment records had server `proofId`.
+- All 7 `/api/attachments/upload` prepare requests returned signed upload data.
+- All 7 storage uploads succeeded.
+- All 7 metadata inserts succeeded.
+- All 7 outbox records were removed.
+- Flush finished successfully.
+- Full 7-file flush completed in about 23 seconds.
+
+Failed camera-included diagnostic comparison:
+- Camera-included mobile mixed test failed.
+- Entry attachment records also had server `proofId`, proving remap worked.
+- Several attachments uploaded successfully before failure.
+- Failure happened during `/api/attachments/upload` prepare.
+- Failed prepare response returned HTML/non-JSON after about 60 seconds.
+- The failing attachment never reached `SIGNED_UPLOAD_READY`.
+- The failing attachment never reached storage upload.
+- Send gate correctly blocked the update because attachments remained unfinished.
+
+Conclusion:
+- The strongest evidence now points to camera-originated mobile image handling, not core offline architecture.
+- Library photos can pass the same queue/remap/send path.
+- Camera-originated files likely need normalization/compression before queue insertion.
+- Do not reopen reconnect/remap/send architecture unless new evidence appears.

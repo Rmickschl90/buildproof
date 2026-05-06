@@ -33,6 +33,32 @@ Do not repeat:
 - Recovery loops in send indicators.
 - Treating this as a generic offline-send failure.
 
+### Diagnostic Comparison: Failed Camera Run vs Successful Library-Only Run
+
+Successful library-only test:
+- Full mobile mixed 7+7 passed.
+- Entry attachments used the same offline queue/remap/send path.
+- All 7 attachment records had server proofId.
+- All 7 upload prepare calls succeeded.
+- All 7 storage uploads succeeded.
+- All 7 metadata inserts succeeded.
+- All 7 outbox records were removed.
+- Entry attachment flush finished successfully in about 23 seconds.
+
+Failed camera-included test:
+- Same general mobile mixed flow failed when live camera photos were included.
+- Entry remap still worked.
+- Attachment records had server proofId.
+- Several attachments uploaded successfully.
+- Failure occurred during `/api/attachments/upload` prepare.
+- Failed response was HTML/non-JSON after about 60 seconds.
+- Failing file did not reach `SIGNED_UPLOAD_READY` or storage upload.
+
+Conclusion:
+- Current evidence strongly isolates the remaining blocker to mobile camera-originated image handling.
+- The next fix should be image normalization/compression before `createOfflineAttachmentRecord(...)` in `AttachmentUploader.tsx`.
+- Do not modify reconnect, proof remap, send queue, or send gate based on this evidence.
+
 🎯 PRODUCT
 
 BuildProof is:
