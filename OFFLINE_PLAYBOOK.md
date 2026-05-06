@@ -332,6 +332,22 @@ While already signed in, the user must be able to:
 
 This remains non-negotiable.
 
+### Mixed Queue Stress Rule
+Approval reconnect success does NOT imply entry reconnect success.
+
+Under mixed reconnect pressure:
+- proof creation may succeed
+- approval queues may continue progressing
+- entry attachment upload queues can silently stall
+
+Always validate:
+- proof created
+- attachment rows inserted
+- proof locked/finalized
+- update email actually sent
+
+A NULL locked_at on proofs table after reconnect indicates incomplete entry finalize/send pipeline.
+
 ---
 
 ## CORE RULES

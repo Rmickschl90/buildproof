@@ -2035,3 +2035,59 @@ Result:
 
 Status:
 - Reverted by 200e2fc7 and a3f2fb27
+
+## 2026-05-06 — Mixed Mobile Offline Stress Investigation
+
+### Stable Known-Good Baseline
+Commit:
+`1c3ef6cc`
+Add stale upload retry + claim guard to entry attachments
+
+### Confirmed Working Isolated Tests
+- Entry-only offline reconnect with 7 attachments succeeded
+- Approval-only offline reconnect/send path can succeed
+- Entry reopen/edit attachment path works in isolation
+- Approval send pipeline can complete under mixed reconnect load
+
+### Confirmed Mixed Failure Pattern
+Mixed 7+7 mobile reconnect stress test consistently fails on ENTRY side while approval side may still complete.
+
+Observed behavior:
+- Approval eventually reaches pending
+- Approval attachments may send successfully
+- Entry remains draft
+- Banner remains:
+  "Waiting for attachments to finish uploading"
+- No update email sent
+- Entry attachments disappear from UI after reconnect during failed state
+
+### Supabase Investigation Findings
+Proof rows ARE created successfully during failed runs.
+
+Observed:
+- proofs.created_at populated
+- proofs.locked_at remains NULL
+
+Examples:
+- proof 429 → NULL locked_at
+- proof 428 → NULL locked_at
+- proof 427 → successful attachment upload run
+
+Attachment table investigation:
+- Failed proof runs (429/428/etc.) have ZERO uploaded entry attachments
+- Successful proof runs (427/423/etc.) contain uploaded attachments
+
+Conclusion:
+Failure is NOT proof creation.
+Failure is NOT purely UI rendering.
+Failure is specifically in entry attachment upload/remap/flush pipeline during mixed reconnect pressure.
+
+### Failed Experiments (Reverted)
+Reverted:
+- Balance offline recovery flush across entry and approval queues
+- Retry stale syncing offline proofs
+
+Result:
+- Did not solve mixed reconnect failure
+- Introduced unstable behavior risk
+- Reverted back to safe baseline

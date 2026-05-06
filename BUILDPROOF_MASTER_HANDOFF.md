@@ -263,3 +263,30 @@ PDF/dispute match snapshot state
 BuildProof is now:
 
 → production-ready for controlled V1 testing
+
+## Active Blocker — Mixed Mobile Offline Reconnect Stress Failure
+
+Current investigation focus:
+Mixed approval + entry reconnect stress on mobile.
+
+Confirmed pattern:
+- Entry proofs successfully insert into Supabase
+- Entry attachments fail to upload during failed mixed runs
+- Entry proof remains unlocked (`locked_at = NULL`)
+- Update email never sends
+- Approval pipeline may still complete successfully during same reconnect
+
+Supabase evidence:
+Successful runs:
+- proof 427 / 423 contain attachment rows
+Failed runs:
+- proof 429 / 428 contain zero attachment rows
+
+Important:
+This is NOT currently believed to be:
+- proof creation failure
+- purely UI rendering failure
+- update send-only failure
+
+Current leading theory:
+Entry attachment upload/remap/flush pipeline stalls under mixed reconnect pressure while approval queues continue progressing.
