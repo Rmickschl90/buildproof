@@ -2022,3 +2022,16 @@ Status:
 Rule:
 Do NOT trigger reconnect/send flow directly from attachment-complete events.
 All send orchestration must remain within the single reconnect flow owner.
+
+FAILED EDIT — DO NOT REPEAT:
+- Balance offline recovery flush across entry and approval queues
+- Retry stale syncing offline proofs
+
+Result:
+- Mixed 7+7 stress still failed
+- Entry/update remained draft
+- Banner stuck waiting
+- Did not solve entry attachment upload/finalize issue
+
+Status:
+- Reverted by 200e2fc7 and a3f2fb27
