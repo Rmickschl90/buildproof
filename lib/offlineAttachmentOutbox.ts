@@ -183,17 +183,45 @@ export async function getAllOfflineAttachmentRecords(): Promise<OfflineAttachmen
 
 export async function getPendingOfflineAttachments(): Promise<OfflineAttachmentRecord[]> {
   const all = await getAllOfflineAttachmentRecords();
-  return all.filter((r) => r.status === "pending");
+  const now = Date.now();
+
+  return all.filter((record) => {
+    if (record.status === "pending") return true;
+
+    if (record.status === "uploading") {
+      const lastAttempt = record.lastUploadAttemptAt
+        ? new Date(record.lastUploadAttemptAt).getTime()
+        : 0;
+
+      return !lastAttempt || now - lastAttempt > 15000;
+    }
+
+    return false;
+  });
 }
 
 export async function markAttachmentUploading(
   id: string
-): Promise<OfflineAttachmentRecord> {
+): Promise<OfflineAttachmentRecord | null> {
   return withStore("readwrite", async (store) => {
     const rec = (await promisify(store.get(id))) as OfflineAttachmentRecord | undefined;
 
     if (!rec) {
-      throw new Error("Offline attachment record not found");
+      return null;
+    }
+
+    const now = Date.now();
+    const lastAttempt = rec.lastUploadAttemptAt
+      ? new Date(rec.lastUploadAttemptAt).getTime()
+      : 0;
+
+    const canClaim =
+      rec.status === "pending" ||
+      (rec.status === "uploading" &&
+        (!lastAttempt || now - lastAttempt > 15000));
+
+    if (!canClaim) {
+      return null;
     }
 
     const updated: OfflineAttachmentRecord = {
@@ -202,6 +230,7 @@ export async function markAttachmentUploading(
       uploadAttemptCount: rec.uploadAttemptCount + 1,
       lastUploadAttemptAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      lastError: null,
     };
 
     await promisify(store.put(updated));
