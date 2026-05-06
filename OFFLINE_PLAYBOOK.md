@@ -1,5 +1,30 @@
 # 🧱 BUILDPROOF OFFLINE PLAYBOOK (MASTER)
 
+## Mobile Camera Attachment Rule
+
+Mobile camera-originated images must be treated as a special reliability risk.
+
+Confirmed investigation:
+- Library-only mobile mixed offline stress test passed.
+- Camera-included mobile mixed offline stress test failed.
+- Entry attachment records remapped correctly to server proofId.
+- Several uploads completed successfully before one `/api/attachments/upload` prepare request returned HTML/non-JSON after about 60 seconds.
+
+Rule:
+- Do not treat this as a reconnect/remap/send architecture failure unless new evidence proves that.
+- Do not stack reconnect triggers or send retries to solve camera-originated upload failures.
+- The next correct target is image normalization/compression before queue insertion.
+
+Required future direction:
+- Normalize mobile images before they enter the offline attachment outbox.
+- Convert camera-originated images to a predictable JPEG format where possible.
+- Reduce oversized mobile images before upload.
+- Preserve current queue, remap, and send-gate behavior.
+
+Field-ready requirement:
+- Sends must never complete with missing attachments.
+- If uploads fail, the queue must remain retryable and the send gate must keep blocking incomplete updates.
+
 ## VERIFIED CURRENT SYSTEM STATE (IMPORTANT CORRECTION)
 
 The full core offline lifecycle is already functioning and has been tested.

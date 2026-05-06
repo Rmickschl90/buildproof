@@ -1,4 +1,38 @@
 🧱 BUILDPROOF — MASTER HANDOFF (UPDATED)
+
+## Current Active Blocker: Mobile Camera-Originated Entry Attachments
+
+Current state:
+- Core offline/reconnect/send architecture is still considered protected.
+- Library-only mobile mixed 7+7 stress test passed.
+- Camera-included mobile mixed test failed.
+- Desktop/laptop remains presumed working unless proven otherwise.
+
+Key diagnostic result:
+- Entry attachment records were remapped correctly and had server proofId.
+- Several entry attachments uploaded successfully.
+- Failure occurred during `/api/attachments/upload` prepare request.
+- Failed response was HTML/non-JSON after about 60 seconds.
+- This points away from proof remap and send architecture as the primary issue.
+
+Important kept change:
+- Non-JSON upload prepare responses are now handled defensively instead of crashing with vague JSON parse errors.
+
+Temporary changes reverted:
+- Entry attachment diagnostic logging.
+- Dashboard diagnostic viewer.
+
+Next recommended work:
+- Focus only on mobile image normalization/compression before attachment queue insertion.
+- Inspect `AttachmentUploader.tsx`.
+- Avoid reconnect/send/remap changes unless new evidence proves those systems are failing.
+
+Do not repeat:
+- Broad reconnect triggers.
+- Dashboard-triggered attachment-complete reconnect flow.
+- Recovery loops in send indicators.
+- Treating this as a generic offline-send failure.
+
 🎯 PRODUCT
 
 BuildProof is:

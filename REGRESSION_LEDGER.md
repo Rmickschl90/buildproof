@@ -2091,3 +2091,41 @@ Result:
 - Did not solve mixed reconnect failure
 - Introduced unstable behavior risk
 - Reverted back to safe baseline
+
+## Checkpoint: mobile camera attachment failure isolated
+
+Scope:
+- mobile mixed offline reconnect investigation
+- entry attachments + approval attachments + offline send
+- no core reconnect/send/remap architecture rewrite
+
+Observed:
+- Library-only mobile mixed 7+7 stress test passed.
+- Camera-included mobile mixed test failed.
+- Failure reproduced on WiFi when 2 of 7 entry photos were taken live with camera.
+- Result: approval stayed draft, entry disappeared from UI before refresh, nothing sent, waiting banner remained.
+
+Diagnostic finding:
+- Entry attachment remap worked.
+- Attachment records had server proofId.
+- Several entry attachments uploaded successfully.
+- Failure occurred during `/api/attachments/upload` prepare request.
+- The failed prepare response returned HTML/non-JSON after about 60 seconds.
+- Example error: `Unexpected token '<', "<html>..." is not valid JSON`.
+
+Meaning:
+- This does NOT currently point to proof remap failure.
+- This does NOT currently point to send job architecture failure.
+- Send gate behaved correctly by refusing to send incomplete update.
+- Current likely target is mobile camera image normalization/compression before queue insertion.
+
+Changes kept:
+- Kept safe hardening patch that handles non-JSON upload prepare responses more defensively.
+
+Changes reverted:
+- Temporary entry attachment diagnostics logging.
+- Temporary in-app diagnostics viewer.
+
+Next target:
+- Inspect and implement a focused mobile image normalization pipeline before entry attachment queue insertion.
+- Do not reopen core reconnect/remap/send architecture unless new evidence proves it is failing.
