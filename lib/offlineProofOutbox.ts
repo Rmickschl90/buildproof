@@ -163,24 +163,8 @@ export async function listPendingOfflineProofs(): Promise<OfflineProofRecord[]> 
     const store = tx.objectStore(PROOF_OUTBOX_STORE);
     const allRecords = await promisifyRequest<OfflineProofRecord[]>(store.getAll());
 
-    const now = Date.now();
-
     return allRecords
-      .filter((record) => {
-        if (record.status === "pending" || record.status === "failed") {
-          return true;
-        }
-
-        if (record.status === "syncing") {
-          const lastAttempt = record.lastSyncAttemptAt
-            ? new Date(record.lastSyncAttemptAt).getTime()
-            : 0;
-
-          return !lastAttempt || now - lastAttempt > 15000;
-        }
-
-        return false;
-      })
+      .filter((record) => record.status === "pending" || record.status === "failed")
       .sort((a, b) => {
         return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       });
