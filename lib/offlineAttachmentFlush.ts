@@ -120,10 +120,25 @@ export async function flushOfflineAttachmentOutbox(
           }),
         });
 
-        const prepJson = await prepRes.json();
+        const prepText = await prepRes.text();
+
+        let prepJson: any = null;
+
+        try {
+          prepJson = prepText ? JSON.parse(prepText) : {};
+        } catch {
+          throw new Error(
+            `Upload prepare returned non-JSON response (${prepRes.status}): ${prepText.slice(
+              0,
+              160
+            )}`
+          );
+        }
 
         if (!prepRes.ok) {
-          throw new Error(prepJson?.error || "Failed to prepare upload");
+          throw new Error(
+            prepJson?.error || `Failed to prepare upload (${prepRes.status})`
+          );
         }
 
         const { uploadUrl, path, attachmentId } = prepJson;
