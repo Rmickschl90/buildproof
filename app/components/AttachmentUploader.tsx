@@ -7,6 +7,7 @@ import {
   getAllOfflineAttachmentRecords,
   type OfflineAttachmentRecord,
 } from "@/lib/offlineAttachmentOutbox";
+import { normalizeImageFileForUpload } from "@/lib/normalizeImageFile";
 import { flushOfflineAttachmentOutbox } from "@/lib/offlineAttachmentFlush";
 import AttachmentDiagnosticsPanel from "@/app/components/AttachmentDiagnosticsPanel";
 
@@ -129,8 +130,10 @@ export default function AttachmentUploader({
     setMessage("");
 
     try {
-      for (const file of Array.from(files)) {
-        const maxOfflineBytes = 25 * 1024 * 1024; // generous safety cap (not user-facing)
+      for (const rawFile of Array.from(files)) {
+        const file = await normalizeImageFileForUpload(rawFile);
+
+        const maxOfflineBytes = 25 * 1024 * 1024;
 
         if (file.size > maxOfflineBytes) {
           setMessage(`"${file.name}" is unusually large. Try a smaller file if upload fails.`);
