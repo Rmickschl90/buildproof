@@ -330,6 +330,31 @@ export default function DashboardPage() {
   const [showAttachmentStep, setShowAttachmentStep] = useState(false);
   const [dashboardReady, setDashboardReady] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
+  const [attachmentDiagLog, setAttachmentDiagLog] = useState("");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const load = () => {
+      try {
+        const raw = window.localStorage.getItem(
+          "buildproof_entry_attachment_diag"
+        );
+
+        setAttachmentDiagLog(raw || "");
+      } catch {
+        setAttachmentDiagLog("FAILED_TO_READ_DIAGNOSTICS");
+      }
+    };
+
+    load();
+
+    window.addEventListener("focus", load);
+
+    return () => {
+      window.removeEventListener("focus", load);
+    };
+  }, []);
   function cacheProjectSnapshot(args: {
     project?: Project | null;
     proofs?: Proof[];
@@ -655,7 +680,7 @@ export default function DashboardPage() {
 
       await flushOfflineProofs();
 
-      
+
 
       const getAccessToken = async () => {
         const { data, error } = await supabase.auth.getSession();
@@ -665,7 +690,7 @@ export default function DashboardPage() {
         return token;
       };
 
-      
+
       await flushOfflineApprovalOutbox(getAccessToken);
 
       const { flushOfflineSendOutbox } = await import(
@@ -2720,6 +2745,49 @@ export default function DashboardPage() {
   return (
     <>
       <OfflineAttachmentBootstrap />
+      {attachmentDiagLog ? (
+        <div
+          style={{
+            marginBottom: 16,
+            padding: 12,
+            borderRadius: 12,
+            background: "#111827",
+            color: "#fff",
+            fontSize: 12,
+            overflowX: "auto",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+          }}
+        >
+          <div
+            style={{
+              fontWeight: 700,
+              marginBottom: 8,
+            }}
+          >
+            Entry Attachment Diagnostics
+          </div>
+
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(attachmentDiagLog);
+              alert("Diagnostics copied");
+            }}
+            style={{
+              marginBottom: 10,
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "none",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            Copy Diagnostics
+          </button>
+
+          <div>{attachmentDiagLog}</div>
+        </div>
+      ) : null}
 
       <div className="container">
         <div className="shell">
