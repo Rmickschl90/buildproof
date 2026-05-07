@@ -10,33 +10,6 @@ function isOnline(): boolean {
   return navigator.onLine;
 }
 
-async function fetchWithTimeout(
-  input: RequestInfo | URL,
-  init: RequestInit,
-  timeoutMs: number,
-  label: string
-): Promise<Response> {
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => {
-    controller.abort();
-  }, timeoutMs);
-
-  try {
-    return await fetch(input, {
-      ...init,
-      signal: controller.signal,
-    });
-  } catch (err: any) {
-    if (err?.name === "AbortError") {
-      throw new Error(`${label} timed out after ${Math.round(timeoutMs / 1000)} seconds`);
-    }
-
-    throw err;
-  } finally {
-    window.clearTimeout(timeout);
-  }
-}
-
 let isFlushing = false;
 
 export async function flushOfflineAttachmentOutbox(
@@ -67,7 +40,7 @@ export async function flushOfflineAttachmentOutbox(
         const token = await getAccessToken();
 
         // 🔥 STEP 1 — request signed upload URL
-        const prepRes = await fetchWithTimeout("/api/attachments/upload", {
+        const prepRes = await fetch("/api/attachments/upload", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -78,7 +51,7 @@ export async function flushOfflineAttachmentOutbox(
             proofId: record.proofId,
             fileName: record.fileName,
           }),
-        }, 30000, "Upload prepare");
+        });
 
         const prepText = await prepRes.text();
 
@@ -104,13 +77,13 @@ export async function flushOfflineAttachmentOutbox(
         const { uploadUrl, path, attachmentId } = prepJson;
 
         // 🔥 STEP 2 — upload directly to storage (bypasses Vercel limit)
-        const uploadRes = await fetchWithTimeout(uploadUrl, {
+        const uploadRes = await fetch(uploadUrl, {
           method: "PUT",
           body: record.fileBlob,
           headers: {
             "Content-Type": record.mimeType || "application/octet-stream",
           },
-        }, 45000, "Direct attachment upload");
+        });
 
         if (!uploadRes.ok) {
           throw new Error(`Direct upload failed (${uploadRes.status})`);
