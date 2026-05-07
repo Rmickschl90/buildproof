@@ -1,49 +1,62 @@
 export async function normalizeImageFileForUpload(file: File): Promise<File> {
-    if (typeof window === "undefined") return file;
-    if (!file.type.toLowerCase().startsWith("image/")) return file;
+  if (typeof window === "undefined") return file;
 
-    const maxLongEdge = 2200;
-    const jpegQuality = 0.82;
+  const mime = file.type.toLowerCase();
 
-    try {
-        const bitmap = await createImageBitmap(file);
+  if (!mime.startsWith("image/")) {
+    return file;
+  }
 
-        const scale = Math.min(
-            1,
-            maxLongEdge / Math.max(bitmap.width, bitmap.height)
-        );
+  const maxLongEdge = 1800;
+  const jpegQuality = 0.78;
 
-        const width = Math.max(1, Math.round(bitmap.width * scale));
-        const height = Math.max(1, Math.round(bitmap.height * scale));
+  let bitmap: ImageBitmap | null = null;
 
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
+  try {
+    bitmap = await createImageBitmap(file);
 
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-            bitmap.close?.();
-            return file;
-        }
+    const scale = Math.min(
+      1,
+      maxLongEdge / Math.max(bitmap.width, bitmap.height)
+    );
 
-        ctx.drawImage(bitmap, 0, 0, width, height);
-        bitmap.close?.();
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
 
-        const blob = await new Promise<Blob | null>((resolve) => {
-            canvas.toBlob(resolve, "image/jpeg", jpegQuality);
-        });
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
 
-        if (!blob) return file;
+    const ctx = canvas.getContext("2d");
 
-        const originalName = file.name || "attachment";
-        const baseName = originalName.replace(/\.[^.]+$/, "");
-        const normalizedName = `${baseName}.jpg`;
-
-        return new File([blob], normalizedName, {
-            type: "image/jpeg",
-            lastModified: Date.now(),
-        });
-    } catch {
-        return file;
+    if (!ctx) {
+      throw new Error("Image normalization failed: canvas unavailable.");
     }
+
+    ctx.drawImage(bitmap, 0, 0, width, height);
+
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, "image/jpeg", jpegQuality);
+    });
+
+    if (!blob || blob.size <= 0) {
+      throw new Error("Image normalization failed: empty image output.");
+    }
+
+    const originalName = file.name || "attachment";
+    const baseName = originalName.replace(/\.[^.]+$/, "") || "attachment";
+    const normalizedName = `${baseName}.jpg`;
+
+    return new File([blob], normalizedName, {
+      type: "image/jpeg",
+      lastModified: Date.now(),
+    });
+  } catch (err: any) {
+    throw new Error(
+      err?.message ||
+        "This photo could not be prepared for offline upload. Please retake it or choose it from your photo library."
+    );
+  } finally {
+    bitmap?.close?.();
+  }
 }
