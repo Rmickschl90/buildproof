@@ -113,7 +113,23 @@ export async function flushOfflineAttachmentOutbox(
           );
         }
 
+        console.log(
+          "[offlineAttachmentFlush] removing attachment record after successful insert",
+          {
+            recordId: record.id,
+            proofId: record.proofId,
+            fileName: record.fileName,
+          }
+        );
+
         await removeOfflineAttachmentRecord(record.id);
+
+        console.log(
+          "[offlineAttachmentFlush] attachment record removed",
+          {
+            recordId: record.id,
+          }
+        );
 
         if (typeof window !== "undefined") {
           window.dispatchEvent(new Event("buildproof-attachment-complete"));
