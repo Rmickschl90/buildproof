@@ -2163,3 +2163,69 @@ Conclusion:
 - Library photos can pass the same queue/remap/send path.
 - Camera-originated files likely need normalization/compression before queue insertion.
 - Do not reopen reconnect/remap/send architecture unless new evidence appears.
+
+## Checkpoint: mobile offline camera replay investigation narrowed to normalization/replay layer
+
+Scope:
+- mobile offline reconnect testing
+- camera-originated entry attachments only
+- no reconnect/send architecture rewrites
+
+Stable restore point:
+- safe-point-before-server-image-upload-lane
+
+Confirmed successful:
+- library-selected offline attachments
+- approval attachment reconnect behavior
+- single normalized camera-originated offline image
+- proof sync during reconnect
+- send gate correctly blocking incomplete sends
+
+Confirmed failing:
+- multiple camera-originated offline images during reconnect replay
+
+Observed failed behavior:
+- proof rows insert successfully
+- attachment rows missing server-side
+- proof remains draft
+- waiting banner persists
+- queued upload count may incorrectly show 0
+- update email not sent
+
+Important meaning:
+- send gate behavior is correct
+- failure is now believed to exist in:
+  - mobile Safari/PWA blob replay
+  - OR current normalization engine reliability/state consistency
+
+NOT currently believed to be:
+- reconnect orchestration failure
+- proof remap failure
+- approval architecture failure
+- generic send lifecycle failure
+
+Experiments reverted:
+- timeout upload wrappers
+- server upload lane experiment
+- reconnect-trigger recovery experiments
+- attachment-complete reconnect triggers
+- broad reconnect balancing/recovery logic
+
+Current next direction:
+Replace current createImageBitmap(...) normalization path with Safari-safe normalization pipeline:
+
+File
+→ URL.createObjectURL(...)
+→ <img>
+→ canvas.drawImage(...)
+→ canvas.toBlob("image/jpeg")
+→ offline queue storage
+
+Reason:
+- broader web evidence suggests the older img/canvas path is more durable for:
+  - iPhone camera files
+  - Safari/PWA offline replay
+  - IndexedDB blob persistence
+
+Development rule:
+Do not reopen reconnect/send/remap architecture unless new evidence directly proves failure there.
