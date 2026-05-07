@@ -25,154 +25,101 @@ export async function flushOfflineAttachmentOutbox(
 
     for (const record of records) {
       try {
+        // 🔒 HARD GUARD — skip if already being processed
+
+
         if (!record.proofId) {
           continue;
         }
 
         const claimed = await markAttachmentUploading(record.id);
-
         if (!claimed) {
           continue;
         }
 
         const token = await getAccessToken();
 
-        const isImage = record.mimeType
-          .toLowerCase()
-          .startsWith("image/");
+        // 🔥 STEP 1 — request signed upload URL
+        const prepRes = await fetch("/api/attachments/upload", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            projectId: record.projectId,
+            proofId: record.proofId,
+            fileName: record.fileName,
+          }),
+        });
 
-        if (isImage) {
-          const form = new FormData();
+        const prepText = await prepRes.text();
 
-          form.append("projectId", record.projectId);
-          form.append("proofId", String(record.proofId));
-          form.append("fileName", record.fileName);
-          form.append(
-            "mimeType",
-            record.mimeType || "application/octet-stream"
+        let prepJson: any = null;
+
+        try {
+          prepJson = prepText ? JSON.parse(prepText) : {};
+        } catch {
+          throw new Error(
+            `Upload prepare returned non-JSON response (${prepRes.status}): ${prepText.slice(
+              0,
+              160
+            )}`
           );
+        }
 
-          form.append("file", record.fileBlob, record.fileName);
-
-          const uploadRes = await fetch(
-            "/api/attachments/upload-file",
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-              body: form,
-            }
+        if (!prepRes.ok) {
+          throw new Error(
+            prepJson?.error || `Failed to prepare upload (${prepRes.status})`
           );
+        }
 
-          const uploadJson = await uploadRes
-            .json()
-            .catch(() => ({}));
+        const { uploadUrl, path, attachmentId } = prepJson;
 
-          if (!uploadRes.ok) {
-            throw new Error(
-              uploadJson?.error || "Server image upload failed"
-            );
-          }
-        } else {
-          // 🔥 STEP 1 — request signed upload URL
-          const prepRes = await fetch("/api/attachments/upload", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              projectId: record.projectId,
-              proofId: record.proofId,
-              fileName: record.fileName,
-            }),
-          });
+        // 🔥 STEP 2 — upload directly to storage (bypasses Vercel limit)
+        const uploadRes = await fetch(uploadUrl, {
+          method: "PUT",
+          body: record.fileBlob,
+          headers: {
+            "Content-Type": record.mimeType || "application/octet-stream",
+          },
+        });
 
-          const prepText = await prepRes.text();
+        if (!uploadRes.ok) {
+          throw new Error(`Direct upload failed (${uploadRes.status})`);
+        }
 
-          let prepJson: any = null;
+        // 🔥 STEP 3 — insert metadata AFTER successful upload
+        const insertRes = await fetch("/api/attachments/insert", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            id: attachmentId,
+            projectId: record.projectId,
+            proofId: record.proofId,
+            path,
+            fileName: record.fileName,
+            mimeType: record.mimeType,
+            sizeBytes: record.sizeBytes,
+          }),
+        });
 
-          try {
-            prepJson = prepText ? JSON.parse(prepText) : {};
-          } catch {
-            throw new Error(
-              `Upload prepare returned non-JSON response (${prepRes.status}): ${prepText.slice(
-                0,
-                160
-              )}`
-            );
-          }
+        const insertJson = await insertRes.json().catch(() => ({}));
 
-          if (!prepRes.ok) {
-            throw new Error(
-              prepJson?.error ||
-                `Failed to prepare upload (${prepRes.status})`
-            );
-          }
-
-          const { uploadUrl, path, attachmentId } = prepJson;
-
-          // 🔥 STEP 2 — upload directly to storage
-          const directUploadRes = await fetch(uploadUrl, {
-            method: "PUT",
-            body: record.fileBlob,
-            headers: {
-              "Content-Type":
-                record.mimeType || "application/octet-stream",
-            },
-          });
-
-          if (!directUploadRes.ok) {
-            throw new Error(
-              `Direct upload failed (${directUploadRes.status})`
-            );
-          }
-
-          // 🔥 STEP 3 — insert metadata
-          const insertRes = await fetch(
-            "/api/attachments/insert",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({
-                id: attachmentId,
-                projectId: record.projectId,
-                proofId: record.proofId,
-                path,
-                fileName: record.fileName,
-                mimeType: record.mimeType,
-                sizeBytes: record.sizeBytes,
-              }),
-            }
-          );
-
-          const insertJson = await insertRes
-            .json()
-            .catch(() => ({}));
-
-          if (!insertRes.ok) {
-            throw new Error(
-              insertJson?.error || "Metadata insert failed"
-            );
-          }
+        if (!insertRes.ok) {
+          throw new Error(insertJson?.error || "Metadata insert failed");
         }
 
         await removeOfflineAttachmentRecord(record.id);
 
         if (typeof window !== "undefined") {
-          window.dispatchEvent(
-            new Event("buildproof-attachment-complete")
-          );
+          window.dispatchEvent(new Event("buildproof-attachment-complete"));
         }
       } catch (err: any) {
-        await markAttachmentPending(
-          record.id,
-          err?.message || "Upload failed"
-        );
+        await markAttachmentPending(record.id, err?.message || "Upload failed");
       }
     }
   } finally {
