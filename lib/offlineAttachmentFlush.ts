@@ -25,9 +25,6 @@ export async function flushOfflineAttachmentOutbox(
 
     for (const record of records) {
       try {
-        // 🔒 HARD GUARD — skip if already being processed
-
-
         if (!record.proofId) {
           continue;
         }
@@ -39,7 +36,6 @@ export async function flushOfflineAttachmentOutbox(
 
         const token = await getAccessToken();
 
-        // 🔥 STEP 1 — request signed upload URL
         const prepRes = await fetch("/api/attachments/upload", {
           method: "POST",
           headers: {
@@ -61,7 +57,7 @@ export async function flushOfflineAttachmentOutbox(
           prepJson = prepText ? JSON.parse(prepText) : {};
         } catch {
           throw new Error(
-            `Upload prepare returned non-JSON response (${prepRes.status}): ${prepText.slice(
+            `Entry upload prepare returned non-JSON response (${prepRes.status}): ${prepText.slice(
               0,
               160
             )}`
@@ -70,13 +66,13 @@ export async function flushOfflineAttachmentOutbox(
 
         if (!prepRes.ok) {
           throw new Error(
-            prepJson?.error || `Failed to prepare upload (${prepRes.status})`
+            `Entry upload prepare failed: ${prepJson?.error || `HTTP ${prepRes.status}`
+            }`
           );
         }
 
         const { uploadUrl, path, attachmentId } = prepJson;
 
-        // 🔥 STEP 2 — upload directly to storage (bypasses Vercel limit)
         const uploadRes = await fetch(uploadUrl, {
           method: "PUT",
           body: record.fileBlob,
@@ -86,10 +82,11 @@ export async function flushOfflineAttachmentOutbox(
         });
 
         if (!uploadRes.ok) {
-          throw new Error(`Direct upload failed (${uploadRes.status})`);
+          throw new Error(
+            `Entry direct storage upload failed: HTTP ${uploadRes.status}`
+          );
         }
 
-        // 🔥 STEP 3 — insert metadata AFTER successful upload
         const insertRes = await fetch("/api/attachments/insert", {
           method: "POST",
           headers: {
@@ -110,7 +107,10 @@ export async function flushOfflineAttachmentOutbox(
         const insertJson = await insertRes.json().catch(() => ({}));
 
         if (!insertRes.ok) {
-          throw new Error(insertJson?.error || "Metadata insert failed");
+          throw new Error(
+            `Entry metadata insert failed: ${insertJson?.error || "Unknown insert failure"
+            }`
+          );
         }
 
         await removeOfflineAttachmentRecord(record.id);
@@ -119,7 +119,14 @@ export async function flushOfflineAttachmentOutbox(
           window.dispatchEvent(new Event("buildproof-attachment-complete"));
         }
       } catch (err: any) {
-        await markAttachmentPending(record.id, err?.message || "Upload failed");
+        const message =
+          err instanceof Error
+            ? err.message
+            : typeof err === "string"
+              ? err
+              : "Unknown upload failure";
+
+        await markAttachmentPending(record.id, message);
       }
     }
   } finally {
