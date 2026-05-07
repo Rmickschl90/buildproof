@@ -273,7 +273,7 @@ export default function AttachmentUploader({
         </div>
       ) : null}
 
-      {process.env.NODE_ENV === "development" && proofId != null ? (
+      {proofId != null ? (
         <AttachmentDiagnosticsPanel projectId={projectId} proofId={proofId} />
       ) : null}
     </div>
