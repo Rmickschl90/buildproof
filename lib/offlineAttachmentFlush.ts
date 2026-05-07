@@ -77,14 +77,24 @@ export async function flushOfflineAttachmentOutbox(
         const { uploadUrl, path, attachmentId } = prepJson;
 
         // 🔥 STEP 2 — upload directly to storage (bypasses Vercel limit)
+        const uploadBody =
+          record.fileBytes
+            ? new Blob([record.fileBytes], {
+              type: record.mimeType || "application/octet-stream",
+            })
+            : record.fileBlob;
+
+        if (!uploadBody) {
+          throw new Error("Missing attachment upload body");
+        }
+
         const uploadRes = await fetch(uploadUrl, {
           method: "PUT",
-          body: record.fileBlob,
+          body: uploadBody,
           headers: {
             "Content-Type": record.mimeType || "application/octet-stream",
           },
         });
-
         if (!uploadRes.ok) {
           throw new Error(`Direct upload failed (${uploadRes.status})`);
         }
