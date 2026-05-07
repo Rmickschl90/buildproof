@@ -10,6 +10,36 @@ function isOnline(): boolean {
     return navigator.onLine;
 }
 
+async function fetchWithTimeout(
+    input: RequestInfo | URL,
+    init: RequestInit,
+    timeoutMs: number,
+    label: string
+): Promise<Response> {
+    const controller = new AbortController();
+
+    const timeout = window.setTimeout(() => {
+        controller.abort();
+    }, timeoutMs);
+
+    try {
+        return await fetch(input, {
+            ...init,
+            signal: controller.signal,
+        });
+    } catch (err: any) {
+        if (err?.name === "AbortError") {
+            throw new Error(
+                `${label} timed out after ${Math.round(timeoutMs / 1000)} seconds`
+            );
+        }
+
+        throw err;
+    } finally {
+        window.clearTimeout(timeout);
+    }
+}
+
 let isFlushing = false;
 
 export async function flushOfflineApprovalAttachmentOutbox(
@@ -37,7 +67,7 @@ export async function flushOfflineApprovalAttachmentOutbox(
 
                 const token = await getAccessToken();
 
-                const prepRes = await fetch("/api/approval-attachments/upload", {
+                const prepRes = await fetchWithTimeout("/api/approval-attachments/upload", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -47,7 +77,7 @@ export async function flushOfflineApprovalAttachmentOutbox(
                         approvalId: record.approvalId,
                         fileName: record.fileName,
                     }),
-                });
+                }, 30000, "Approval attachment upload prepare");
 
                 const prepJson = await prepRes.json().catch(() => ({}));
 
@@ -78,13 +108,13 @@ export async function flushOfflineApprovalAttachmentOutbox(
 
                 const { uploadUrl, path, attachmentId } = prepJson;
 
-                const uploadRes = await fetch(uploadUrl, {
+                const uploadRes = await fetchWithTimeout(uploadUrl, {
                     method: "PUT",
                     body: record.fileBlob,
                     headers: {
                         "Content-Type": record.mimeType || "application/octet-stream",
                     },
-                });
+                }, 45000, "Approval attachment direct upload");
 
                 if (!uploadRes.ok) {
                     throw new Error(`Direct upload failed (${uploadRes.status})`);
