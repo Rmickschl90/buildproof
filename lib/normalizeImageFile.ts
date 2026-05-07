@@ -5,29 +5,36 @@ export async function normalizeImageFileForUpload(file: File): Promise<File> {
     const maxLongEdge = 2200;
     const jpegQuality = 0.82;
 
+    let objectUrl: string | null = null;
+
     try {
-        const bitmap = await createImageBitmap(file);
+        objectUrl = URL.createObjectURL(file);
+
+        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const image = new Image();
+
+            image.onload = () => resolve(image);
+            image.onerror = () => reject(new Error("Image failed to load"));
+
+            image.src = objectUrl!;
+        });
 
         const scale = Math.min(
             1,
-            maxLongEdge / Math.max(bitmap.width, bitmap.height)
+            maxLongEdge / Math.max(img.naturalWidth, img.naturalHeight)
         );
 
-        const width = Math.max(1, Math.round(bitmap.width * scale));
-        const height = Math.max(1, Math.round(bitmap.height * scale));
+        const width = Math.max(1, Math.round(img.naturalWidth * scale));
+        const height = Math.max(1, Math.round(img.naturalHeight * scale));
 
         const canvas = document.createElement("canvas");
         canvas.width = width;
         canvas.height = height;
 
         const ctx = canvas.getContext("2d");
-        if (!ctx) {
-            bitmap.close?.();
-            return file;
-        }
+        if (!ctx) return file;
 
-        ctx.drawImage(bitmap, 0, 0, width, height);
-        bitmap.close?.();
+        ctx.drawImage(img, 0, 0, width, height);
 
         const blob = await new Promise<Blob | null>((resolve) => {
             canvas.toBlob(resolve, "image/jpeg", jpegQuality);
@@ -45,5 +52,9 @@ export async function normalizeImageFileForUpload(file: File): Promise<File> {
         });
     } catch {
         return file;
+    } finally {
+        if (objectUrl) {
+            URL.revokeObjectURL(objectUrl);
+        }
     }
 }
