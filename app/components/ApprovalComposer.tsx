@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { normalizeImageFileForUpload } from "@/lib/normalizeImageFile";
 import {
   addOfflineApprovalAttachment,
   getOfflineApprovalAttachmentsForApproval,
@@ -750,7 +751,9 @@ export default function ApprovalComposer({
         // 🟡 OFFLINE = QUEUE
         const isTempOfflineApproval = approvalId.startsWith("offline-");
 
-        for (const file of files) {
+        for (const rawFile of files) {
+          const file = await normalizeImageFileForUpload(rawFile);
+
           await addOfflineApprovalAttachment({
             approvalId: isTempOfflineApproval ? null : approvalId,
             offlineApprovalId: isTempOfflineApproval ? approvalId : null,
