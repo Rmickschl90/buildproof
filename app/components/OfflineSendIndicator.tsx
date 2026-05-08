@@ -1,10 +1,13 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getFlushableOfflineSendRecords } from "@/lib/offlineSendOutbox";
 import { getFlushableOfflineApprovalSendRecords } from "@/lib/offlineApprovalSendOutbox";
 
 export default function OfflineSendIndicator() {
+  const pathname = usePathname();
+
   const [queuedCount, setQueuedCount] = useState(0);
   const [approvalQueuedCount, setApprovalQueuedCount] = useState(0);
   const [topReason, setTopReason] = useState<string | null>(null);
@@ -105,6 +108,7 @@ export default function OfflineSendIndicator() {
 
   const totalQueuedCount = queuedCount + approvalQueuedCount;
 
+  if (pathname?.startsWith("/share")) return null;
   if (totalQueuedCount <= 0) return null;
 
   const updateText =
