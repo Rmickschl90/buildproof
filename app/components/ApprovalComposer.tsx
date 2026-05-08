@@ -751,6 +751,8 @@ export default function ApprovalComposer({
         // 🟡 OFFLINE = QUEUE
         const isTempOfflineApproval = approvalId.startsWith("offline-");
 
+        const localPreviewAttachments: UploadedApprovalAttachment[] = [];
+
         for (const rawFile of files) {
           const file = await normalizeImageFileForUpload(rawFile);
 
@@ -761,7 +763,19 @@ export default function ApprovalComposer({
             fileName: file.name,
             mimeType: file.type || "application/octet-stream",
           });
+
+          localPreviewAttachments.push({
+            id: `local-${crypto.randomUUID()}`,
+            filename: file.name,
+            mime_type: file.type || "application/octet-stream",
+            path: URL.createObjectURL(file),
+          });
         }
+
+        setAttachments((current) => [
+          ...current,
+          ...localPreviewAttachments,
+        ]);
 
         window.dispatchEvent(new CustomEvent("buildproof-data-changed"));
       }
@@ -1255,6 +1269,12 @@ export default function ApprovalComposer({
                   (attachment.filename &&
                     /\.(jpg|jpeg|png|webp)$/i.test(attachment.filename));
 
+                const attachmentUrl = attachment.path?.startsWith("blob:")
+                  ? attachment.path
+                  : `/api/attachments/open?id=${attachment.id}&kind=approval`;
+
+                const isLocalPreview = attachment.id.startsWith("local-");
+
                 return (
                   <div
                     key={attachment.id}
@@ -1280,7 +1300,7 @@ export default function ApprovalComposer({
                     >
                       {isImage ? (
                         <img
-                          src={`/api/attachments/open?id=${attachment.id}&kind=approval`}
+                          src={attachmentUrl}
                           alt={attachment.filename || "attachment"}
                           style={{
                             width: "100%",
@@ -1314,7 +1334,7 @@ export default function ApprovalComposer({
                       }}
                     >
                       <a
-                        href={`/api/attachments/open?id=${attachment.id}&kind=approval`}
+                        href={attachmentUrl}
                         target="_blank"
                         rel="noreferrer"
                         style={{
@@ -1334,7 +1354,16 @@ export default function ApprovalComposer({
                         <button
                           className="btn btnDanger"
                           type="button"
-                          onClick={() => void handleRemoveAttachment(attachment.id)}
+                          onClick={() => {
+                            if (isLocalPreview) {
+                              setAttachments((current) =>
+                                current.filter((item) => item.id !== attachment.id)
+                              );
+                              return;
+                            }
+
+                            void handleRemoveAttachment(attachment.id);
+                          }}
                           style={{
                             padding: "4px 8px",
                             fontSize: 12,
