@@ -2229,3 +2229,60 @@ Reason:
 
 Development rule:
 Do not reopen reconnect/send/remap architecture unless new evidence directly proves failure there.
+
+## MOBILE CAMERA REPLAY INVESTIGATION — BREAKTHROUGH SESSION
+
+Branch:
+safe-point-before-server-image-upload-lane
+
+FINAL PASSING STATE COMMITS:
+- d4e39f65 Store attachment bytes instead of raw file objects
+- 3bb559ab Extend offline send retry polling window
+- 52d0003c Store approval attachment bytes instead of raw file objects
+- 4c7cf86d Harden approval send against duplicate emails
+
+FAILED/REVERTED EXPERIMENTS:
+- b2eb9f12 Replace image normalization with Safari-safe canvas path
+- 99a2b6b5 Revert "Replace image normalization with Safari-safe canvas path"
+- db55d22c Rebuild attachment file before replay upload
+- 4a08cb0e Revert "Rebuild attachment file before replay upload"
+
+BREAKTHROUGH FINDING:
+The core mobile reconnect issue was raw camera-originated File persistence instability inside IndexedDB queues.
+
+Persisting ArrayBuffer bytes at queue time stabilized:
+- entry reconnect replay
+- approval reconnect replay
+- multi-camera reconnect flows
+
+PASSING TESTS:
+PASS:
+- offline new project creation
+- offline entry creation
+- offline approval creation
+- multiple camera-originated entry attachments
+- multiple camera-originated approval attachments
+- offline send update
+- offline send approval
+- reconnect replay
+- entry finalization
+- approval transition to pending
+- attachment rendering
+- update email delivery
+- approval email delivery
+
+IMPORTANT OBSERVED MOBILE BEHAVIOR:
+iOS PWA reconnect execution may appear stalled until foreground interaction/wake activity occurs.
+
+Observed repeatedly:
+- reconnect idle
+- user scrolls/interacts
+- reconnect processing resumes
+
+Current assessment:
+execution wake/throttling issue
+NOT offline replay corruption.
+
+APPROVAL HARDENING:
+Approval send duplicate-email race condition fixed through conditional atomic draft-claim behavior before email send.
+No new lifecycle statuses introduced.

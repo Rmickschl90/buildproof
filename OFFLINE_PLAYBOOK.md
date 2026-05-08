@@ -1,115 +1,163 @@
-# 🧱 BUILDPROOF OFFLINE PLAYBOOK
+# 🧱 BUILDPROOF — MASTER HANDOFF (UPDATED)
 
-# 🎯 CORE PRINCIPLE
+# 🎯 PRODUCT
 
-Offline is NOT a feature.
-Offline IS the system.
+BuildProof is:
+- a contractor communication timeline
+- a client-friendly project update tool
+- a dispute-safe documentation system
 
-All offline flows must:
-- work without network
-- persist immediately
-- reconnect safely later
-- avoid duplicates
-- avoid silent data loss
-
----
-
-# 🔒 LOCKED PRODUCT REQUIREMENT
-
-While already signed in, the user must be able to:
-
-- open the app
-- view recent projects
-- open a project offline
-- view timeline/client info
-- add entries
-- add attachments
-- create approvals
-- reconnect later successfully
-
-This is non-negotiable.
+Core principles:
+- simple
+- mobile-first
+- offline-capable
+- trustworthy
+- clean client experience
 
 ---
 
-# 🔒 PROTECTED SYSTEMS
+# 🧠 CURRENT PRODUCT STAGE
 
-The following systems are currently considered stable/protected:
+BuildProof is in:
 
-- reconnect orchestration
-- proof remap pipeline
-- approval remap pipeline
-- send architecture
-- approval send lifecycle
-- share/snapshot architecture
-- PDF/export generation
+→ V1 TESTING / SOFT-ROLLOUT PREPARATION
+
+This is NOT a rebuild phase.
+
+Current mode:
+- verify
+- patch surgically
+- stabilize
+- prepare for controlled real-world use
+
+DO NOT:
+- redesign stable systems
+- rewrite architecture
+- introduce broad reconnect/send experiments
+
+---
+
+# 🔒 CURRENT VERIFIED SYSTEM STATE
+
+The following systems are VERIFIED WORKING and should be treated as protected:
+
+## Offline Core
 - offline project creation
-- offline approval lifecycle
+- offline client save/edit
+- offline entry creation
+- offline approval creation
+- reconnect sync
+- hard refresh persistence
 
-Do not rewrite these casually.
+## Attachment Systems
+- entry attachments online
+- approval attachments online
+- library-selected offline attachments
+- approval attachment reconnect behavior
 
----
+## Send Systems
+- offline update send
+- offline approval send
+- reconnect-trigger send continuation
+- send snapshot integrity
+- share vs snapshot separation
 
-# 🔒 ONE ORCHESTRATOR RULE
-
-Reconnect execution must have ONE owner.
-
-Do NOT:
-- stack reconnect triggers
-- trigger reconnect recursively
-- create attachment-complete reconnect loops
-- introduce competing send flows
-
----
-
-# 🔒 OUTBOX RULE
-
-Outboxes ARE the offline system.
-
-Current queues:
-- offlineProofOutbox
-- offlineAttachmentOutbox
-- offlineApprovalOutbox
-- offlineApprovalAttachmentOutbox
-- offlineApprovalSendOutbox
-- offlineSendOutbox
+## Client-Facing Rules
+- no drafts on client-facing surfaces
+- snapshot links frozen after send
+- share links live/update dynamically
+- PDFs/dispute exports aligned with snapshot rules
 
 ---
 
-# 🔒 SEND RULE
+# 🚨 CURRENT ACTIVE BLOCKER
 
-Send must NEVER finalize until:
-- proofs exist
-- attachments exist server-side
+## Mobile Offline Replay of Multiple Camera-Originated Attachments
 
-Blocking incomplete sends is CORRECT behavior.
+Current state:
+- Single normalized camera-originated offline image can successfully reconnect, upload, finalize, and send.
+- Multiple camera-originated offline images still fail during reconnect replay.
+- Library-selected images continue to pass.
+- Desktop/laptop behavior remains presumed stable unless proven otherwise.
 
----
+Observed failure pattern:
+- Proof rows sync successfully.
+- Attachment rows are missing server-side during failed runs.
+- Send gate correctly blocks finalization when attachments are incomplete.
+- UI may show:
+  - draft proof remains
+  - waiting banner persists
+  - queued uploads incorrectly showing 0
 
-# 🔒 CURRENT MOBILE CAMERA RULE
+Important:
+This currently points to:
+- mobile camera blob replay/state consistency
 
-Mobile camera-originated attachments are currently the primary instability surface.
-
-Confirmed:
-- library-selected offline images can pass
-- single normalized camera image can pass
-- multiple camera-originated replay uploads remain unstable
-
-Current theory:
-- mobile Safari/PWA blob replay instability
-- OR normalization-engine instability
-
-NOT currently believed to be:
-- reconnect architecture failure
-- send architecture failure
+NOT to:
 - proof remap failure
+- generic reconnect failure
+- send architecture failure
+- approval architecture failure
 
 ---
 
-# 🔒 REQUIRED NORMALIZATION DIRECTION
+# 🔍 MOST IMPORTANT FINDINGS FROM THIS CHAT
 
-Normalize images BEFORE queue insertion.
+## Confirmed
+- Camera-originated files are the variable.
+- Library-only mobile stress tests can pass.
+- Single normalized camera image can pass.
+- Multi-camera replay remains unstable.
+- Proof rows insert successfully even during failures.
+- Missing attachment rows prevent send finalization correctly.
 
-Preferred pipeline:
+## Meaning
+The send gate is behaving correctly.
+
+The likely instability is:
+- mobile Safari/PWA offline blob replay behavior
+OR
+- current normalization engine reliability during replay
+
+---
+
+# ❌ REVERTED EXPERIMENTS
+
+The following experiments were reverted and should NOT be casually reintroduced:
+
+- timeout protection wrappers around uploads
+- server upload lane experiment
+- reconnect-trigger recovery experiments
+- attachment-complete reconnect triggers
+- broad reconnect balancing/recovery edits
+- stacked send retry experiments
+
+Reason:
+- none resolved the root mobile camera replay issue
+- several increased instability risk
+- stable restore point preserved instead
+
+---
+
+# 🧪 CURRENT RESTORE POINT
+
+Current safe branch:
+
+safe-point-before-server-image-upload-lane
+
+This is the clean baseline before experimental replay/upload changes.
+
+---
+
+# 🎯 NEXT DEVELOPMENT DIRECTION (LOCKED)
+
+## Replace the image normalization engine ONLY
+
+Current normalization path:
+- uses `createImageBitmap(file)`
+
+Next direction:
+- replace with Safari-safe normalization pipeline:
 
 File
 → URL.createObjectURL(...)
@@ -118,104 +166,235 @@ File
 → canvas.toBlob("image/jpeg")
 → offline queue storage
 
-Avoid relying solely on:
-- `createImageBitmap(file)`
-
 Reason:
-- Safari/PWA replay reliability concerns
-- broader web evidence supports the older img/canvas path as more durable cross-browser
+- broader web evidence suggests this path is more durable for:
+  - iPhone camera images
+  - Safari/PWA offline replay
+  - IndexedDB blob persistence
 
 ---
 
-# ❌ FAILED EXPERIMENTS — DO NOT REPEAT
+# 🚫 DO NOT TOUCH
 
-The following did NOT solve the issue and were reverted:
+Unless new evidence proves failure:
 
-- timeout upload wrappers
-- alternate server upload lane
-- reconnect-trigger upload recovery
-- attachment-complete reconnect events
-- broad reconnect balancing/recovery loops
-- stacked retry/recovery logic
+- reconnect orchestration
+- send architecture
+- approval send lifecycle
+- proof remap architecture
+- offline queue ownership
+- share/snapshot architecture
+- PDF/export architecture
 
-Rule:
-Do not stack speculative recovery logic onto stable systems.
-
----
-
-# 🔒 TESTING RULES
-
-After any core edit:
-- push
-- deploy
-- promote
-- test on real mobile hardware
-
-Required E2E path:
-- online start
-- offline create/edit
-- offline attachments
-- offline sends
-- reconnect
-- refresh
-- verify no duplicates
-- verify attachments render
-- verify sends complete
+These systems are currently considered protected.
 
 ---
 
-# 🔒 DEBUGGING RULE
-
-When repeated experiments fail:
-
-DO:
-1. revert
-2. return to stable checkpoint
-3. isolate one subsystem
-4. prove the first actual failure
-
-DO NOT:
-- stack patches blindly
-- widen architecture scope
-- rewrite protected systems without proof
-
----
-
-# 🔒 CLIENT-FACING RULES
+# 🔒 CLIENT-FACING DATA RULES
 
 Dashboard:
 - drafts visible
 
-Client-facing surfaces:
-- finalized entries only
-- pending/approved/declined approvals only
+Share Link:
+- live finalized view only
 
-Never expose:
+Send Snapshot:
+- frozen at send time
+
+PDF / Dispute Export:
+- frozen snapshot state
+
+Client-facing surfaces must NEVER show:
 - draft entries
 - draft approvals
 
 ---
 
-# 🧠 CURRENT PRIORITY MODE
+# 📁 CURRENT IMPORTANT FILES
 
-Allowed:
-- isolated bug fixes
-- upload reliability work
-- UI cleanup
-- tester-readiness polish
+app/
+- dashboard/page.tsx
+- share/[token]/page.tsx
 
-Avoid:
-- architecture rewrites
-- broad reconnect experimentation
-- queue ownership changes
-- new offline systems
+app/api/
+- send/create-job/route.ts
+- send/process-job/route.ts
+- attachments/*
+- approvals/*
+
+components/
+- AttachmentUploader.tsx
+- ProofAttachmentsWrapper.tsx
+- ApprovalComposer.tsx
+- SendUpdatePack.tsx
+
+lib/
+- normalizeImageFile.ts
+- offlineAttachmentFlush.ts
+- offlineAttachmentOutbox.ts
+- offlineApprovalAttachmentOutbox.ts
+- offlineSendFlush.ts
+- pdf/buildProjectPdf.ts
+
+root/
+- BUILDPROOF_MASTER_HANDOFF.md
+- OFFLINE_PLAYBOOK.md
+- REGRESSION_LEDGER.md
+
+---
+
+# 🧠 DEVELOPMENT RULES
+
+- one subsystem at a time
+- restore point before core edits
+- revert failed experiments
+- no speculative architecture rewrites
+- always validate with E2E testing
+- preserve stable systems aggressively
 
 ---
 
 # 🟢 CURRENT STATUS
 
-BuildProof core offline architecture remains considered:
-→ stable and field-capable
+BuildProof is still considered:
+→ production-ready for controlled V1 testing
 
-Current isolated blocker:
+The remaining blocker is now isolated specifically to:
 → mobile offline replay of multiple camera-originated attachments
+
+# 📁 CURRENT FILE TREE (IMPORTANT)
+
+app/
+├── layout.tsx
+├── dashboard/
+│   └── page.tsx
+├── share/
+│   └── [token]/
+│       ├── page.tsx
+│       └── export/
+│           └── route.ts
+├── auth/
+│   └── finish/
+│       └── page.tsx
+├── api/
+│   ├── approvals/
+│   │   ├── list/
+│   │   │   └── route.ts
+│   │   ├── create/
+│   │   ├── update/
+│   │   └── send/
+│   ├── attachments/
+│   │   ├── upload/
+│   │   │   └── route.ts
+│   │   └── insert/
+│   │       └── route.ts
+│   ├── approval-attachments/
+│   │   ├── upload/
+│   │   │   └── route.ts
+│   │   └── insert/
+│   │       └── route.ts
+│   ├── send/
+│   │   ├── create-job/
+│   │   │   └── route.ts
+│   │   ├── process-job/
+│   │   │   └── route.ts
+│   │   └── email/
+│   │       └── route.ts
+│   ├── export/
+│   │   └── pdf/
+│   │       └── route.ts
+│   └── proofs/
+│       ├── create/
+│       ├── update/
+│       └── finalize/
+
+components/
+├── ApprovalCard.tsx
+├── ApprovalComposer.tsx
+├── AttachmentUploader.tsx
+├── AttachmentList.tsx
+├── ProofAttachmentsWrapper.tsx
+├── SendUpdatePack.tsx
+├── OfflineAttachmentBootstrap.tsx
+├── OfflineSendBootstrap.tsx
+├── OfflineAppShellBootstrap.tsx
+├── OfflineSendIndicator.tsx
+└── ProjectNotesModal.tsx
+
+lib/
+├── normalizeImageFile.ts
+├── buildProjectPdf.ts
+├── supabase.ts
+├── supabaseServer.ts
+├── requireUser.ts
+├── offlineDashboardCache.ts
+├── offlineProofOutbox.ts
+├── offlineAttachmentOutbox.ts
+├── offlineAttachmentFlush.ts
+├── offlineApprovalOutbox.ts
+├── offlineApprovalFlush.ts
+├── offlineApprovalAttachmentOutbox.ts
+├── offlineApprovalAttachmentFlush.ts
+├── offlineApprovalSendOutbox.ts
+├── offlineApprovalSendFlush.ts
+├── offlineSendOutbox.ts
+├── offlineSendFlush.ts
+└── reconnectFlow.ts
+
+public/
+├── sw.js
+├── buildproof-logo.png
+└── manifest.json
+
+root/
+├── BUILDPROOF_MASTER_HANDOFF.md
+├── OFFLINE_PLAYBOOK.md
+├── REGRESSION_LEDGER.md
+├── tsconfig.json
+├── next.config.js
+└── package.json
+
+## CAMERA-ORIGINATED MOBILE ATTACHMENT RULE (LOCKED)
+
+NEVER persist raw camera-originated File objects directly into IndexedDB offline queues.
+
+ALWAYS persist durable binary bytes immediately:
+- ArrayBuffer
+or
+- equivalent durable binary payload
+
+Reason:
+iOS Safari/PWA camera-originated File/Blob objects are unstable across:
+- reconnect replay
+- long idle periods
+- PWA suspension
+- IndexedDB hydration
+- offline resume
+
+Library-selected images may appear stable while camera-originated images fail because they originate from different underlying iOS asset systems.
+
+This rule now applies to:
+- entry attachment queues
+- approval attachment queues
+
+This is now a core BuildProof offline architecture rule.
+
+## APPROVAL SEND HARDENING RULE (LOCKED)
+
+Approval sends MUST be protected against duplicate reconnect execution.
+
+DO NOT rely on:
+- client timing
+- UI state
+- reconnect ordering alone
+
+Server routes must atomically claim approval send ownership before email delivery.
+
+Current approved approach:
+conditional status claim:
+WHERE status = 'draft'
+
+DO NOT introduce temporary approval lifecycle statuses unless absolutely necessary.
+Too many systems depend on the existing lifecycle:
+draft → pending → approved/declined/expired
+
