@@ -32,10 +32,10 @@ export async function POST(req: Request) {
         }
 
         if (!canSendApproval(approval.status)) {
-            return NextResponse.json(
-                { error: "Only draft approvals can be sent." },
-                { status: 400 }
-            );
+            return NextResponse.json({
+                approval,
+                alreadySent: true,
+            });
         }
 
         if (!approval.title?.trim()) {
@@ -59,11 +59,16 @@ export async function POST(req: Request) {
             .select("id, filename, approval_id")
             .eq("approval_id", approval.id);
 
-        // 🚨 HARD BLOCK: do not allow send until attachments are fully synced
+        if (attachmentsError) {
+            console.error("[approvals/send] attachments fetch error", attachmentsError);
+            return NextResponse.json(
+                { error: "Failed to load approval attachments." },
+                { status: 500 }
+            );
+        }
+
         const expectedAttachmentCount = Number(body?.expectedAttachmentCount ?? 0);
         const actualAttachmentCount = Array.isArray(attachments) ? attachments.length : 0;
-
-            
 
         if (expectedAttachmentCount > 0 && actualAttachmentCount < expectedAttachmentCount) {
             return NextResponse.json(
@@ -72,12 +77,28 @@ export async function POST(req: Request) {
             );
         }
 
-        if (attachmentsError) {
-            console.error("[approvals/send] attachments fetch error", attachmentsError);
-            return NextResponse.json(
-                { error: "Failed to load approval attachments." },
-                { status: 500 }
-            );
+        const sentAt = new Date().toISOString();
+
+        const { data: claimedApproval, error: claimError } = await supabaseServer
+            .from("approval_requests")
+            .update({
+                status: "pending",
+                sent_at: sentAt,
+                updated_at: sentAt,
+            })
+            .eq("id", approval.id)
+            .eq("created_by", user.id)
+            .eq("status", "draft")
+            .select("*")
+            .single();
+
+        if (claimError || !claimedApproval) {
+            console.error("[approvals/send] approval claim skipped/error", claimError);
+
+            return NextResponse.json({
+                approval,
+                alreadySent: true,
+            });
         }
 
         const rawToken = createApprovalToken();
@@ -90,6 +111,18 @@ export async function POST(req: Request) {
 
         if (deleteOldTokenError) {
             console.error("[approvals/send] delete old token error", deleteOldTokenError);
+
+            await supabaseServer
+                .from("approval_requests")
+                .update({
+                    status: "draft",
+                    sent_at: null,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq("id", approval.id)
+                .eq("created_by", user.id)
+                .eq("status", "pending");
+
             return NextResponse.json(
                 { error: "Failed to prepare approval token." },
                 { status: 500 }
@@ -107,6 +140,18 @@ export async function POST(req: Request) {
 
         if (tokenInsertError) {
             console.error("[approvals/send] token insert error", tokenInsertError);
+
+            await supabaseServer
+                .from("approval_requests")
+                .update({
+                    status: "draft",
+                    sent_at: null,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq("id", approval.id)
+                .eq("created_by", user.id)
+                .eq("status", "pending");
+
             return NextResponse.json(
                 { error: "Failed to save approval token." },
                 { status: 500 }
@@ -271,37 +316,25 @@ export async function POST(req: Request) {
                 .delete()
                 .eq("approval_request_id", approval.id);
 
+            await supabaseServer
+                .from("approval_requests")
+                .update({
+                    status: "draft",
+                    sent_at: null,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq("id", approval.id)
+                .eq("created_by", user.id)
+                .eq("status", "pending");
+
             return NextResponse.json(
                 { error: emailJson?.message || emailJson?.error || "Failed to send approval email." },
                 { status: 500 }
             );
         }
 
-        const sentAt = new Date().toISOString();
-
-                
-
-        const { data: updatedApproval, error: updateError } = await supabaseServer
-            .from("approval_requests")
-            .update({
-                status: "pending",
-                sent_at: sentAt,
-                updated_at: sentAt,
-            })
-            .eq("id", approval.id)
-            .select("*")
-            .single();
-
-        if (updateError) {
-            console.error("[approvals/send] approval update error", updateError);
-            return NextResponse.json(
-                { error: "Approval email sent, but failed to update approval status." },
-                { status: 500 }
-            );
-        }
-
         return NextResponse.json({
-            approval: updatedApproval,
+            approval: claimedApproval,
             reviewUrl,
         });
     } catch (error: any) {
