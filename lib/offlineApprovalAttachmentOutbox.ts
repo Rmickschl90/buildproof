@@ -15,7 +15,8 @@ export type OfflineApprovalAttachmentRecord = {
     fileName: string;
     mimeType: string;
     sizeBytes: number;
-    fileBlob: Blob;
+    fileBytes: ArrayBuffer;
+    fileBlob?: Blob;
 
     status: OfflineApprovalAttachmentStatus;
     createdAt: string;
@@ -128,6 +129,8 @@ export async function addOfflineApprovalAttachment(input: {
 }): Promise<OfflineApprovalAttachmentRecord> {
     const now = new Date().toISOString();
 
+    const fileBytes = await input.file.arrayBuffer();
+
     const record: OfflineApprovalAttachmentRecord = {
         id: makeOfflineApprovalAttachmentId(),
         approvalId: input.approvalId ?? null,
@@ -136,7 +139,7 @@ export async function addOfflineApprovalAttachment(input: {
         fileName: input.fileName,
         mimeType: input.mimeType,
         sizeBytes: input.file.size,
-        fileBlob: input.file,
+        fileBytes,
 
         status: "pending",
         createdAt: now,

@@ -78,9 +78,20 @@ export async function flushOfflineApprovalAttachmentOutbox(
 
                 const { uploadUrl, path, attachmentId } = prepJson;
 
+                const uploadBody =
+                    record.fileBytes
+                        ? new Blob([record.fileBytes], {
+                            type: record.mimeType || "application/octet-stream",
+                        })
+                        : record.fileBlob;
+
+                if (!uploadBody) {
+                    throw new Error("Missing approval attachment upload body");
+                }
+
                 const uploadRes = await fetch(uploadUrl, {
                     method: "PUT",
-                    body: record.fileBlob,
+                    body: uploadBody,
                     headers: {
                         "Content-Type": record.mimeType || "application/octet-stream",
                     },
