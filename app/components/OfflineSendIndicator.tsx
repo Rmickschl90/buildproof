@@ -2,26 +2,38 @@
 
 import { useEffect, useState } from "react";
 import { getFlushableOfflineSendRecords } from "@/lib/offlineSendOutbox";
+import { getFlushableOfflineApprovalSendRecords } from "@/lib/offlineApprovalSendOutbox";
 
 export default function OfflineSendIndicator() {
   const [queuedCount, setQueuedCount] = useState(0);
+  const [approvalQueuedCount, setApprovalQueuedCount] = useState(0);
   const [topReason, setTopReason] = useState<string | null>(null);
 
   async function refreshQueuedCount() {
     try {
-      const records = await getFlushableOfflineSendRecords();
+      const [records, approvalRecords] = await Promise.all([
+        getFlushableOfflineSendRecords(),
+        getFlushableOfflineApprovalSendRecords(),
+      ]);
 
       const trulyQueued = records.filter((record: any) => {
         const status = String(record?.status || "").toLowerCase();
         return status === "pending" || status === "syncing";
       });
 
+      const trulyQueuedApprovals = approvalRecords.filter((record: any) => {
+        const status = String(record?.status || "").toLowerCase();
+        return status === "pending" || status === "processing";
+      });
+
       setQueuedCount(trulyQueued.length);
+      setApprovalQueuedCount(trulyQueuedApprovals.length);
 
       const first = trulyQueued[0];
       setTopReason(first?.waitReason || null);
     } catch {
       setQueuedCount(0);
+      setApprovalQueuedCount(0);
       setTopReason(null);
     }
   }
@@ -91,7 +103,24 @@ export default function OfflineSendIndicator() {
     };
   }, []);
 
-  if (queuedCount <= 0) return null;
+  const totalQueuedCount = queuedCount + approvalQueuedCount;
+
+  if (totalQueuedCount <= 0) return null;
+
+  const updateText =
+    queuedCount > 0
+      ? `${queuedCount} update${queuedCount === 1 ? "" : "s"}`
+      : "";
+
+  const approvalText =
+    approvalQueuedCount > 0
+      ? `${approvalQueuedCount} approval${approvalQueuedCount === 1 ? "" : "s"}`
+      : "";
+
+  const combinedText =
+    updateText && approvalText
+      ? `${updateText} and ${approvalText} waiting to send`
+      : `${updateText || approvalText} waiting to send`;
 
   return (
     <div
@@ -114,7 +143,7 @@ export default function OfflineSendIndicator() {
         ? "Waiting for attachments to finish uploading..."
         : topReason === "entries"
           ? "Waiting for entries to finish syncing..."
-          : `${queuedCount} update${queuedCount === 1 ? "" : "s"} waiting to send`}
+          : combinedText}
     </div>
   );
 }

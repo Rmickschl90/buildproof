@@ -142,6 +142,18 @@ export async function getPendingOfflineApprovalSends(): Promise<
     return result.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
+export async function getFlushableOfflineApprovalSendRecords(): Promise<
+    OfflineApprovalSendRecord[]
+> {
+    const records = await getPendingOfflineApprovalSends();
+
+    return records.filter(
+        (record) =>
+            record.status === "pending" ||
+            record.status === "processing"
+    );
+}
+
 export async function markOfflineApprovalSendProcessing(
     id: string
 ): Promise<void> {
