@@ -120,8 +120,8 @@ async function waitForTerminalJobStatus(
   token: string,
   onStatus?: FlushStatusCallback
 ) {
-  const maxAttempts = 8;
-  const delayMs = 1500;
+  const maxAttempts = 30;
+const delayMs = 1500;
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     if (!isOnline()) {
