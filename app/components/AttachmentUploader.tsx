@@ -9,7 +9,6 @@ import {
 } from "@/lib/offlineAttachmentOutbox";
 import { normalizeImageFileForUpload } from "@/lib/normalizeImageFile";
 import { flushOfflineAttachmentOutbox } from "@/lib/offlineAttachmentFlush";
-import AttachmentDiagnosticsPanel from "@/app/components/AttachmentDiagnosticsPanel";
 
 type Props = {
   projectId: string;
@@ -273,9 +272,7 @@ export default function AttachmentUploader({
         </div>
       ) : null}
 
-      {proofId != null ? (
-        <AttachmentDiagnosticsPanel projectId={projectId} proofId={proofId} />
-      ) : null}
+      
     </div>
   );
 }

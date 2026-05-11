@@ -2,7 +2,6 @@
 
 import { useRef, useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import ApprovalDiagnosticsPanel from "@/app/components/ApprovalDiagnosticsPanel";
 import {
   createApprovalSendIdempotencyKey,
   createOfflineApprovalSendId,
@@ -695,9 +694,6 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
           </div>
         </div>
 
-        {approval.status === "draft" ? (
-          <ApprovalDiagnosticsPanel approvalId={approval.id} />
-        ) : null}
 
         {isArchived ? (
           <div className="sub" style={{ opacity: 0.72 }}>

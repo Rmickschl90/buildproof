@@ -11,7 +11,6 @@ import {
 } from "@/lib/offlineSendOutbox";
 import { flushOfflineSendOutbox } from "@/lib/offlineSendFlush";
 import { getSendStatusLabel, type SendUiStatus } from "@/lib/sendStatus";
-import SendDiagnosticsPanel from "@/app/components/SendDiagnosticsPanel";
 
 type Props = {
   projectId: string;
@@ -1188,9 +1187,7 @@ export default function SendUpdatePack({
 
 
 
-        {process.env.NODE_ENV === "development" ? (
-          <SendDiagnosticsPanel projectId={projectId} />
-        ) : null}
+        
       </div>
     </div>
   );
