@@ -398,3 +398,238 @@ DO NOT introduce temporary approval lifecycle statuses unless absolutely necessa
 Too many systems depend on the existing lifecycle:
 draft → pending → approved/declined/expired
 
+# 🧱 VERIFIED E2E STATE — 2026-05-11
+
+## Verified fallback branch
+
+Primary verified recovery point:
+- `v1-e2e-verified-safe`
+
+This branch contains:
+- mobile + desktop E2E verification
+- timestamp integrity fixes
+- offline approval timezone replay fix
+- diagnostics cleanup
+- current strongest known stable state
+
+Earlier replay stabilization point:
+- `v1-mobile-replay-stable`
+
+---
+
+# 🧱 TIMESTAMP INTEGRITY RULES (LOCKED)
+
+BuildProof preserves:
+- jobsite-local event time
+
+BuildProof does NOT use:
+- viewer-localized timestamps
+
+Every timeline event should preserve:
+- original UTC timestamp
+- original timezone id
+- original timezone offset at creation time
+
+This architecture is DST-safe.
+
+---
+
+## Timeline Entries
+
+Primary visible timestamp:
+- `created_at`
+
+`locked_at` is:
+- finalization metadata only
+- NOT the primary client-facing event timestamp
+
+Client-facing entry surfaces:
+- finalized entries only
+- never drafts
+
+---
+
+## Approval Timeline Rules
+
+Primary visible approval timestamp:
+- `sent_at`
+- fallback:
+  - `created_at`
+
+`responded_at` is:
+- secondary metadata
+- NOT the primary timeline timestamp
+
+Approval lifecycle remains:
+- draft
+- pending
+- approved / declined / expired
+
+No temporary statuses unless absolutely required.
+
+---
+
+## Share Header Timestamp Rule
+
+“Last updated” must reflect:
+- latest visible timeline event
+
+Allowed:
+- proof `created_at`
+- approval `sent_at || created_at`
+
+NOT allowed:
+- `responded_at`
+
+Reason:
+- header timestamp semantics must align with visible timeline card semantics
+- prevents client-facing trust inconsistencies
+
+Commit:
+- `8afe033e`
+- Align share header timestamps with timeline events
+
+---
+
+# 🧱 OFFLINE APPROVAL TIMEZONE REPLAY RULE (LOCKED)
+
+Offline approval replay MUST preserve:
+- `createdTimezoneId`
+- `createdTimezoneOffsetMinutes`
+
+Root cause discovered:
+- replay flush path failed to forward timezone metadata
+- caused approvals to render several hours off
+- Supabase rows stored null timezone fields
+
+Fix:
+- `offlineApprovalFlush.ts`
+- replay payload now forwards timezone metadata correctly
+
+Commit:
+- `abf7d19f`
+- Include timezone fields in offline approval flush
+
+Verification:
+- new offline approvals now correctly persist:
+  - `created_timezone_id`
+  - `created_timezone_offset_minutes`
+
+---
+
+# 🧱 MOBILE OFFLINE CAMERA REPLAY RULE (LOCKED)
+
+NEVER persist raw camera-originated File objects directly into IndexedDB queues.
+
+ALWAYS persist durable binary payloads immediately:
+- ArrayBuffer
+or equivalent durable binary representation
+
+Reason:
+iOS Safari/PWA camera-originated File/Blob objects are unstable across:
+- reconnect replay
+- idle periods
+- PWA suspension
+- IndexedDB hydration
+- offline resume
+
+This rule applies to:
+- entry attachment queues
+- approval attachment queues
+
+This is now a core BuildProof offline architecture rule.
+
+---
+
+# 🧱 APPROVAL SEND HARDENING RULE (LOCKED)
+
+Approval sends MUST be protected against duplicate reconnect execution.
+
+DO NOT rely on:
+- client timing
+- reconnect ordering
+- UI state alone
+
+Server routes must atomically claim ownership before email delivery.
+
+Approved approach:
+- conditional status claim:
+  - `WHERE status = 'draft'`
+
+Do NOT introduce temporary approval lifecycle statuses casually.
+
+Current lifecycle must remain:
+- draft
+- pending
+- approved / declined / expired
+
+Commit:
+- `4c7cf86d`
+- Harden approval send against duplicate emails
+
+---
+
+# 🧱 RECONNECT ORCHESTRATION RULES (LOCKED)
+
+One reconnect orchestrator only.
+
+Avoid:
+- competing reconnect owners
+- duplicate flush loops
+- overlapping online/focus/poll reconnect execution
+
+Full-batch guards must wrap:
+- the entire replay operation
+- not individual queue items
+
+Reconnect systems currently considered protected:
+- reconnect orchestration
+- proof remap architecture
+- offline project sync/remap
+- send snapshot architecture
+- share/snapshot separation
+- attachment queue ownership
+- send queue ownership
+
+---
+
+# 🧱 CURRENT VERIFIED E2E RESULTS
+
+## Mobile online
+PASS
+
+## Mobile offline
+PASS
+
+Including:
+- camera-originated attachment replay
+- mixed attachment stress tests
+- update replay
+- approval replay
+- reconnect send continuation
+
+## Desktop online
+PASS
+
+## Desktop offline
+PASS except:
+- offline project rename
+- currently returns:
+  - `Failed to fetch`
+
+This is the next isolated issue to investigate.
+
+---
+
+# 🧱 DIAGNOSTICS CLEANUP
+
+Removed:
+- ApprovalDiagnosticsPanel
+- AttachmentDiagnosticsPanel
+- SendDiagnosticsPanel
+
+Reconnect orchestration logs intentionally preserved for rollout safety.
+
+Commit:
+- `24b99a36`
+- Remove temporary diagnostics panels

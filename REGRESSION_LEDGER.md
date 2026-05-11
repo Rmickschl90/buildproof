@@ -2286,3 +2286,171 @@ NOT offline replay corruption.
 APPROVAL HARDENING:
 Approval send duplicate-email race condition fixed through conditional atomic draft-claim behavior before email send.
 No new lifecycle statuses introduced.
+
+## 2026-05-11 — Full E2E verification + timestamp integrity stabilization
+
+### Verified fallback branch
+- Created and pushed:
+  - `v1-e2e-verified-safe`
+
+This branch is now the primary verified recovery point after full mobile + desktop E2E validation.
+
+---
+
+### Major verified systems
+
+#### Mobile online
+PASS
+- Project creation
+- Client save
+- Entry create/edit
+- Approval create/edit
+- Mixed attachment uploads
+- Update send
+- Approval send
+- Snapshot/share rendering
+- Email rendering
+
+#### Mobile offline
+PASS
+- Offline project workflow
+- Offline entries
+- Offline approvals
+- Camera capture attachments
+- Mixed attachment replay
+- Offline update send queue
+- Offline approval send queue
+- Automatic reconnect replay
+- No duplicate sends
+- No missing attachments
+- Correct finalized/pending states
+- Correct email rendering
+
+Stress test passed:
+- offline project
+- entry + 5 mixed attachments
+- approval + 5 mixed attachments
+- edit entry + additional attachments
+- edit approval + additional attachments
+- queue update send
+- queue approval send
+- reconnect replay
+
+Result:
+- full successful automatic replay
+- no duplicates
+- no missing attachments
+- no stuck queues
+
+---
+
+#### Desktop online
+PASS
+- Core project workflows
+- Sends
+- Approvals
+- Attachments
+- Share/snapshot rendering
+
+#### Desktop offline
+PASS with one remaining issue:
+- Offline project rename currently throws:
+  - `Failed to fetch`
+
+All other desktop offline replay systems passed.
+
+---
+
+### Timestamp integrity work completed
+
+#### Share header timestamp fix
+Problem:
+- Share header "Last updated" used mixed timestamp semantics including `responded_at`
+- Visible approval cards used `sent_at`
+- This caused client-facing timestamp mismatches
+
+Fix:
+- Header now aligns with visible timeline event semantics
+- Removed `responded_at` from share header latest-event calculation
+- Header now uses:
+  - proof `created_at`
+  - approval `sent_at || created_at`
+
+Commit:
+- `8afe033e` — Align share header timestamps with timeline events
+
+---
+
+#### Offline approval timezone replay fix
+Problem:
+- Offline approval replay path dropped timezone metadata
+- Result:
+  - some approvals rendered 5 hours off
+  - `created_timezone_id` and offset stored as null
+
+Root cause:
+- `offlineApprovalFlush.ts` did not forward:
+  - `createdTimezoneId`
+  - `createdTimezoneOffsetMinutes`
+
+Fix:
+- replay payload now forwards timezone metadata correctly
+
+Verified:
+- new offline approvals now persist:
+  - `created_timezone_id`
+  - `created_timezone_offset_minutes`
+
+Commit:
+- `abf7d19f` — Include timezone fields in offline approval flush
+
+Important architectural conclusion:
+- BuildProof correctly preserves jobsite-local event time
+- Viewer-localized timestamps are NOT used
+- DST-safe architecture confirmed
+
+---
+
+### Mobile attachment UI polish
+Fixed mobile offline filename overflow for non-image attachments (PDFs etc).
+
+Commit:
+- `c1588cd1` — Fix mobile offline attachment filename overflow
+
+---
+
+### Diagnostics cleanup
+Removed temporary investigation panels:
+- ApprovalDiagnosticsPanel
+- AttachmentDiagnosticsPanel
+- SendDiagnosticsPanel
+
+Preserved reconnect orchestration logs for rollout safety.
+
+Commit:
+- `24b99a36` — Remove temporary diagnostics panels
+
+---
+
+### Current known remaining issue
+Only confirmed remaining E2E issue:
+
+#### Desktop offline project rename
+Symptoms:
+- offline rename attempt returns:
+  - `Failed to fetch`
+
+Status:
+- isolated for next chat
+- no other replay systems currently failing
+
+---
+
+### Current trusted rollback branches
+
+#### Primary verified recovery point
+- `v1-e2e-verified-safe`
+
+#### Earlier mobile replay stabilization point
+- `v1-mobile-replay-stable`
+
