@@ -1649,42 +1649,133 @@ export default function DashboardPage() {
   }
 
   async function saveProjectRename() {
-    if (!selectedProject) return;
+  if (!selectedProject) return;
 
-    const next = renameTitle.trim();
-    if (!next) {
-      setStatus("Project name can’t be empty.");
-      return;
-    }
+  const next = renameTitle.trim();
 
-    try {
-      setStatus("Saving project name...");
+  if (!next) {
+    setStatus("Project name can’t be empty.");
+    return;
+  }
 
-      const { error } = await supabase.from("projects").update({ title: next }).eq("id", selectedProject.id);
+  try {
+    setStatus("Saving project name...");
 
-      if (error) throw error;
-
-      const updatedProject = { ...selectedProject, title: next };
-
-      setSelectedProjectWithTrace(updatedProject, "project rename");
-      setProjects((list) => list.map((p) => (p.id === selectedProject.id ? { ...p, title: next } : p)));
-      cacheProjectSnapshot({ project: updatedProject });
-
-      saveCachedDashboardProject({
-        project: updatedProject,
-        proofs,
-        approvals,
-        cachedAt: new Date().toISOString(),
+    // 🟢 OFFLINE PATH
+    if (!navigator.onLine) {
+      await putOfflineProject({
+        id: selectedProject.id,
+        name: next,
+        clientName: selectedProject.client_name ?? null,
+        clientEmail: selectedProject.client_email ?? null,
+        clientPhone: selectedProject.client_phone ?? null,
+        projectAddress: selectedProject.project_address ?? null,
+        privateNotes:
+          selectedProject.private_notes ??
+          projectNotesDraft ??
+          null,
+        createdAt:
+          selectedProject.created_at ||
+          new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        status: "pending",
+        syncAttemptCount: 0,
+        lastSyncAttemptAt: null,
+        lastError: null,
       });
 
-      setStatus("Project renamed ✅");
+      const updatedProject = {
+        ...selectedProject,
+        title: next,
+      };
+
+      setSelectedProjectWithTrace(
+        updatedProject,
+        "offline project rename"
+      );
+
+      setProjects((list) =>
+        list.map((p) =>
+          p.id === selectedProject.id
+            ? { ...p, title: next }
+            : p
+        )
+      );
+
+      saveRecentProject({
+        id: updatedProject.id,
+        title: updatedProject.title,
+        client_name: updatedProject.client_name ?? null,
+        client_email: updatedProject.client_email ?? null,
+        client_phone: updatedProject.client_phone ?? null,
+        project_address:
+          updatedProject.project_address ?? null,
+      });
+
+      cacheProjectSnapshot({
+        project: updatedProject,
+      });
+
+      setStatus(
+        "Project renamed offline ✅ — will sync when connected."
+      );
+
       renameInputRef.current?.blur();
       setRenaming(false);
       setProjectMenuOpen(false);
-    } catch (e: any) {
-      setStatus(e?.message ?? "Rename failed");
+
+      return;
     }
+
+    // 🔵 ONLINE PATH
+    const { error } = await supabase
+      .from("projects")
+      .update({ title: next })
+      .eq("id", selectedProject.id);
+
+    if (error) throw error;
+
+    const updatedProject = {
+      ...selectedProject,
+      title: next,
+    };
+
+    setSelectedProjectWithTrace(
+      updatedProject,
+      "project rename"
+    );
+
+    setProjects((list) =>
+      list.map((p) =>
+        p.id === selectedProject.id
+          ? { ...p, title: next }
+          : p
+      )
+    );
+
+    saveRecentProject({
+      id: updatedProject.id,
+      title: updatedProject.title,
+      client_name: updatedProject.client_name ?? null,
+      client_email: updatedProject.client_email ?? null,
+      client_phone: updatedProject.client_phone ?? null,
+      project_address:
+        updatedProject.project_address ?? null,
+    });
+
+    cacheProjectSnapshot({
+      project: updatedProject,
+    });
+
+    setStatus("Project renamed ✅");
+
+    renameInputRef.current?.blur();
+    setRenaming(false);
+    setProjectMenuOpen(false);
+  } catch (e: any) {
+    setStatus(e?.message ?? "Rename failed");
   }
+}
 
   function cancelRename() {
     setRenaming(false);
