@@ -993,11 +993,7 @@ export default async function SharePage(props: {
                     offset: proofs[0]?.created_timezone_offset_minutes,
                   },
                   {
-                    iso: approvals[0]?.created_at,
-                    offset: approvals[0]?.created_timezone_offset_minutes,
-                  },
-                  {
-                    iso: approvals[0]?.responded_at,
+                    iso: approvals[0]?.sent_at || approvals[0]?.created_at,
                     offset: approvals[0]?.created_timezone_offset_minutes,
                   },
                 ]
@@ -1013,11 +1009,7 @@ export default async function SharePage(props: {
                     offset: proofs[0]?.created_timezone_offset_minutes,
                   },
                   {
-                    iso: approvals[0]?.created_at,
-                    offset: approvals[0]?.created_timezone_offset_minutes,
-                  },
-                  {
-                    iso: approvals[0]?.responded_at,
+                    iso: approvals[0]?.sent_at || approvals[0]?.created_at,
                     offset: approvals[0]?.created_timezone_offset_minutes,
                   },
                 ]
