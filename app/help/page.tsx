@@ -81,16 +81,144 @@ export default function HelpPage() {
           </p>
         </header>
 
+        <section
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+            gap: 16,
+          }}
+        >
+          <article
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e5e7eb",
+              borderRadius: 18,
+              padding: 22,
+              boxShadow: "0 10px 24px rgba(15, 23, 42, 0.05)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                marginBottom: 14,
+              }}
+            >
+              <div
+                style={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: 999,
+                  background: "#16a34a",
+                }}
+              />
+
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: 22,
+                  fontWeight: 950,
+                  letterSpacing: "-0.03em",
+                }}
+              >
+                Live Timeline
+              </h2>
+            </div>
+
+            <ul
+              style={{
+                margin: 0,
+                paddingLeft: 18,
+                color: "#475569",
+                display: "grid",
+                gap: 10,
+                lineHeight: 1.7,
+              }}
+            >
+              <li>Updates as the project progresses</li>
+              <li>New entries appear over time</li>
+              <li>Approvals update as statuses change</li>
+              <li>Useful for ongoing client communication</li>
+            </ul>
+          </article>
+
+          <article
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e5e7eb",
+              borderRadius: 18,
+              padding: 22,
+              boxShadow: "0 10px 24px rgba(15, 23, 42, 0.05)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                marginBottom: 14,
+              }}
+            >
+              <div
+                style={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: 999,
+                  background: "#2563eb",
+                }}
+              />
+
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: 22,
+                  fontWeight: 950,
+                  letterSpacing: "-0.03em",
+                }}
+              >
+                Sent Snapshot
+              </h2>
+            </div>
+
+            <ul
+              style={{
+                margin: 0,
+                paddingLeft: 18,
+                color: "#475569",
+                display: "grid",
+                gap: 10,
+                lineHeight: 1.7,
+              }}
+            >
+              <li>Frozen at the moment an update is sent</li>
+              <li>Includes finalized records only</li>
+              <li>Preserves historical communication state</li>
+              <li>Used for PDFs and dispute exports</li>
+            </ul>
+          </article>
+        </section>
+
         <section style={gridStyle}>
           <HelpCard title="1. How BuildProof works">
             <p>
               Each project has a timeline. Add entries as work happens, attach
               photos or files, and keep client information in one place.
             </p>
+
             <p>
               A live share link can update as the project progresses. Sent
               updates create a fixed record of what was shared at that time.
             </p>
+
+            <WorkflowRow
+              items={[
+                "Create project",
+                "Add entries",
+                "Attach files",
+                "Send updates",
+              ]}
+            />
           </HelpCard>
 
           <HelpCard title="2. Drafts vs. finalized updates">
@@ -98,10 +226,31 @@ export default function HelpPage() {
               Draft entries and draft approvals are internal. They are visible
               on your dashboard while you are still working.
             </p>
+
             <p>
               When you send an update, selected entries become finalized and are
               preserved as part of that sent record.
             </p>
+
+            <WorkflowRow
+              items={[
+                "Draft",
+                "Finalized",
+                "Sent Snapshot",
+              ]}
+            />
+
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 10,
+              }}
+            >
+              <Badge label="Draft" color="#f59e0b" />
+              <Badge label="Finalized" color="#2563eb" />
+              <Badge label="Sent" color="#16a34a" />
+            </div>
           </HelpCard>
 
           <HelpCard title="3. Working offline">
@@ -109,10 +258,20 @@ export default function HelpPage() {
               BuildProof is designed for real jobsites. If service drops, you
               can keep adding projects, entries, photos, approvals, and notes.
             </p>
+
             <p>
               Offline work is saved on your device and syncs when your
               connection returns.
             </p>
+
+            <WorkflowRow
+              items={[
+                "Offline",
+                "Queued",
+                "Reconnected",
+                "Synced",
+              ]}
+            />
           </HelpCard>
 
           <HelpCard title="4. Approvals">
@@ -120,21 +279,71 @@ export default function HelpPage() {
               Approvals are for decisions, changes, costs, schedule changes, or
               anything that needs a clear yes-or-no response.
             </p>
+
             <p>
               Approval status moves from draft to pending, then approved,
               declined, or expired.
             </p>
+
+            <WorkflowRow
+              items={[
+                "Draft",
+                "Pending",
+                "Approved / Declined",
+              ]}
+            />
+
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 10,
+              }}
+            >
+              <Badge label="Pending" color="#f59e0b" />
+              <Badge label="Approved" color="#16a34a" />
+              <Badge label="Declined" color="#dc2626" />
+            </div>
           </HelpCard>
 
-          <HelpCard title="5. Project records and dispute packages">
+          <HelpCard title="5. Project records and documentation">
             <p>
-              BuildProof keeps a structured record of project activity,
-              attachments, approvals, timestamps, and delivery history.
+              BuildProof preserves structured project records designed to remain
+              clear and understandable later.
             </p>
-            <p>
-              PDF exports and dispute packages are meant to provide a clear,
-              professional project record — not extra clutter.
-            </p>
+
+            <div
+              style={{
+                display: "grid",
+                gap: 10,
+                marginTop: 4,
+              }}
+            >
+              <RecordItem
+                title="Timestamps"
+                text="Timeline records preserve original event times to help maintain a reliable project history."
+              />
+
+              <RecordItem
+                title="Delivery & View History"
+                text="Sent updates preserve delivery records and project view activity tied to that communication."
+              />
+
+              <RecordItem
+                title="Approval History"
+                text="Approval workflows preserve sent, viewed, approved, declined, and expired states."
+              />
+
+              <RecordItem
+                title="Integrity Hashes"
+                text="Exports include integrity verification data intended to help preserve confidence in project records over time."
+              />
+
+              <RecordItem
+                title="PDF & Dispute Exports"
+                text="Structured exports are designed to provide a clean historical project record when documentation needs to be reviewed later."
+              />
+            </div>
           </HelpCard>
         </section>
       </div>
@@ -183,6 +392,108 @@ function HelpCard({
         {children}
       </div>
     </article>
+  );
+}
+
+function WorkflowRow({
+  items,
+}: {
+  items: string[];
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 10,
+        marginTop: 4,
+      }}
+    >
+      {items.map((item, index) => (
+        <div
+          key={item}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <div
+            style={{
+              background: "#eff6ff",
+              color: "#1d4ed8",
+              border: "1px solid #bfdbfe",
+              borderRadius: 999,
+              padding: "8px 12px",
+              fontSize: 13,
+              fontWeight: 800,
+            }}
+          >
+            {item}
+          </div>
+
+          {index !== items.length - 1 && (
+            <span
+              style={{
+                color: "#94a3b8",
+                fontWeight: 900,
+              }}
+            >
+              →
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Badge({
+  label,
+  color,
+}: {
+  label: string;
+  color: string;
+}) {
+  return (
+    <div
+      style={{
+        background: `${color}14`,
+        border: `1px solid ${color}33`,
+        color,
+        borderRadius: 999,
+        padding: "6px 12px",
+        fontSize: 12,
+        fontWeight: 900,
+      }}
+    >
+      {label}
+    </div>
+  );
+}
+
+function RecordItem({
+  title,
+  text,
+}: {
+  title: string;
+  text: string;
+}) {
+  return (
+    <div
+      style={{
+        background: "#f8fafc",
+        border: "1px solid #e2e8f0",
+        borderRadius: 14,
+        padding: 12,
+      }}
+    >
+      <strong>{title}</strong>
+
+      <div style={{ marginTop: 4 }}>
+        {text}
+      </div>
+    </div>
   );
 }
 
