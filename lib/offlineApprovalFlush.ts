@@ -26,7 +26,7 @@ export async function flushOfflineApprovalOutbox(
   try {
     const records = await getPendingOfflineApprovals();
 
-       for (const record of records) {
+    for (const record of records) {
       try {
         const isNewOfflineApproval = record.id.startsWith("offline-");
 
@@ -54,7 +54,7 @@ export async function flushOfflineApprovalOutbox(
           : "/api/approvals/update";
 
         const body = isNewOfflineApproval
-          ? {
+                    ? {
             projectId: record.projectId,
             title: record.title,
             approvalType: record.approvalType,
@@ -64,6 +64,8 @@ export async function flushOfflineApprovalOutbox(
             costDelta: record.costDelta,
             scheduleDelta: record.scheduleDelta,
             dueAt: record.dueAt,
+            createdTimezoneId: record.createdTimezoneId,
+            createdTimezoneOffsetMinutes: record.createdTimezoneOffsetMinutes,
           }
           : {
             approvalId: record.id,
@@ -75,6 +77,8 @@ export async function flushOfflineApprovalOutbox(
             costDelta: record.costDelta,
             scheduleDelta: record.scheduleDelta,
             dueAt: record.dueAt,
+            createdTimezoneId: record.createdTimezoneId,
+            createdTimezoneOffsetMinutes: record.createdTimezoneOffsetMinutes,
           };
 
         const res = await fetch(endpoint, {
