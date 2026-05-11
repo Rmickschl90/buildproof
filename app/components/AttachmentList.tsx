@@ -551,8 +551,9 @@ export default function AttachmentList({
                 background: "#fff",
                 display: "flex",
                 justifyContent: "space-between",
-                alignItems: "center",
+                alignItems: "flex-start",
                 gap: 12,
+                flexWrap: "wrap",
               }}
             >
               <div style={{ minWidth: 0 }}>
@@ -562,7 +563,9 @@ export default function AttachmentList({
                     fontWeight: 750,
                     overflow: "hidden",
                     textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
+                    whiteSpace: "normal",
+                    overflowWrap: "anywhere",
+                    wordBreak: "break-word",
                     minWidth: 0,
                   }}
                   title={a.fileName}
