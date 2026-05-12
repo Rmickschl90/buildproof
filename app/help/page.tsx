@@ -415,15 +415,21 @@ export default function HelpPage() {
                             />
                         </div>
                     </HelpCard>
-                    <HelpCard title="7. Archived projects">
+                    <HelpCard title="6. Archiving and restoring records">
                         <p>
-                            Completed or inactive projects can be archived to help keep your dashboard
-                            organized while still preserving historical records.
+                            Projects, entries, and approvals can all be archived to help keep active
+                            timelines and dashboards organized without permanently removing historical
+                            records.
                         </p>
 
                         <p>
-                            Archived projects retain their entries, approvals, attachments, timestamps,
+                            Archived items preserve their attachments, timestamps, approval states,
                             and documentation history unless they are permanently deleted.
+                        </p>
+
+                        <p>
+                            Archived projects, entries, and approvals can also be restored later if
+                            they need to return to the active dashboard or project timeline.
                         </p>
                     </HelpCard>
                 </section>
