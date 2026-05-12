@@ -415,6 +415,17 @@ export default function HelpPage() {
                             />
                         </div>
                     </HelpCard>
+                    <HelpCard title="7. Archived projects">
+                        <p>
+                            Completed or inactive projects can be archived to help keep your dashboard
+                            organized while still preserving historical records.
+                        </p>
+
+                        <p>
+                            Archived projects retain their entries, approvals, attachments, timestamps,
+                            and documentation history unless they are permanently deleted.
+                        </p>
+                    </HelpCard>
                 </section>
             </div>
         </main>
@@ -572,15 +583,3 @@ const gridStyle: React.CSSProperties = {
     gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
     gap: 16,
 };
-
-<HelpCard title="7. Archived projects">
-  <p>
-    Completed or inactive projects can be archived to help keep your dashboard
-    organized while still preserving historical records.
-  </p>
-
-  <p>
-    Archived projects retain their entries, approvals, attachments, timestamps,
-    and documentation history unless they are permanently deleted.
-  </p>
-</HelpCard>
