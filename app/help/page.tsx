@@ -424,7 +424,8 @@ export default function HelpPage() {
 
                         <p>
                             Archived items preserve their attachments, timestamps, approval states,
-                            and documentation history unless they are permanently deleted.
+                            and documentation history while remaining out of the active dashboard or
+                            project timeline.
                         </p>
 
                         <p>
