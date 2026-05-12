@@ -83,120 +83,156 @@ export default function HelpPage() {
 
         <section
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-            gap: 16,
+            background: "#ffffff",
+            border: "1px solid #e5e7eb",
+            borderRadius: 18,
+            padding: 22,
+            boxShadow: "0 10px 24px rgba(15, 23, 42, 0.05)",
           }}
         >
-          <article
+          <h2
             style={{
-              background: "#ffffff",
-              border: "1px solid #e5e7eb",
-              borderRadius: 18,
-              padding: 22,
-              boxShadow: "0 10px 24px rgba(15, 23, 42, 0.05)",
+              margin: "0 0 10px",
+              fontSize: 22,
+              lineHeight: 1.2,
+              fontWeight: 950,
+              letterSpacing: "-0.03em",
             }}
           >
-            <div
+            Live timeline vs. sent snapshot
+          </h2>
+
+          <p
+            style={{
+              margin: "0 0 16px",
+              color: "#475569",
+              fontSize: 15,
+              lineHeight: 1.7,
+            }}
+          >
+            The Share Link on the Send page provides a live project timeline
+            that can continue updating as work progresses. Sending an update
+            creates a separate frozen snapshot of the project at that moment for
+            historical reference, delivery tracking, PDFs, and dispute exports.
+          </p>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+              gap: 16,
+            }}
+          >
+            <article
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                marginBottom: 14,
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                borderRadius: 16,
+                padding: 20,
               }}
             >
               <div
                 style={{
-                  width: 12,
-                  height: 12,
-                  borderRadius: 999,
-                  background: "#16a34a",
-                }}
-              />
-
-              <h2
-                style={{
-                  margin: 0,
-                  fontSize: 22,
-                  fontWeight: 950,
-                  letterSpacing: "-0.03em",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  marginBottom: 14,
                 }}
               >
-                Live Timeline
-              </h2>
-            </div>
+                <div
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: 999,
+                    background: "#16a34a",
+                  }}
+                />
 
-            <ul
-              style={{
-                margin: 0,
-                paddingLeft: 18,
-                color: "#475569",
-                display: "grid",
-                gap: 10,
-                lineHeight: 1.7,
-              }}
-            >
-              <li>Updates as the project progresses</li>
-              <li>New entries appear over time</li>
-              <li>Approvals update as statuses change</li>
-              <li>Useful for ongoing client communication</li>
-            </ul>
-          </article>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: 21,
+                    fontWeight: 950,
+                    letterSpacing: "-0.03em",
+                  }}
+                >
+                  Live Project Timeline
+                </h3>
+              </div>
 
-          <article
-            style={{
-              background: "#ffffff",
-              border: "1px solid #e5e7eb",
-              borderRadius: 18,
-              padding: 22,
-              boxShadow: "0 10px 24px rgba(15, 23, 42, 0.05)",
-            }}
-          >
-            <div
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: 18,
+                  color: "#475569",
+                  display: "grid",
+                  gap: 10,
+                  lineHeight: 1.7,
+                }}
+              >
+                <li>Shared using the Share Link on the Send page</li>
+                <li>Updates as the project progresses</li>
+                <li>New finalized entries appear over time</li>
+                <li>Approvals update as statuses change</li>
+                <li>Used for ongoing project visibility</li>
+              </ul>
+            </article>
+
+            <article
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                marginBottom: 14,
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                borderRadius: 16,
+                padding: 20,
               }}
             >
               <div
                 style={{
-                  width: 12,
-                  height: 12,
-                  borderRadius: 999,
-                  background: "#2563eb",
-                }}
-              />
-
-              <h2
-                style={{
-                  margin: 0,
-                  fontSize: 22,
-                  fontWeight: 950,
-                  letterSpacing: "-0.03em",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  marginBottom: 14,
                 }}
               >
-                Sent Snapshot
-              </h2>
-            </div>
+                <div
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: 999,
+                    background: "#2563eb",
+                  }}
+                />
 
-            <ul
-              style={{
-                margin: 0,
-                paddingLeft: 18,
-                color: "#475569",
-                display: "grid",
-                gap: 10,
-                lineHeight: 1.7,
-              }}
-            >
-              <li>Frozen at the moment an update is sent</li>
-              <li>Includes finalized records only</li>
-              <li>Preserves historical communication state</li>
-              <li>Used for PDFs and dispute exports</li>
-            </ul>
-          </article>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: 21,
+                    fontWeight: 950,
+                    letterSpacing: "-0.03em",
+                  }}
+                >
+                  Sent Update Snapshot
+                </h3>
+              </div>
+
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: 18,
+                  color: "#475569",
+                  display: "grid",
+                  gap: 10,
+                  lineHeight: 1.7,
+                }}
+              >
+                <li>Created automatically when an update is sent</li>
+                <li>Frozen at the moment of sending</li>
+                <li>Includes finalized records only</li>
+                <li>Preserves what the project looked like at send time</li>
+                <li>Used for PDFs, delivery history, and dispute exports</li>
+              </ul>
+            </article>
+          </div>
         </section>
 
         <section style={gridStyle}>
@@ -221,22 +257,38 @@ export default function HelpPage() {
             />
           </HelpCard>
 
-          <HelpCard title="2. Drafts vs. finalized updates">
+          <HelpCard title="2. Drafts, approvals, and finalized updates">
             <p>
               Draft entries and draft approvals are internal. They are visible
-              on your dashboard while you are still working.
+              on your dashboard while you are still working, but they are not
+              shown in client-facing updates until they are sent or finalized.
             </p>
 
             <p>
-              When you send an update, selected entries become finalized and are
-              preserved as part of that sent record.
+              When you send an update, all draft entries in that project are
+              finalized together. BuildProof intentionally treats the current
+              draft timeline as a complete working record instead of requiring
+              individual entry selection.
+            </p>
+
+            <p>
+              This helps prevent fragmented or incomplete project records,
+              reduces accidental partial sends, and keeps the update process
+              fast and simple in the field with fewer clicks and less workflow
+              management.
+            </p>
+
+            <p>
+              Draft approvals stay separate from update finalization. Approvals
+              become client-facing when they are sent, then move through
+              pending, approved, declined, or expired states.
             </p>
 
             <WorkflowRow
               items={[
-                "Draft",
-                "Finalized",
-                "Sent Snapshot",
+                "Draft entries",
+                "All finalized on send",
+                "Sent snapshot",
               ]}
             />
 
