@@ -655,7 +655,7 @@ export default function DashboardPage() {
 
       await flushOfflineProofs();
 
-      
+
 
       const getAccessToken = async () => {
         const { data, error } = await supabase.auth.getSession();
@@ -665,7 +665,7 @@ export default function DashboardPage() {
         return token;
       };
 
-      
+
       await flushOfflineApprovalOutbox(getAccessToken);
 
       const { flushOfflineSendOutbox } = await import(
@@ -1649,40 +1649,91 @@ export default function DashboardPage() {
   }
 
   async function saveProjectRename() {
-  if (!selectedProject) return;
+    if (!selectedProject) return;
 
-  const next = renameTitle.trim();
+    const next = renameTitle.trim();
 
-  if (!next) {
-    setStatus("Project name can’t be empty.");
-    return;
-  }
+    if (!next) {
+      setStatus("Project name can’t be empty.");
+      return;
+    }
 
-  try {
-    setStatus("Saving project name...");
+    try {
+      setStatus("Saving project name...");
 
-    // 🟢 OFFLINE PATH
-    if (!navigator.onLine) {
-      await putOfflineProject({
-        id: selectedProject.id,
-        name: next,
-        clientName: selectedProject.client_name ?? null,
-        clientEmail: selectedProject.client_email ?? null,
-        clientPhone: selectedProject.client_phone ?? null,
-        projectAddress: selectedProject.project_address ?? null,
-        privateNotes:
-          selectedProject.private_notes ??
-          projectNotesDraft ??
-          null,
-        createdAt:
-          selectedProject.created_at ||
-          new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        status: "pending",
-        syncAttemptCount: 0,
-        lastSyncAttemptAt: null,
-        lastError: null,
-      });
+      // 🟢 OFFLINE PATH
+      if (!navigator.onLine) {
+        await putOfflineProject({
+          id: selectedProject.id,
+          name: next,
+          clientName: selectedProject.client_name ?? null,
+          clientEmail: selectedProject.client_email ?? null,
+          clientPhone: selectedProject.client_phone ?? null,
+          projectAddress: selectedProject.project_address ?? null,
+          privateNotes:
+            selectedProject.private_notes ??
+            projectNotesDraft ??
+            null,
+          createdAt:
+            selectedProject.created_at ||
+            new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          status: "pending",
+          syncAttemptCount: 0,
+          lastSyncAttemptAt: null,
+          lastError: null,
+        });
+
+        const updatedProject = {
+          ...selectedProject,
+          title: next,
+        };
+
+        setSelectedProjectWithTrace(
+          updatedProject,
+          "offline project rename"
+        );
+
+        setProjects((list) =>
+          list.map((p) =>
+            p.id === selectedProject.id
+              ? { ...p, title: next }
+              : p
+          )
+        );
+
+        saveRecentProject({
+          id: updatedProject.id,
+          title: updatedProject.title,
+          client_name: updatedProject.client_name ?? null,
+          client_email: updatedProject.client_email ?? null,
+          client_phone: updatedProject.client_phone ?? null,
+          project_address:
+            updatedProject.project_address ?? null,
+        });
+
+        cacheProjectSnapshot({
+          project: updatedProject,
+        });
+
+        setStatus(
+          "Project renamed offline ✅ — will sync when connected."
+        );
+
+        renameInputRef.current?.blur();
+        setRenaming(false);
+        setProjectMenuOpen(false);
+
+        return;
+      }
+
+      // 🔵 ONLINE PATH
+      const { error } = await supabase
+        .from("projects")
+        .update({ title: next })
+        .eq("id", selectedProject.id);
+
+      if (error) throw error;
 
       const updatedProject = {
         ...selectedProject,
@@ -1691,7 +1742,7 @@ export default function DashboardPage() {
 
       setSelectedProjectWithTrace(
         updatedProject,
-        "offline project rename"
+        "project rename"
       );
 
       setProjects((list) =>
@@ -1716,66 +1767,15 @@ export default function DashboardPage() {
         project: updatedProject,
       });
 
-      setStatus(
-        "Project renamed offline ✅ — will sync when connected."
-      );
+      setStatus("Project renamed ✅");
 
       renameInputRef.current?.blur();
       setRenaming(false);
       setProjectMenuOpen(false);
-
-      return;
+    } catch (e: any) {
+      setStatus(e?.message ?? "Rename failed");
     }
-
-    // 🔵 ONLINE PATH
-    const { error } = await supabase
-      .from("projects")
-      .update({ title: next })
-      .eq("id", selectedProject.id);
-
-    if (error) throw error;
-
-    const updatedProject = {
-      ...selectedProject,
-      title: next,
-    };
-
-    setSelectedProjectWithTrace(
-      updatedProject,
-      "project rename"
-    );
-
-    setProjects((list) =>
-      list.map((p) =>
-        p.id === selectedProject.id
-          ? { ...p, title: next }
-          : p
-      )
-    );
-
-    saveRecentProject({
-      id: updatedProject.id,
-      title: updatedProject.title,
-      client_name: updatedProject.client_name ?? null,
-      client_email: updatedProject.client_email ?? null,
-      client_phone: updatedProject.client_phone ?? null,
-      project_address:
-        updatedProject.project_address ?? null,
-    });
-
-    cacheProjectSnapshot({
-      project: updatedProject,
-    });
-
-    setStatus("Project renamed ✅");
-
-    renameInputRef.current?.blur();
-    setRenaming(false);
-    setProjectMenuOpen(false);
-  } catch (e: any) {
-    setStatus(e?.message ?? "Rename failed");
   }
-}
 
   function cancelRename() {
     setRenaming(false);
@@ -3232,6 +3232,17 @@ export default function DashboardPage() {
                                   }}
                                 >
                                   Project Notes
+                                </button>
+
+                                <button
+                                  className="btn"
+                                  style={{ width: "100%" }}
+                                  onClick={() => {
+                                    setProjectMenuOpen(false);
+                                    router.push("/help");
+                                  }}
+                                >
+                                  Help
                                 </button>
 
                                 <button
