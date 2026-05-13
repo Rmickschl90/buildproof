@@ -754,6 +754,24 @@ export default function ApprovalComposer({
         const localPreviewAttachments: UploadedApprovalAttachment[] = [];
 
         for (const rawFile of files) {
+          const rawFileType = (rawFile.type || "").toLowerCase();
+          const rawFileName = (rawFile.name || "").toLowerCase();
+
+          const looksLikeVideo =
+            rawFileType.startsWith("video/") ||
+            rawFileName.endsWith(".mov") ||
+            rawFileName.endsWith(".mp4") ||
+            rawFileName.endsWith(".m4v") ||
+            rawFileName.endsWith(".avi") ||
+            rawFileName.endsWith(".webm");
+
+          if (looksLikeVideo) {
+            setStatus(
+              "Video uploads are not supported in the current V1 field test. Please use photos, PDFs, or documents for now."
+            );
+            continue;
+          }
+
           const file = await normalizeImageFileForUpload(rawFile);
 
           await addOfflineApprovalAttachment({
@@ -1248,6 +1266,7 @@ export default function ApprovalComposer({
             ref={fileInputRef}
             type="file"
             multiple
+            accept="image/*,application/pdf"
             style={{ display: "none" }}
             onChange={(e) => void handleAttachmentChange(e.target.files)}
           />
