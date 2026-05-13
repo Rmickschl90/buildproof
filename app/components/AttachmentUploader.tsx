@@ -130,6 +130,21 @@ export default function AttachmentUploader({
 
     try {
       for (const rawFile of Array.from(files)) {
+        const rawFileType = (rawFile.type || "").toLowerCase();
+        const rawFileName = (rawFile.name || "").toLowerCase();
+
+        const looksLikeVideo =
+          rawFileType.startsWith("video/") ||
+          rawFileName.endsWith(".mov") ||
+          rawFileName.endsWith(".mp4") ||
+          rawFileName.endsWith(".m4v") ||
+          rawFileName.endsWith(".avi") ||
+          rawFileName.endsWith(".webm");
+
+        if (looksLikeVideo) {
+          setMessage("Video uploads are not supported in the current V1 field test. Please use photos, PDFs, or documents for now.");
+          continue;
+        }
         const file = await normalizeImageFileForUpload(rawFile);
 
         const maxOfflineBytes = 25 * 1024 * 1024;
@@ -272,7 +287,7 @@ export default function AttachmentUploader({
         </div>
       ) : null}
 
-      
+
     </div>
   );
 }
