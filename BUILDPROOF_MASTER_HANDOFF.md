@@ -1,516 +1,478 @@
 🧱 BUILDPROOF — MASTER HANDOFF
+
 🎯 PRODUCT
 
 BuildProof is:
 
-a contractor communication timeline
-a client-friendly project update tool
-a dispute-safe documentation system
+• a contractor communication timeline  
+• a client-friendly project update tool  
+• a dispute-safe documentation system  
 
 Core principles:
 
-simple
-mobile-first
-offline-capable
-trustworthy
-clean client experience
+• simple  
+• mobile-first  
+• offline-capable  
+• trustworthy  
+• clean client experience  
+• finalized record integrity  
+
+---
+
 🧠 CURRENT PRODUCT STAGE
 
-BuildProof is in:
+BuildProof is now officially in:
 
-→ V1 TESTING / SOFT-ROLLOUT PREPARATION
+→ CONTROLLED PRIVATE V1 FIELD TEST
 
-This is NOT a rebuild phase.
+This is no longer a rebuild phase.
 
-Current mode:
+Current operational mode:
 
-verify
-patch surgically
-stabilize
-prepare for controlled real-world use
+• observe real-world usage  
+• preserve stability  
+• avoid unnecessary deployments  
+• collect user behavior + feedback  
+• patch only critical issues surgically  
 
 DO NOT:
 
-redesign stable systems
-rewrite architecture
-introduce broad reconnect/send experiments
-revisit reverted failed camera/replay experiments
-🟢 CURRENT VERIFIED SYSTEM STATE
+• redesign stable systems  
+• rewrite architecture  
+• introduce broad reconnect/send experiments  
+• destabilize production during tester rollout  
+• casually revisit reverted replay experiments  
 
-The following systems are VERIFIED WORKING and should be treated as protected:
+Production should remain effectively frozen except:
+• emergency fixes
+• trust/safety fixes
+• tester-blocking regressions
+
+---
+
+🟢 CURRENT VERIFIED V1 STATE
+
+The following systems are VERIFIED WORKING and should now be treated as protected production systems.
 
 Offline Core
-offline project creation
-offline client save/edit
-offline entry creation
-offline approval creation
-reconnect sync
-hard refresh persistence
+
+PASS
+
+• offline project creation  
+• offline client save/edit  
+• offline project notes  
+• offline project rename  
+• offline entry creation  
+• offline approval creation  
+• reconnect sync  
+• hard refresh persistence  
+
 Entry Attachment System
-entry attachments online
-library-selected offline entry attachments
-multiple camera-originated mobile offline entry attachments
-reconnect replay
-attachment rendering
-send update finalization
+
+PASS
+
+• entry attachments online  
+• library-selected offline entry attachments  
+• multiple camera-originated mobile offline entry attachments  
+• reconnect replay  
+• attachment rendering  
+• send update finalization  
+
 Approval Attachment System
-approval attachments online
-library-selected offline approval attachments
-multiple camera-originated mobile offline approval attachments
-reconnect replay
-approval send continuation
-approval attachment rendering
+
+PASS
+
+• approval attachments online  
+• library-selected offline approval attachments  
+• multiple camera-originated mobile offline approval attachments  
+• reconnect replay  
+• approval send continuation  
+• approval attachment rendering  
+
 Send Systems
-offline update send
-offline approval send
-reconnect-trigger send continuation
-send snapshot integrity
-share vs snapshot separation
-approval duplicate-email hardening
+
+PASS
+
+• offline update send  
+• offline approval send  
+• reconnect-trigger send continuation  
+• send snapshot integrity  
+• share vs snapshot separation  
+• approval duplicate-email hardening  
+
 Timestamp / Trust Systems
-share header timestamp semantics aligned with visible timeline events
-offline approval timezone replay persistence fixed
-client-facing timestamps now preserve jobsite-local event time
-DST-safe architecture verified
-approval replay now preserves timezone metadata correctly
+
+PASS
+
+• share header timestamp semantics aligned with visible timeline events  
+• offline approval timezone replay persistence fixed  
+• client-facing timestamps preserve jobsite-local event time  
+• DST-safe architecture verified  
+• approval replay preserves timezone metadata correctly  
+
 Client-Facing Rules
-no drafts on client-facing surfaces
-snapshot links frozen after send
-share links live/update dynamically
-PDFs/dispute exports aligned with snapshot rules
-🧱 FULL VERIFIED E2E STATE
-Mobile Online
 
 PASS
 
-project creation
-client save/edit
-entry create/edit
-approval create/edit
-mixed attachment uploads
-update send
-approval send
-snapshot rendering
-email rendering
-Mobile Offline
+• no drafts on client-facing surfaces  
+• snapshot links frozen after send  
+• share links remain live/update dynamically  
+• PDFs/dispute exports aligned with snapshot rules  
 
-PASS
+---
 
-offline project workflow
-offline entries
-offline approvals
-camera capture attachments
-mixed attachment replay
-offline update send queue
-offline approval send queue
-automatic reconnect replay
-no duplicate sends
-no missing attachments
-correct finalized/pending states
-correct email rendering
-Stress test passed
+🧱 FINAL VERIFIED E2E PASS
 
-PASS:
+ONLINE FLOW — PASS
 
-offline project
-entry + 5 mixed attachments
-approval + 5 mixed attachments
-edit entry + additional attachments
-edit approval + additional attachments
-queue update send
-queue approval send
-reconnect replay
+• project creation  
+• client info  
+• project notes  
+• entries  
+• attachments  
+• approvals  
+• update sends  
+• approval sends  
+• share links  
+• PDFs/dispute export  
+• archive/restore workflows  
 
-Result:
+OFFLINE FLOW — PASS
 
-full successful automatic replay
-no duplicates
-no missing attachments
-no stuck queues
-Desktop Online
+• offline project creation  
+• offline client edits  
+• offline notes  
+• offline entries  
+• offline attachments  
+• offline approvals  
+• offline approval attachments  
+• offline update send  
+• offline approval send  
+• reconnect replay  
+• hard refresh persistence  
+• no duplicate projects  
+• no stuck queues  
+• no missing attachments  
 
-PASS
+Security Hardening — PASS
 
-core project workflows
-sends
-approvals
-attachments
-snapshot rendering
-Desktop Offline
+• RLS enabled and validated:
+  - approval_tokens
+  - approval_requests
+  - approval_responses
+  - send_jobs
+  - message_deliveries
+  - share_views
+  - project_contact_events
 
-PASS with one remaining issue:
+• proofs_active secured using security_invoker=true  
+• second-account isolation validated  
+• fresh-user onboarding validated  
 
-offline project rename currently throws:
-Failed to fetch
+---
 
-All other desktop offline replay systems passed.
+🧱 MEDIA SUPPORT DECISION — V1
 
-🚨 CURRENT ACTIVE ISSUE
-Offline Project Rename (Desktop Offline)
+VERIFIED SUPPORTED MEDIA
 
-Current isolated remaining issue:
+• photos/images  
+• PDFs  
+• document/file attachments  
 
-offline project rename
-desktop offline
-returns:
-Failed to fetch
+VIDEO SUPPORT STATUS
 
-Status:
+Online video behavior was observed functioning successfully:
+• upload works
+• attachment storage works
+• email/share playback works
+• attachment open route works
 
-isolated
-reproducible
-not yet investigated
-next chat should focus ONLY on this issue
+However:
+
+offline/replay-safe video support has NOT yet been intentionally validated.
+
+To preserve rollout reliability:
+
+• entry attachment uploaders now block video
+• approval attachment uploaders now block video
+• iOS picker no longer exposes video option
+• unsupported media paths are intentionally gated for V1
+
+This was a deliberate rollout trust decision.
+
+---
+
+🎥 FUTURE VIDEO ROADMAP
+
+Future rollout target:
+
+• offline-safe video replay  
+• reconnect-safe video remapping  
+• mobile-friendly playback handling  
+• share/email video validation  
+• dispute export/PDF video behavior decisions  
+• large mobile file handling validation  
 
 Important:
-No broader reconnect/send/offline systems are currently failing.
 
-🧱 MOBILE CAMERA REPLAY BREAKTHROUGH
+Video capability was NOT removed from the architecture.
+It was intentionally deferred until replay-safe validation can occur.
 
-MAJOR BREAKTHROUGH ACHIEVED.
+---
 
-Mobile offline reconnect flows with MULTIPLE camera-originated iPhone attachments are now passing for BOTH:
+🧠 FINAL PRODUCT POSITIONING
 
-timeline entry sends
-approval sends
+BuildProof’s strongest differentiator is now clearly:
 
-This issue consumed multiple investigation cycles and is now isolated far beyond the original failure state.
+→ dispute-ready project documentation
 
-Root Cause Finding
+Key trust architecture:
 
-The major instability was NOT:
+• finalized records  
+• immutable send snapshots  
+• approval tracking  
+• attachment preservation  
+• delivery history  
+• share access activity  
+• timestamp integrity  
+• dispute export generation  
 
-Supabase
-reconnect ordering
-attachment queue orchestration
-send queue architecture
-proof remap architecture
-approval lifecycle architecture
+The system now clearly separates:
 
-The major issue was persisting raw iPhone camera File/Blob objects directly into IndexedDB offline queues.
+LIVE TIMELINE
+→ dynamic ongoing project visibility
 
-Safari/iOS camera-originated File objects proved unstable across:
+FROM
 
-reconnect replay
-long idle periods
-PWA execution suspension
-IndexedDB persistence / rehydration
-multiple-camera reconnect workloads
+SENT SNAPSHOT RECORDS
+→ frozen client-facing documentation records
 
-Library-selected images behaved differently because they originate from persistent iOS asset storage instead of temporary camera-generated file references.
+This distinction is now reflected throughout:
+• help page
+• send flow
+• exports
+• client messaging
+• UI wording
 
-Working Fix
+---
 
-Attachment systems now persist durable ArrayBuffer bytes immediately at queue time instead of persisting raw File objects.
+🧱 HELP PAGE / USER EDUCATION
 
-Applied to:
+BuildProof now includes:
 
-offline entry attachments
-offline approval attachments
+→ full in-app V1 Help Page
 
-Key commits:
+Includes:
 
-d4e39f65 Store attachment bytes instead of raw file objects
-52d0003c Store approval attachment bytes instead of raw file objects
-🧠 TIMESTAMP INTEGRITY WORK
-Share Header Timestamp Fix
+• timeline explanation  
+• drafts vs finalized explanation  
+• live timeline vs snapshot explanation  
+• approval system explanation  
+• dispute package explanation  
+• archive/restore explanation  
+• project notes explanation  
+• delivery/view tracking explanation  
 
-Problem:
+This is now considered rollout-ready.
 
-share header “Last updated” used mixed timestamp semantics
-included responded_at
-approval cards used sent_at
-created client-facing mismatch
+---
 
-Fix:
+🧱 PRIVATE TESTER ROLLOUT
 
-share header now aligns with visible timeline event semantics
-removed responded_at from latest-event calculation
-header now uses:
-proof created_at
-approval sent_at || created_at
+Current tester environment:
 
-Commit:
+https://buildproof-kappa.vercel.app
 
-8afe033e — Align share header timestamps with timeline events
-Offline Approval Timezone Replay Fix
+Current rollout phase:
 
-Problem:
+→ small trusted private tester group
 
-offline approval replay dropped timezone metadata
-some approvals displayed 5 hours off
-Supabase rows stored:
-created_timezone_id = null
-created_timezone_offset_minutes = null
+Validated:
 
-Root cause:
+• cold-user onboarding pass  
+• magic-link onboarding pass  
+• independent account isolation pass  
+• tester handout pass  
+• onboarding clarity pass  
 
-offlineApprovalFlush.ts failed to forward:
-createdTimezoneId
-createdTimezoneOffsetMinutes
+Current rollout strategy:
 
-Fix:
+• observe usage patterns  
+• avoid unnecessary deployments  
+• preserve stable production conditions  
+• collect grouped feedback before edits  
 
-replay payload now forwards timezone metadata correctly
+---
 
-Verified:
+🔒 OFFICIAL VERIFIED SAFETY BRANCH
 
-new offline approvals persist:
-created_timezone_id
-created_timezone_offset_minutes
+Current official frozen rollback checkpoint:
 
-Commit:
+→ v1-private-field-test-safe
 
-abf7d19f — Include timezone fields in offline approval flush
-Important Architectural Decision
+Purpose:
 
-BuildProof preserves:
+• preserve rollout-ready verified state  
+• rollback protection during future experimentation  
+• protect tester production environment  
 
-jobsite-local event time
+---
 
-NOT:
+🚫 PROTECTED SYSTEMS
 
-viewer-localized timestamps
+Do not touch casually unless there is a reproducible failure:
 
-System is now verified DST-safe because each record stores:
+• reconnect orchestration  
+• proof remap architecture  
+• offline project sync/remap  
+• send snapshot architecture  
+• share/snapshot separation  
+• PDF/export architecture  
+• approval lifecycle statuses  
+• attachment queue ownership  
+• send queue ownership  
+• service worker/app shell cache layer  
 
-UTC absolute timestamp
-original timezone id
-original timezone offset at creation time
-🧱 MOBILE UI POLISH
-Attachment Filename Overflow Fix
+Approval lifecycle must remain:
 
-Fixed mobile offline non-image attachment overflow issue:
+draft → pending → approved / declined / expired
 
-PDFs and long filenames no longer expand cards beyond viewport
+---
 
-Commit:
-
-c1588cd1 — Fix mobile offline attachment filename overflow
-Approval Attachment Local Preview Fix
-
-Approval attachments now visually appear immediately while being added offline instead of only appearing after reopening edit mode.
-
-Commit:
-
-b6ed2003 — Add local approval attachment previews
-🧱 OFFLINE SEND VISIBILITY IMPROVEMENTS
-
-Offline send indicator now correctly includes:
-
-update sends
-approval sends
-
-Banner improvements:
-
-combined queue visibility
-cleaner messaging
-hidden from snapshot/share pages
-
-Commits:
-
-0fb4df9e — Add approval send visibility to offline send indicator
-71a4aef9 — Add approval send visibility to offline indicator
-🧱 DIAGNOSTICS CLEANUP
-
-Temporary investigation panels removed:
-
-ApprovalDiagnosticsPanel
-AttachmentDiagnosticsPanel
-SendDiagnosticsPanel
-
-Reconnect orchestration logs intentionally preserved for rollout safety.
-
-Commit:
-
-24b99a36 — Remove temporary diagnostics panels
 ❌ FAILED EXPERIMENTS — DO NOT REPEAT
 
-The following experiments were tested, failed, and were reverted or abandoned.
-
-Do not reintroduce them casually.
-
-Failed Camera / Blob Experiments
-1. Safari-safe image normalization replacement
-
-Commit:
-
-b2eb9f12 Replace image normalization with Safari-safe canvas path
-
-Reverted by:
-
-99a2b6b5 Revert "Replace image normalization with Safari-safe canvas path"
-
-Result:
-
-failed
-worsened replay behavior
-did not resolve multi-camera reconnect replay
-
-Decision:
-Do not retry.
-
-2. Replay-time File reconstruction
-
-Commit:
-
-db55d22c Rebuild attachment file before replay upload
-
-Reverted by:
-
-4a08cb0e Revert "Rebuild attachment file before replay upload"
-
-Result:
-
-failed
-did not resolve replay instability
-
-Decision:
-Do not retry.
-
-Other Failed / Reverted Experiments
+The following were tested, failed, and reverted.
 
 Do not casually revisit:
 
-timeout protection wrappers around uploads
-server upload lane experiment
-reconnect-trigger recovery experiments
-attachment-complete reconnect triggers
-broad reconnect balancing/recovery edits
-stacked send retry experiments
-stale proof retry experiments
+• Safari-safe image normalization replacement  
+• replay-time File reconstruction  
+• timeout upload wrappers  
+• reconnect-trigger balancing experiments  
+• stale retry experiments  
+• broad reconnect orchestration edits  
+• upload lane experiments  
 
-Reason:
+Root cause of prior instability was ultimately traced to:
 
-none resolved root replay instability
-several increased instability risk
-🔒 CURRENT VERIFIED FALLBACK BRANCHES
-Primary verified recovery point
-v1-e2e-verified-safe
+→ persisting raw iPhone camera File/Blob objects directly into IndexedDB
 
-Contains:
+Resolved architecture:
 
-mobile + desktop E2E verification
-timestamp integrity fixes
-timezone replay fixes
-diagnostics cleanup
-current strongest known stable state
-Earlier mobile replay stabilization point
-v1-mobile-replay-stable
-Current active working branch
-safe-point-before-server-image-upload-lane
-🔒 CLIENT-FACING DATA RULES
+→ persist durable ArrayBuffer bytes immediately at queue time
 
-Dashboard:
+Applied successfully to:
 
-drafts visible
+• offline entry attachments  
+• offline approval attachments  
 
-Share Link:
-
-live finalized view only
-
-Send Snapshot:
-
-frozen at send time
-
-PDF / Dispute Export:
-
-frozen snapshot state
-
-Client-facing surfaces must NEVER show:
-
-draft entries
-draft approvals
-
-Allowed client-facing approvals:
-
-pending
-approved
-declined
-
-Allowed client-facing entries:
-
-finalized / locked entries only
-🚫 PROTECTED SYSTEMS
-
-Do not touch unless there is a reproducible failure:
-
-reconnect orchestration
-proof remap architecture
-offline project sync/remap
-send snapshot architecture
-share/snapshot separation
-PDF/export architecture
-approval lifecycle statuses
-attachment queue ownership
-send queue ownership
-service worker/app shell cache layer
-
-Especially do NOT add new approval statuses casually.
-
-Approval lifecycle must remain:
-draft → pending → approved / declined / expired
+---
 
 🧠 DEVELOPMENT RULES
-one subsystem at a time
-restore point before core edits
-revert failed experiments
-no speculative architecture rewrites
-no broad reconnect/send experiments
-always validate with mobile E2E testing
-preserve stable systems aggressively
-use exact evidence before changing logic
-do not assume behavior from memory
-failed edits that do not move toward the stated goal should be reverted
-🎯 NEXT ORDER OF BUSINESS
-1. Offline project rename investigation
 
-ONLY focus for next chat:
+• one subsystem at a time  
+• restore point before core edits  
+• revert failed experiments  
+• no speculative architecture rewrites  
+• no broad reconnect/send experiments  
+• always validate with mobile E2E testing  
+• preserve stable systems aggressively  
+• use exact evidence before changing logic  
+• do not assume behavior from memory  
 
-offline project rename
-desktop offline
-Failed to fetch
+---
 
-Goals:
+📈 CURRENT SOFT-LAUNCH GOALS
 
-offline rename persistence
-reconnect replay
-hard refresh persistence
-verify no project duplication/regression
+During field test:
 
-Do NOT broaden scope.
+• observe real-world contractor usage  
+• identify confusion points  
+• identify naturally used features  
+• identify trust pain points  
+• group issues before changing architecture  
+• avoid feature churn during observation phase  
 
-2. Help Page System
+---
 
-After rename stabilization:
+🎯 NEXT MAJOR PHASES (POST FIELD TEST)
 
-create in-app help page
-accessible from main menu
-explain:
-app operation
-updates
-approvals
-snapshots
-dispute packages
-timestamps
-finalized vs draft rules
+1. Preview / Staging Infrastructure
 
-Goal:
-reduce onboarding friction before soft rollout.
+Highest-priority infrastructure goal AFTER field test:
 
-3. Soft Rollout Preparation
+• separate production from development
+• proper preview deployment workflow
+• eliminate constant production promotion cycle
+• isolated auth/dev environment
+• safer deployment workflow
 
-After rename fix + help page:
+Production tester environment must remain isolated from future experimentation.
 
-final E2E pass
-cleanup remaining low-risk debug logs
-controlled real-user rollout prep
+---
+
+2. Domain + Website Preparation
+
+Begin buildproof.app preparation:
+
+Initial site goals:
+
+• clean landing page  
+• login portal  
+• support/help access  
+• screenshots  
+• contractor-focused positioning  
+• privacy policy  
+• terms  
+• pricing placeholder  
+• contact/support  
+
+This can progress safely during field testing without affecting production.
+
+---
+
+3. App Store Preparation
+
+Begin:
+
+• Apple Developer prep  
+• Google Play prep  
+• app icon refinement  
+• screenshot preparation  
+• App Store copywriting  
+• onboarding screenshots  
+• privacy policy preparation  
+
+Important:
+
+This preparation can happen WITHOUT touching stable production systems.
+
+---
+
+4. Branding + Positioning
+
+Current strongest positioning direction:
+
+→ “dispute-ready contractor documentation”
+
+Future marketing emphasis:
+
+• finalized documentation  
+• client communication clarity  
+• proof timeline  
+• approvals  
+• dispute exports  
+• offline reliability  
+
+---
+
 📁 CURRENT IMPORTANT FILES
 
 app/
 
 dashboard/page.tsx
 share/[token]/page.tsx
+layout.tsx
 
 app/api/
 
@@ -537,6 +499,7 @@ OfflineSendBootstrap.tsx
 OfflineAppShellBootstrap.tsx
 OfflineReconnectBootstrap.tsx
 OfflineSendIndicator.tsx
+ProjectNotesModal.tsx
 
 lib/
 
@@ -556,101 +519,14 @@ offlineDashboardCache.ts
 reconnectFlow.ts
 pdf/buildProjectPdf.ts
 
+public/
+
+sw.js
+buildproof-logo.png
+manifest.json
+
 root/
 
 BUILDPROOF_MASTER_HANDOFF.md
 OFFLINE_PLAYBOOK.md
 REGRESSION_LEDGER.md
-📁 CURRENT FILE TREE
-
-app/
-├── layout.tsx
-├── dashboard/
-│ └── page.tsx
-├── share/
-│ └── [token]/
-│ ├── page.tsx
-│ └── export/
-│ └── route.ts
-├── auth/
-│ └── finish/
-│ └── page.tsx
-├── api/
-│ ├── approvals/
-│ │ ├── list/
-│ │ │ └── route.ts
-│ │ ├── create/
-│ │ ├── update/
-│ │ └── send/
-│ │ └── route.ts
-│ ├── attachments/
-│ │ ├── upload/
-│ │ │ └── route.ts
-│ │ └── insert/
-│ │ └── route.ts
-│ ├── approval-attachments/
-│ │ ├── upload/
-│ │ │ └── route.ts
-│ │ └── insert/
-│ │ └── route.ts
-│ ├── send/
-│ │ ├── create-job/
-│ │ │ └── route.ts
-│ │ ├── process-job/
-│ │ │ └── route.ts
-│ │ └── email/
-│ │ └── route.ts
-│ ├── export/
-│ │ └── pdf/
-│ │ └── route.ts
-│ └── proofs/
-│ ├── create/
-│ ├── update/
-│ └── finalize/
-
-components/
-├── ApprovalCard.tsx
-├── ApprovalComposer.tsx
-├── AttachmentUploader.tsx
-├── AttachmentList.tsx
-├── ProofAttachmentsWrapper.tsx
-├── SendUpdatePack.tsx
-├── OfflineAttachmentBootstrap.tsx
-├── OfflineSendBootstrap.tsx
-├── OfflineAppShellBootstrap.tsx
-├── OfflineReconnectBootstrap.tsx
-├── OfflineSendIndicator.tsx
-└── ProjectNotesModal.tsx
-
-lib/
-├── normalizeImageFile.ts
-├── buildProjectPdf.ts
-├── supabase.ts
-├── supabaseServer.ts
-├── requireUser.ts
-├── offlineDashboardCache.ts
-├── offlineProofOutbox.ts
-├── offlineAttachmentOutbox.ts
-├── offlineAttachmentFlush.ts
-├── offlineApprovalOutbox.ts
-├── offlineApprovalFlush.ts
-├── offlineApprovalAttachmentOutbox.ts
-├── offlineApprovalAttachmentFlush.ts
-├── offlineApprovalSendOutbox.ts
-├── offlineApprovalSendFlush.ts
-├── offlineSendOutbox.ts
-├── offlineSendFlush.ts
-└── reconnectFlow.ts
-
-public/
-├── sw.js
-├── buildproof-logo.png
-└── manifest.json
-
-root/
-├── BUILDPROOF_MASTER_HANDOFF.md
-├── OFFLINE_PLAYBOOK.md
-├── REGRESSION_LEDGER.md
-├── tsconfig.json
-├── next.config.js
-└── package.json

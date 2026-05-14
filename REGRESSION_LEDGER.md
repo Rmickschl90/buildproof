@@ -2454,3 +2454,74 @@ Status:
 #### Earlier mobile replay stabilization point
 - `v1-mobile-replay-stable`
 
+FINAL V1 FIELD TEST STABILIZATION PASS — VERIFIED
+
+ONLINE FLOW — PASS
+• project creation
+• client info
+• notes
+• entries
+• attachments
+• approvals
+• update sends
+• approval sends
+• share links
+• PDFs/dispute export
+• archive/restore
+
+OFFLINE FLOW — PASS
+• offline project creation
+• offline client edits
+• offline notes
+• offline entries
+• offline attachments
+• offline approvals
+• offline approval attachments
+• offline update send
+• offline approval send
+• reconnect replay
+• hard refresh persistence
+• no duplicate projects
+• no stuck queues
+• no missing attachments
+
+SECURITY HARDENING — PASS
+• RLS enabled and validated:
+  - approval_tokens
+  - approval_requests
+  - approval_responses
+  - send_jobs
+  - message_deliveries
+  - share_views
+  - project_contact_events
+• proofs_active secured with security_invoker=true
+• second-account isolation validated
+• fresh-user onboarding validated
+
+MEDIA SUPPORT DECISION — V1
+• verified support:
+  - photos/images
+  - PDFs
+  - document/file attachments
+• video uploads intentionally disabled for V1 field rollout
+• entry and approval uploaders aligned to supported media only
+• online video behavior observed functional
+• offline/replay-safe video support deferred for future rollout cycle
+
+VIDEO SUPPORT — FUTURE ROADMAP
+Future rollout target:
+• offline-safe video replay
+• reconnect-safe video remapping
+• mobile-friendly playback handling
+• share/email video handling validation
+• dispute export/PDF video behavior decisions
+• large file handling validation
+
+KNOWN V1 STATUS
+• No known critical rollout blockers remaining.
+• Production enters controlled private field-test phase.
+• Production deployments should remain frozen except emergency fixes.
+• Next infrastructure priority AFTER field testing:
+  - stable preview/staging deployment
+  - separated development auth flow
+  - non-production testing workflow
