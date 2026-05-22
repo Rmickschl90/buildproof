@@ -256,6 +256,156 @@ This distinction is now reflected throughout:
 
 ---
 
+---
+
+# STAGING INFRASTRUCTURE (NEW LOCKED OPERATIONAL FLOW)
+
+IMPORTANT:
+BuildProof now has a fully isolated staging/testing deployment separate from the protected live tester app.
+
+Current environments:
+
+Marketing Site:
+https://buildproof-site.vercel.app
+
+Protected Tester Production App:
+https://buildproof-kappa.vercel.app
+
+Isolated Staging App:
+https://buildproof-staging.vercel.app
+
+Current architecture purpose:
+
+buildproof-site
+→ marketing
+→ pricing
+→ Stripe
+→ onboarding entry
+
+buildproof-kappa
+→ protected real-world tester environment
+→ production-style field testing
+→ should remain stable/frozen during active testing
+
+buildproof-staging
+→ isolated testing environment
+→ bug reproduction
+→ auth validation
+→ offline validation
+→ reconnect/send validation
+→ safe staging verification before production rollout
+
+IMPORTANT:
+The staging environment solved the previous operational problem where production deployments had to be used for auth/session testing.
+
+Staging now supports:
+- Supabase magic-link auth
+- dashboard access
+- isolated deployments
+- safe testing
+- production protection
+
+---
+
+# CURRENT STAGING DEPLOY FLOW
+
+IMPORTANT:
+The local repo is now linked to the Vercel project:
+
+buildproof-staging
+
+Local Vercel link exists in:
+.vercel/project.json
+
+IMPORTANT:
+The local repo is intentionally linked to:
+buildproof-staging
+
+Meaning:
+vercel --prod deploys to staging by default unless manually relinked.
+
+Current protected workflow:
+
+1. Create staging branch
+2. Make surgical code edit
+3. Commit/push branch
+4. Deploy to staging:
+   vercel --prod
+5. Test on:
+   https://buildproof-staging.vercel.app
+6. Validate E2E safely
+7. Only after verification:
+   intentionally deploy verified code to production app
+
+IMPORTANT:
+Production is NO LONGER the primary test environment.
+
+---
+
+# CURRENT SAFE PRODUCTION RELEASE FLOW
+
+Current production release philosophy:
+
+staging first
+production second
+
+Meaning:
+
+buildproof-staging
+→ rapid iteration/testing
+
+buildproof-kappa
+→ protected release target
+
+Current intentional production deployment process:
+
+1. Verify fix on staging
+2. Intentionally relink/deploy to production project
+3. Deploy verified build to:
+   https://buildproof-kappa.vercel.app
+4. Relink local repo back to staging afterward
+
+IMPORTANT:
+Production deployments should now be intentional/manual releases only.
+
+---
+
+# STAGING SAFETY RULES
+
+Do NOT:
+- casually relink local repo to production Vercel project
+- test unstable fixes directly on production
+- modify Supabase production auth settings aggressively
+- bypass staging validation for risky offline/send/reconnect changes
+
+Prefer:
+- isolated staging validation
+- one subsystem at a time
+- surgical testing
+- controlled rollout
+- protected tester stability
+
+---
+
+# CURRENT VERIFIED STAGING STATUS
+
+Verified PASS:
+- isolated Vercel staging project created
+- GitHub repo connected safely
+- environment variables configured
+- Supabase auth redirect validated
+- magic-link login validated
+- dashboard access validated
+- production tester app preserved during setup
+
+Current staging URL:
+https://buildproof-staging.vercel.app
+
+Future target domain:
+staging.buildproof.app
+
+---
+
 🧱 HELP PAGE / USER EDUCATION
 
 BuildProof now includes:
@@ -315,6 +465,9 @@ Purpose:
 • preserve rollout-ready verified state  
 • rollback protection during future experimentation  
 • protect tester production environment  
+
+Current staging infrastructure restore point:
+→ safety-before-staging-infra
 
 ---
 
@@ -397,17 +550,30 @@ During field test:
 
 🎯 NEXT MAJOR PHASES (POST FIELD TEST)
 
-1. Preview / Staging Infrastructure
+1. Staging Infrastructure — COMPLETE
 
-Highest-priority infrastructure goal AFTER field test:
+BuildProof now has:
 
-• separate production from development
-• proper preview deployment workflow
-• eliminate constant production promotion cycle
-• isolated auth/dev environment
-• safer deployment workflow
+• isolated staging deployment
+• isolated Vercel staging project
+• isolated auth-safe testing environment
+• separate production/test workflow
+• protected tester production environment
 
-Production tester environment must remain isolated from future experimentation.
+Current staging URL:
+https://buildproof-staging.vercel.app
+
+Current protected production/tester URL:
+https://buildproof-kappa.vercel.app
+
+Current operational workflow:
+
+• develop on branch
+• deploy to staging
+• validate E2E safely
+• intentionally/manual deploy verified builds to production
+
+This infrastructure milestone eliminated the previous requirement to test auth/session behavior directly on production deployments.
 
 ---
 

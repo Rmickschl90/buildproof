@@ -262,6 +262,88 @@ BuildProof is still considered:
 The remaining blocker is now isolated specifically to:
 → mobile offline replay of multiple camera-originated attachments
 
+---
+
+# STAGING-FIRST TESTING RULE (LOCKED)
+
+IMPORTANT:
+BuildProof now uses a dedicated isolated staging environment for active development/testing.
+
+Current staging URL:
+https://buildproof-staging.vercel.app
+
+Current protected production/tester URL:
+https://buildproof-kappa.vercel.app
+
+Operational rule:
+Production is no longer the primary testing environment.
+
+Current required workflow:
+
+1. Make surgical code edit
+2. Deploy to staging using:
+   vercel --prod
+3. Validate auth/session behavior
+4. Validate offline behavior
+5. Validate reconnect/send behavior
+6. Run subsystem E2E
+7. Only after PASS:
+   intentionally deploy verified code to production
+
+IMPORTANT:
+Core offline/send/reconnect systems remain protected even on staging.
+
+Staging exists to:
+- reproduce bugs safely
+- validate auth safely
+- validate reconnect behavior safely
+- validate offline flows safely
+- prevent destabilizing real testers
+
+---
+
+# CURRENT VERCEL LINK RULE
+
+IMPORTANT:
+The local repo is currently linked to:
+
+buildproof-staging
+
+through:
+.vercel/project.json
+
+Meaning:
+vercel --prod currently deploys to staging, NOT production.
+
+Always verify deploy output before testing.
+
+Expected safe staging deploy output:
+
+buildproof-staging.vercel.app
+
+If deploy output ever references:
+buildproof-kappa
+
+STOP immediately and verify local Vercel linking before continuing.
+
+---
+
+# CURRENT STAGING SAFETY PHILOSOPHY
+
+Prefer:
+- staging-first validation
+- isolated infrastructure testing
+- protected production rollout
+- controlled/manual production releases
+
+Avoid:
+- production-first testing
+- unstable direct production validation
+- bypassing staging for reconnect/offline changes
+- aggressive production auth modifications
+
+---
+
 # 📁 CURRENT FILE TREE (IMPORTANT)
 
 app/
