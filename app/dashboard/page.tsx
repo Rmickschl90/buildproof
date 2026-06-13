@@ -2816,11 +2816,15 @@ export default function DashboardPage() {
         <div className="shell">
           <div className="card">
             <div className="row">
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center" }}>
                 <img
                   src="/Leeward-Logo-Approved-Concept.png"
                   alt="Leeward"
-                  style={{ height: 60, width: "auto", display: "block" }}
+                  style={{
+                    height: 90,
+                    width: "auto",
+                    display: "block",
+                  }}
                 />
               </div>
               <button className="btn btnDanger" onClick={logout}>
