@@ -2676,3 +2676,14 @@ KNOWN V1 STATUS
   - stable preview/staging deployment
   - separated development auth flow
   - non-production testing workflow
+
+  # PWA INSTALL AUTH FINDING
+
+Installed iPhone home-screen app opens correctly, but Supabase magic-link login completes in Safari and does not transfer authenticated session back into the installed PWA context.
+
+Result:
+- Safari/browser login works
+- installed app remains on login page
+- PWA install experience is not yet app-store-ready
+
+This is the first App Store prep blocker to investigate.
