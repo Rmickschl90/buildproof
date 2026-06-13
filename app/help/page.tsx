@@ -33,7 +33,7 @@ export default function HelpPage() {
                         ← Back to dashboard
                     </a>
 
-                    <p style={eyebrowStyle}>BuildProof Help</p>
+                    <p style={eyebrowStyle}>Leeward Help</p>
 
                     <h1
                         style={{
@@ -56,14 +56,14 @@ export default function HelpPage() {
                             maxWidth: 760,
                         }}
                     >
-                        BuildProof helps you keep a clean project timeline, send clear
+                        Leeward helps you keep a clean project timeline, send clear
                         updates, track approvals, and preserve a reliable record if
                         questions come up later.
                     </p>
                 </header>
 
                 <section style={gridStyle}>
-                    <HelpCard title="1. How BuildProof works">
+                    <HelpCard title="1. How Leeward works">
                         <p>
                             Each project has a timeline. Add entries as work happens, attach
                             photos or files, and keep client information in one place.
@@ -93,7 +93,7 @@ export default function HelpPage() {
 
                         <p>
                             When you send an update, all draft entries in that project are
-                            finalized together. BuildProof treats the current draft timeline as
+                            finalized together. Leeward treats the current draft timeline as
                             a complete working record instead of requiring individual entry
                             selection.
                         </p>
@@ -206,7 +206,7 @@ export default function HelpPage() {
 
                     <HelpCard title="5. Working offline">
                         <p>
-                            BuildProof is designed for real jobsites. If service drops, you
+                            Leeward is designed for real jobsites. If service drops, you
                             can keep adding projects, entries, photos, approvals, and notes.
                         </p>
 
@@ -244,7 +244,7 @@ export default function HelpPage() {
 
                     <HelpCard title="7. Project records and documentation">
                         <p>
-                            BuildProof preserves structured project records designed to remain
+                            Leeward preserves structured project records designed to remain
                             clear and understandable later.
                         </p>
 
@@ -303,7 +303,7 @@ export default function HelpPage() {
 
                     <HelpCard title="9. One-click dispute package">
                         <p>
-                            If a disagreement ever comes up, BuildProof can generate a structured
+                            If a disagreement ever comes up, Leeward can generate a structured
                             dispute package in one click from the project menu.
                         </p>
 
