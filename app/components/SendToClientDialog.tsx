@@ -12,8 +12,8 @@ export function SendToClientDialog({ projectId, projectTitle }: { projectId: str
   const [error, setError] = useState<string>("");
 
   const defaultMessage = useMemo(() => {
-    if (mode === "sms") return `BuildProof update: ${projectTitle}\n{link}`;
-    return `Quick update for "${projectTitle}".\n\nView the journal here: {link}\n\n— Sent from BuildProof`;
+    if (mode === "sms") return `Leeward update: ${projectTitle}\n{link}`;
+    return `Quick update for "${projectTitle}".\n\nView the journal here: {link}\n\n— Sent from Leeward`;
   }, [mode, projectTitle]);
 
   async function send() {

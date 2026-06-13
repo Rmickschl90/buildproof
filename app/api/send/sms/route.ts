@@ -76,7 +76,7 @@ export async function POST(req: Request) {
     const shareUrl = `${appUrl.replace(/\/+$/, "")}/share/${shareToken}`;
 
     // SMS should be short + always include link
-    const defaultMsg = `BuildProof update: ${project.title || "Project"}\n${shareUrl}`;
+    const defaultMsg = `Leeward update: ${project.title || "Project"}\n${shareUrl}`;
     const finalMsg = (message ? `${message}\n${shareUrl}` : defaultMsg).trim();
 
     // --- Log delivery FIRST (so history works even if Twilio fails) ---

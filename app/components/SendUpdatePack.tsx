@@ -972,7 +972,7 @@ export default function SendUpdatePack({
 
           {!hasOfficialClientEmail ? (
             <div className="sub" style={{ opacity: 0.8, color: "#b45309", fontWeight: 700 }}>
-              Add client email to enable official updates. Until then, BuildProof can still be used for journaling and PDF exports.
+              Add client email to enable official updates. Until then, Leeward can still be used for journaling and PDF exports.
             </div>
           ) : (
             <div className="sub" style={{ opacity: 0.75 }}>

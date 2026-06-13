@@ -36,8 +36,8 @@ export async function POST(req: Request) {
     const payload = {
       from: RESEND_FROM,
       to: [toEmail],
-      subject: "BuildProof test email",
-      text: "This is a test email from BuildProof (no PDF, no DB).",
+      subject: "Leeward test email",
+      text: "This is a test email from Leeward (no PDF, no DB).",
     };
 
     const res = await fetchWithTimeout(

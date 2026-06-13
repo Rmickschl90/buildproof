@@ -38,7 +38,7 @@ export default function OnboardingWizard({
   let buttonAction = onCreateProject;
 
   if (projectCount === 0) {
-    title = "Welcome to BuildProof";
+    title = "Welcome to Leeward";
     message = "Start by creating your first project.";
     buttonLabel = "Create Project";
     buttonAction = onCreateProject;

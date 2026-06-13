@@ -286,7 +286,7 @@ export async function POST(req: Request) {
         </p>
 
         <p style="margin:0;color:#64748b;font-size:13px;">
-          Powered by BuildProof
+          Powered by Leeward
         </p>
       </div>
     `;

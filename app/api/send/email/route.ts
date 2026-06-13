@@ -159,7 +159,7 @@ export async function POST(req: Request) {
         .eq("user_id", userId);
     }
 
-    const title = project.title || "BuildProof Project";
+    const title = project.title || "Leeward Project";
     const messageBody = [
       `Attached is the latest PDF report for: ${title}`,
       "",
@@ -354,7 +354,7 @@ export async function POST(req: Request) {
       "",
       "The PDF is attached for easy download and recordkeeping.",
       "",
-      "— Powered by BuildProof",
+      "— Powered by Leeward",
     ].join("\n");
 
     const html = `
@@ -379,7 +379,7 @@ export async function POST(req: Request) {
         </p>
 
         <p style="margin:18px 0 0 0;color:#64748b;font-size:13px;">
-          Powered by BuildProof
+          Powered by Leeward
         </p>
       </div>
     `;
