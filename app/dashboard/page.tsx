@@ -2818,8 +2818,8 @@ export default function DashboardPage() {
             <div className="row">
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <img
-                  src="/buildproof-logo.png"
-                  alt="BuildProof"
+                  src="/Leeward-Logo-Approved-Concept.png"
+                  alt="Leeward"
                   style={{ height: 60, width: "auto", display: "block" }}
                 />
               </div>
