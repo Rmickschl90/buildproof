@@ -6,7 +6,7 @@ import OfflineAppShellBootstrap from "@/app/components/OfflineAppShellBootstrap"
 import OfflineReconnectBootstrap from "@/app/components/OfflineReconnectBootstrap";
 
 export const metadata = {
-  title: "BuildProof",
+  title: "Leeward",
   description: "Project proof capture for remodeling & construction",
 };
 
