@@ -14,7 +14,7 @@ export async function generateMetadata(props: {
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
   const logoUrl = appUrl ? `${appUrl}/buildproof-logo.png` : "/buildproof-logo.png";
 
-  let title = "BuildProof Project Journal";
+  let title = "Leeward Project Journal";
 
   if (token) {
     const { data: share } = await supabaseServer
@@ -31,7 +31,7 @@ export async function generateMetadata(props: {
         .maybeSingle();
 
       if (project?.title) {
-        title = `${project.title} | BuildProof`;
+        title = `${project.title} | Leeward`;
       }
     }
   }
@@ -895,6 +895,47 @@ export default async function SharePage(props: {
             text-align: center;
           }
 
+          .shareLogoCrop {
+  height: 68px;
+ max-width: 85vw;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  flex-shrink: 1;
+}
+
+.shareLogo {
+  height: 104px;
+  width: auto;
+  display: block;
+  transform: translateY(6px);
+}
+
+@media (max-width: 739px){
+  .shareLogoCrop {
+    width: 58%;
+    max-width: 58%;
+    height: 74px;
+  }
+
+  .shareLogo {
+    width: 100%;
+    height: auto;
+    transform: translateY(-2px);
+  }
+}
+
+@media (min-width: 740px){
+  .shareLogoCrop {
+    height: 92px;
+    max-width: 58vw;
+  }
+
+  .shareLogo {
+    height: 155px;
+  }
+}
+
           @media (min-width: 740px){
             .wrap{ padding: 18px; }
             .h1{ font-size: 20px; }
@@ -923,29 +964,36 @@ export default async function SharePage(props: {
 
       <div
         style={{
-          padding: "14px 0 6px",
+          padding: "12px 0 0 0",
+          margin: 0,
         }}
       >
         <div
           className="wrap"
           style={{
             display: "flex",
-            alignItems: "flex-start",
+            alignItems: "center",
             justifyContent: "space-between",
-            gap: 16,
+            gap: 10,
+            paddingTop: 0,
+            paddingBottom: 0,
           }}
         >
-          <img
-            src="/buildproof-logo.png"
-            alt="BuildProof"
-            style={{
-              height: 68,
-              width: "auto",
-              display: "block",
-            }}
-          />
+          <div className="shareLogoCrop">
+            <img
+              src="/Leeward-Logo-Approved-Concept.png"
+              alt="Leeward"
+              className="shareLogo"
+            />
+          </div>
 
-          <div style={{ display: "flex", gap: 10 }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              flexShrink: 0,
+            }}
+          >
             <span className="pill">🔒 Read-only</span>
             {includeArchived ? <span className="pill">📦 Archived included</span> : null}
           </div>
@@ -1346,7 +1394,7 @@ export default async function SharePage(props: {
         )}
 
         <div className="foot">
-          Powered by <b>BuildProof</b> • This journal is shared read-only
+          Powered by <b>Leeward</b> • This journal is shared read-only
         </div>
       </div>
     </div>

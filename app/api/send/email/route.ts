@@ -384,7 +384,7 @@ export async function POST(req: Request) {
       </div>
     `;
 
-    const finalFilename = filename || `BuildProof_${safeFilename(title)}.pdf`;
+    const finalFilename = filename || `Leeward_${safeFilename(title)}.pdf`;
 
     const resendRes = await fetchWithTimeout(
       "https://api.resend.com/emails",

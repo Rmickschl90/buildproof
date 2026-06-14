@@ -179,7 +179,7 @@ async function waitForSupabaseReconnectReady() {
   return false;
 }
 
-const LAST_OPEN_PROJECT_KEY = "buildproof_last_open_project_id";
+const LAST_OPEN_PROJECT_KEY = "Leeward_last_open_project_id";
 
 function saveLastOpenProjectId(projectId: string) {
   if (typeof window === "undefined") return;
@@ -395,7 +395,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const existing = JSON.parse(
-      window.localStorage.getItem("buildproof_selected_project_debug_log") || "[]"
+      window.localStorage.getItem("Leeward_selected_project_debug_log") || "[]"
     );
 
     existing.push(
@@ -405,7 +405,7 @@ export default function DashboardPage() {
     );
 
     window.localStorage.setItem(
-      "buildproof_selected_project_debug_log",
+      "Leeward_selected_project_debug_log",
       JSON.stringify(existing)
     );
   }, [selectedProject]);
@@ -471,7 +471,7 @@ export default function DashboardPage() {
               debugSteps.push("saveLastOpenProjectId done");
 
               window.localStorage.setItem(
-                "buildproof_offline_boot_debug",
+                "Leeward_offline_boot_debug",
                 JSON.stringify(debugSteps)
               );
 
@@ -486,7 +486,7 @@ export default function DashboardPage() {
               debugSteps.push("setDashboardReady done");
 
               window.localStorage.setItem(
-                "buildproof_offline_boot_debug",
+                "Leeward_offline_boot_debug",
                 JSON.stringify(debugSteps)
               );
             } else {
@@ -494,7 +494,7 @@ export default function DashboardPage() {
             }
           }
 
-          const done = window.localStorage.getItem("buildproof_onboarding_complete");
+          const done = window.localStorage.getItem("Leeward_onboarding_complete");
           if (done === "true") {
             setOnboardingComplete(true);
           }
@@ -544,7 +544,7 @@ export default function DashboardPage() {
           }
         }
 
-        const done = window.localStorage.getItem("buildproof_onboarding_complete");
+        const done = window.localStorage.getItem("Leeward_onboarding_complete");
         if (done === "true") {
           setOnboardingComplete(true);
         }
@@ -1869,11 +1869,11 @@ export default function DashboardPage() {
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
 
-      const safeTitle = (selectedProject.title || "BuildProof_Project").replace(/[^\w\-]+/g, "_");
+      const safeTitle = (selectedProject.title || "Leeward_Project").replace(/[^\w\-]+/g, "_");
 
       const a = document.createElement("a");
       a.href = url;
-      a.download = `BuildProof_${safeTitle}.pdf`;
+      a.download = `Leeward_${safeTitle}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -1918,11 +1918,11 @@ export default function DashboardPage() {
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
 
-      const safeTitle = (selectedProject.title || "BuildProof_Project").replace(/[^\w\-]+/g, "_");
+      const safeTitle = (selectedProject.title || "Leeward_Project").replace(/[^\w\-]+/g, "_");
 
       const a = document.createElement("a");
       a.href = url;
-      a.download = `BuildProof_Dispute_Package_${safeTitle}.pdf`;
+      a.download = `Leeward_Dispute_Package_${safeTitle}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -2605,7 +2605,7 @@ export default function DashboardPage() {
       "🎉 First update sent. Your project timeline is now live and ready to use."
     );
 
-    window.localStorage.setItem("buildproof_onboarding_complete", "true");
+    window.localStorage.setItem("Leeward_onboarding_complete", "true");
 
     setTimeout(() => {
       const active = document.activeElement as HTMLElement | null;

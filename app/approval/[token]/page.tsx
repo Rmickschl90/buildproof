@@ -64,7 +64,7 @@ export default async function ApprovalPage({ params }: Props) {
                         marginBottom: 8,
                     }}
                 >
-                    BuildProof Approval Request
+                    Leeward Approval Request
                 </div>
 
                 <h1

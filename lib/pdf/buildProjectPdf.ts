@@ -247,11 +247,11 @@ export async function buildProjectPdf(
   let logoImage: any = null;
 
   try {
-    const logoPath = path.join(process.cwd(), "public", "buildproof-logo.png");
+    const logoPath = path.join(process.cwd(), "public", "Leeward-Logo-Approved-Concept.png");
     const logoBytes = await readFile(logoPath);
     logoImage = await pdf.embedPng(logoBytes);
   } catch (e) {
-    console.error("Failed to load BuildProof logo", e);
+    console.error("Failed to load Leeward logo", e);
   }
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
@@ -1474,8 +1474,8 @@ export async function buildProjectPdf(
   }
 
   const pdfBuffer = await pdf.save();
-  const safeTitle = sanitizePdfFilename(project.title || "BuildProof_Project").slice(0, 80);
-  const filename = `BuildProof_${safeTitle}.pdf`;
+  const safeTitle = sanitizePdfFilename(project.title || "Leeward_Project").slice(0, 80);
+  const filename = `Leeward_${safeTitle}.pdf`;
 
   return { pdfBuffer, filename };
 }
@@ -1546,20 +1546,12 @@ function addCoverPage(opts: {
     borderWidth: 0,
   });
 
-  page.drawText("Build", {
+  page.drawText("Leeward", {
     x: MARGIN,
     y: PAGE_HEIGHT - 76,
     size: 30,
     font: fontBold,
     color: COLORS.white,
-  });
-
-  page.drawText("Proof", {
-    x: MARGIN + 76,
-    y: PAGE_HEIGHT - 76,
-    size: 30,
-    font: fontBold,
-    color: rgb(0.36, 0.58, 0.95),
   });
 
   page.drawText(
@@ -1863,7 +1855,7 @@ function addCoverPage(opts: {
       color: COLORS.muted,
     });
   } else {
-    page.drawText("Powered by BuildProof", {
+    page.drawText("Powered by Leeward", {
       x: PAGE_WIDTH - MARGIN - 118,
       y: 54,
       size: 9.5,
@@ -1884,7 +1876,7 @@ function addTimelinePage(
 ) {
   const page = pdf.addPage(PAGE_SIZE);
 
-  page.drawText("BuildProof Journal", {
+  page.drawText("Leeward Journal", {
     x: MARGIN,
     y: PAGE_HEIGHT - MARGIN + 8,
     size: 11,
@@ -2097,7 +2089,7 @@ function addPoweredByFooter(
       color: COLORS.muted,
     });
   } else {
-    page.drawText("Powered by BuildProof", {
+    page.drawText("Powered by Leeward", {
       x: MARGIN,
       y: 24,
       size: 9,
@@ -2114,7 +2106,7 @@ function addPoweredByFooter(
     color: COLORS.faint,
   });
 
-  page.drawText("buildproof.app", {
+  page.drawText("getleeward.com", {
     x: PAGE_WIDTH - MARGIN - 78,
     y: 24,
     size: 9,
@@ -2436,7 +2428,7 @@ function sanitizePdfText(input: string) {
 }
 
 function sanitizePdfFilename(name: string) {
-  return String(name || "BuildProof_Project").replace(/[^\w\-]+/g, "_");
+  return String(name || "Leeward_Project").replace(/[^\w\-]+/g, "_");
 }
 
 function formatDevice(ua?: string | null) {
