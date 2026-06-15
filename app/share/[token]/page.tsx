@@ -927,15 +927,16 @@ export default async function SharePage(props: {
 
 @media (min-width: 740px){
   .shareLogoCrop {
-    height: 92px;
-    max-width: 58vw;
+    height: 110px;
+    max-width: 620px;
+    overflow: visible;
   }
 
   .shareLogo {
-    height: 155px;
+    height: 110px;
+    transform: none;
   }
 }
-
           @media (min-width: 740px){
             .wrap{ padding: 18px; }
             .h1{ font-size: 20px; }
