@@ -7,7 +7,13 @@ import OfflineReconnectBootstrap from "@/app/components/OfflineReconnectBootstra
 
 export const metadata = {
   title: "Leeward",
-  description: "Project communication, documentation, approvals, and updates with accountability built in.",
+  description:
+    "Project communication, documentation, approvals, and updates with accountability built in.",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/icon-192.png",
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({
@@ -30,7 +36,6 @@ export default function RootLayout({
         <OfflineSendIndicator />
         {children}
         <OfflineSendBootstrap />
-
       </body>
     </html>
   );
