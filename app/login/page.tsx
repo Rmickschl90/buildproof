@@ -10,6 +10,8 @@ export default function Login() {
   const router = useRouter();
 
   const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -24,19 +26,20 @@ export default function Login() {
     });
   }
 
+  function getRedirectTarget() {
+    const redirectedFrom = new URLSearchParams(window.location.search).get("redirectedFrom");
+    return redirectedFrom || "/dashboard";
+  }
+
   useEffect(() => {
     let cancelled = false;
 
     async function run() {
       try {
-        const urlParams = new URLSearchParams(window.location.search);
-
         const { data: existing } = await supabase.auth.getSession();
         if (!cancelled && existing?.session) {
           await establishServerSession();
-
-          const redirectedFrom = urlParams.get("redirectedFrom");
-          router.replace(redirectedFrom || "/dashboard");
+          router.replace(getRedirectTarget());
           return;
         }
 
@@ -61,14 +64,12 @@ export default function Login() {
             }
 
             await establishServerSession();
-
-            const redirectedFrom = urlParams.get("redirectedFrom");
-            router.replace(redirectedFrom || "/dashboard");
+            router.replace(getRedirectTarget());
             return;
           }
         }
 
-        const err = urlParams.get("error");
+        const err = new URLSearchParams(window.location.search).get("error");
         if (err && !cancelled) setMessage(`Error: ${err}`);
       } catch (e: any) {
         if (!cancelled) setMessage(`Error: ${e?.message ?? "Login error"}`);
@@ -82,11 +83,11 @@ export default function Login() {
     };
   }, [router]);
 
-  async function handleLogin(e: React.FormEvent) {
+  async function handleSendCode(e: React.FormEvent) {
     e.preventDefault();
     setMessage("");
 
-    const clean = email.trim();
+    const clean = email.trim().toLowerCase();
     if (!clean) return;
 
     try {
@@ -107,9 +108,40 @@ export default function Login() {
 
       if (error) throw error;
 
-      setMessage("Check your email for the magic link (click the newest one).");
+      setEmail(clean);
+      setCodeSent(true);
+      setMessage("Check your email for the Leeward sign-in code.");
     } catch (err: any) {
       setMessage(`Error: ${err?.message ?? "Login failed"}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleVerifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    setMessage("");
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanCode = code.trim();
+
+    if (!cleanEmail || !cleanCode) return;
+
+    try {
+      setBusy(true);
+
+      const { error } = await supabase.auth.verifyOtp({
+        email: cleanEmail,
+        token: cleanCode,
+        type: "email",
+      });
+
+      if (error) throw error;
+
+      await establishServerSession();
+      router.replace(getRedirectTarget());
+    } catch (err: any) {
+      setMessage(`Error: ${err?.message ?? "Code verification failed"}`);
     } finally {
       setBusy(false);
     }
@@ -120,23 +152,63 @@ export default function Login() {
       <div className="shell">
         <div className="card">
           <h1 className="h1">Login</h1>
-          <p className="sub">We’ll email you a one-tap sign-in link.</p>
+          <p className="sub">We'll email you a sign-in code for Leeward.</p>
 
-          <form onSubmit={handleLogin} style={{ marginTop: 12, display: "grid", gap: 10 }}>
-            <input
-              className="input"
-              type="email"
-              placeholder="you@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-            />
+          {!codeSent ? (
+            <form onSubmit={handleSendCode} style={{ marginTop: 12, display: "grid", gap: 10 }}>
+              <input
+                className="input"
+                type="email"
+                placeholder="you@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+              />
 
-            <button className="btn btnPrimary" type="submit" disabled={busy}>
-              {busy ? "Sending..." : "Send Magic Link"}
-            </button>
-          </form>
+              <button className="btn btnPrimary" type="submit" disabled={busy}>
+                {busy ? "Sending..." : "Send Sign-In Code"}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleVerifyCode} style={{ marginTop: 12, display: "grid", gap: 10 }}>
+              <input
+                className="input"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+              />
+
+              <input
+                className="input"
+                type="text"
+                inputMode="numeric"
+                placeholder="Enter code"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                required
+              />
+
+              <button className="btn btnPrimary" type="submit" disabled={busy}>
+                {busy ? "Verifying..." : "Verify Code"}
+              </button>
+
+              <button
+                className="btn"
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setCode("");
+                  setCodeSent(false);
+                  setMessage("");
+                }}
+              >
+                Use a different email
+              </button>
+            </form>
+          )}
 
           {message ? (
             <div className="notice" style={{ marginTop: 12, wordBreak: "break-word" }}>
@@ -145,7 +217,7 @@ export default function Login() {
           ) : null}
 
           <div className="sub" style={{ marginTop: 10 }}>
-            Tip: always click the newest email link only.
+            Tip: enter the newest code from your email.
           </div>
         </div>
       </div>
