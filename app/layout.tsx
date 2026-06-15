@@ -7,7 +7,7 @@ import OfflineReconnectBootstrap from "@/app/components/OfflineReconnectBootstra
 
 export const metadata = {
   title: "Leeward",
-  description: "Project proof capture for remodeling & construction",
+  description: "Project communication, documentation, approvals, and updates with accountability built in.",
 };
 
 export default function RootLayout({
