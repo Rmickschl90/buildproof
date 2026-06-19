@@ -50,6 +50,7 @@ export default function AttachmentUploader({
   const [message, setMessage] = useState("");
 
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const isLocked = !!lockedAt;
 
   async function getAccessToken() {
@@ -249,12 +250,31 @@ export default function AttachmentUploader({
         style={{ display: "none" }}
       />
 
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={(e) => addFiles(e.target.files)}
+        disabled={busy || isLocked}
+        style={{ display: "none" }}
+      />
+
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <button
+          className="btn"
+          onClick={() => cameraInputRef.current?.click()}
+          disabled={busy || isLocked}
+          title={isLocked ? "Finalized entry - uploads disabled" : "Take photo"}
+        >
+          Take photo
+        </button>
+
         <button
           className="btn"
           onClick={() => inputRef.current?.click()}
           disabled={busy || isLocked}
-          title={isLocked ? "Finalized entry — uploads disabled" : "Choose files"}
+          title={isLocked ? "Finalized entry - uploads disabled" : "Choose files"}
         >
           Add photos / files
         </button>
