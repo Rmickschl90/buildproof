@@ -48,9 +48,16 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (e: any) {
+    console.error("Billing checkout failed", e);
+
     return NextResponse.json(
-      { error: e?.message ?? "Checkout failed" },
+      {
+        error: e?.message ?? "Checkout failed",
+        type: e?.type ?? null,
+        code: e?.code ?? null,
+      },
       { status: 500 }
     );
   }
 }
+
