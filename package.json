@@ -16,6 +16,7 @@
     "react-dom": "18.2.0",
     "resend": "^6.8.0",
     "sharp": "^0.34.5",
+    "stripe": "^22.2.2",
     "twilio": "^5.11.2"
   },
   "devDependencies": {
