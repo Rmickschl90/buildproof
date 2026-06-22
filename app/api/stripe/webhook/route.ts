@@ -7,7 +7,11 @@ export const runtime = "nodejs";
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
+const stripe = stripeSecretKey
+  ? new Stripe(stripeSecretKey, {
+      maxNetworkRetries: 0,
+    })
+  : null;
 
 function toIsoFromStripeTimestamp(value: number | null | undefined) {
   return value ? new Date(value * 1000).toISOString() : null;
@@ -103,3 +107,4 @@ export async function POST(req: Request) {
     );
   }
 }
+

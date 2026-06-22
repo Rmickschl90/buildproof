@@ -7,7 +7,11 @@ export const runtime = "nodejs";
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const stripePriceId = process.env.STRIPE_PRICE_ID;
 
-const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
+const stripe = stripeSecretKey
+  ? new Stripe(stripeSecretKey, {
+      maxNetworkRetries: 0,
+    })
+  : null;
 
 export async function POST(req: NextRequest) {
   try {
@@ -60,4 +64,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
 
