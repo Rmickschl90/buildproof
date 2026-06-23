@@ -28,7 +28,7 @@ export default function Login() {
 
   function getRedirectTarget() {
     const redirectedFrom = new URLSearchParams(window.location.search).get("redirectedFrom");
-    return redirectedFrom || "/dashboard";
+    return redirectedFrom || "/auth/finish/signing-in";
   }
 
   useEffect(() => {

@@ -524,6 +524,31 @@ export default function DashboardPage() {
         setUserId(data.user.id);
         setUserEmail(data.user.email ?? null);
 
+        const { data: billingSessionData } = await supabase.auth.getSession();
+        const billingAccessToken = billingSessionData.session?.access_token;
+
+        if (!billingAccessToken) {
+          router.replace("/login");
+          return;
+        }
+
+        const billingRes = await fetch("/api/billing/status", {
+          cache: "no-store",
+          headers: { Authorization: `Bearer ${billingAccessToken}` },
+        });
+
+        if (!billingRes.ok) {
+          router.replace("/subscribe");
+          return;
+        }
+
+        const billing = await billingRes.json();
+
+        if (billing?.status !== "active" && billing?.status !== "trialing") {
+          router.replace("/subscribe");
+          return;
+        }
+
         await refreshOfflineProjects();
         await flushOfflineProofs();
         await loadActiveProjects(data.user.id);
@@ -4194,3 +4219,5 @@ export default function DashboardPage() {
     </>
   );
 }
+
+
