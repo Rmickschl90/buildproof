@@ -93,6 +93,7 @@ export default function ApprovalComposer({
   const [sendQueuedOffline, setSendQueuedOffline] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
   const draftStorageKey = useMemo(() => {
     return `approval-draft:${projectId}`;
@@ -1262,7 +1263,7 @@ export default function ApprovalComposer({
             Attachments
           </div>
 
-          <input
+                    <input
             ref={fileInputRef}
             type="file"
             multiple
@@ -1271,14 +1272,34 @@ export default function ApprovalComposer({
             onChange={(e) => void handleAttachmentChange(e.target.files)}
           />
 
-          <button
-            className="btn"
-            type="button"
-            disabled={isUploading}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {isUploading ? "Uploading..." : "Add attachments"}
-          </button>
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            style={{ display: "none" }}
+            onChange={(e) => void handleAttachmentChange(e.target.files)}
+          />
+
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              className="btn"
+              type="button"
+              disabled={isUploading}
+              onClick={() => cameraInputRef.current?.click()}
+            >
+              Take photo
+            </button>
+
+            <button
+              className="btn"
+              type="button"
+              disabled={isUploading}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {isUploading ? "Uploading..." : "Add attachments"}
+            </button>
+          </div>
 
           {attachments.length ? (
             <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
@@ -1435,3 +1456,4 @@ export default function ApprovalComposer({
     </div>
   );
 }
+
