@@ -3276,6 +3276,37 @@ export default function DashboardPage() {
 
                                 <button
                                   className="btn"
+                                  style={{ width: "100%" }}
+                                  onClick={async () => {
+                                    try {
+                                      const token = await getAccessToken();
+
+                                      const res = await fetch("/api/billing/portal", {
+                                        method: "POST",
+                                        headers: {
+                                          Authorization: `Bearer ${token}`,
+                                        },
+                                      });
+
+                                      const data = await res.json();
+
+                                      if (!res.ok || !data?.url) {
+                                        throw new Error(data?.error || "Unable to open billing portal.");
+                                      }
+
+                                      window.location.href = data.url;
+                                    } catch (e: any) {
+                                      setStatus(e?.message || "Unable to open billing portal.");
+                                    } finally {
+                                      setProjectMenuOpen(false);
+                                    }
+                                  }}
+                                >
+                                  Manage Billing
+                                </button>
+
+                                <button
+                                  className="btn"
                                   style={{
                                     width: "100%",
                                     background: "rgba(37,99,235,0.10)",
