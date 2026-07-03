@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const origin = req.nextUrl.origin;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
 
     const { data: existingSubscription, error: subscriptionLookupError } =
       await supabaseServer
@@ -48,8 +48,8 @@ export async function POST(req: NextRequest) {
       params.append("subscription_data[trial_period_days]", "14");
     }
     params.append("subscription_data[metadata][user_id]", user.id);
-    params.append("success_url", `${origin}/dashboard?billing=success`);
-    params.append("cancel_url", `${origin}/dashboard?billing=cancelled`);
+    params.append("success_url", `${appUrl}/dashboard?billing=success`);
+    params.append("cancel_url", `${appUrl}/dashboard?billing=cancelled`);
 
     if (user.email) {
       params.append("customer_email", user.email);
@@ -92,3 +92,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+

@@ -38,11 +38,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const origin = req.nextUrl.origin;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
 
     const params = new URLSearchParams();
     params.append("customer", data.stripe_customer_id);
-    params.append("return_url", `${origin}/dashboard`);
+    params.append("return_url", `${appUrl}/dashboard`);
 
     const stripeRes = await fetch("https://api.stripe.com/v1/billing_portal/sessions", {
       method: "POST",
@@ -81,3 +81,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
