@@ -1,3 +1,4 @@
+import { supabaseServer } from "@/lib/supabaseServer";
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/requireUser";
 
@@ -20,6 +21,22 @@ export async function POST(req: NextRequest) {
 
     const origin = req.nextUrl.origin;
 
+    const { data: existingSubscription, error: subscriptionLookupError } =
+      await supabaseServer
+        .from("user_subscriptions")
+        .select("id,trial_start,trial_end,stripe_subscription_id,status")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+    if (subscriptionLookupError) {
+      return NextResponse.json(
+        { error: "Unable to verify trial eligibility" },
+        { status: 500 }
+      );
+    }
+
+    const isTrialEligible = !existingSubscription;
+
     const params = new URLSearchParams();
     params.append("mode", "subscription");
     params.append("payment_method_types[0]", "card");
@@ -27,6 +44,9 @@ export async function POST(req: NextRequest) {
     params.append("line_items[0][quantity]", "1");
     params.append("client_reference_id", user.id);
     params.append("metadata[user_id]", user.id);
+    if (isTrialEligible) {
+      params.append("subscription_data[trial_period_days]", "14");
+    }
     params.append("subscription_data[metadata][user_id]", user.id);
     params.append("success_url", `${origin}/dashboard?billing=success`);
     params.append("cancel_url", `${origin}/dashboard?billing=cancelled`);
