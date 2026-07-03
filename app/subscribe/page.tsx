@@ -133,9 +133,9 @@ export default function SubscribePage() {
     <div className="container">
       <div className="shell">
         <div className="card">
-          <h1 className="h1">Start using Leeward</h1>
+          <h1 className="h1">Start your free 14-day trial</h1>
           <p className="sub">
-            Leeward requires an active subscription to access the dashboard.
+            No charge today. After your trial ends, Leeward continues for $29/month.
           </p>
 
           <div style={{ marginTop: 18 }}>
@@ -145,7 +145,7 @@ export default function SubscribePage() {
               onClick={startCheckout}
               disabled={startingCheckout}
             >
-              {startingCheckout ? "Opening checkout..." : "Subscribe"}
+              {startingCheckout ? "Opening checkout..." : "Start Free Trial"}
             </button>
           </div>
 
