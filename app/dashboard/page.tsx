@@ -1945,15 +1945,13 @@ export default function DashboardPage() {
 
       const safeTitle = (selectedProject.title || "Leeward_Project").replace(/[^\w\-]+/g, "_");
 
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Leeward_Dispute_Package_${safeTitle}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      window.location.href = url;
 
-      window.URL.revokeObjectURL(url);
-      setStatus("Dispute package downloaded.");
+      window.setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 60000);
+
+      setStatus("Dispute package opened.");
     } catch (err: any) {
       setStatus(err?.message || "Dispute package export failed");
     }
