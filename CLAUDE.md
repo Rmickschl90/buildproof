@@ -81,9 +81,11 @@ Key files to check before proposing any non-trivial change:
 
 ## Production Safety Rules
 
-- This repo deploys to production automatically on push to main (Vercel).
-  The Android app (Capacitor wrapper) loads the live production URL
-  directly, so a push to main can affect real customers within minutes.
+- Production deploys are manual (`vercel --prod`), not git-triggered — no
+  Vercel project here auto-deploys on push. But the deployed app is what
+  the Android app (Capacitor wrapper) loads directly via the live
+  production URL, so a manual production deploy can affect real
+  customers within minutes.
 - Leeward is in "launch operations" phase — architecture is locked/stable.
   Do not propose architecture changes, refactors, or rewrites unless
   explicitly asked.
