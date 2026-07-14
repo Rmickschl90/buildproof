@@ -65,3 +65,34 @@ Reconnection is coordinated by a **single** orchestrator, `app/components/Offlin
 - Treat offline/reconnect/send/approval/PDF-export/proof-remap systems as protected: they've each been through multiple failed-experiment cycles (documented in `BUILDPROOF_MASTER_HANDOFF.md` under "Failed Experiments"/"Do Not Touch"). Prefer small, surgical, isolated changes over refactors in these areas, and check the handoff doc for prior art before re-attempting something that sounds like a fix already tried.
 - Required env vars (see `.env.local`, not committed): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_APP_URL`, `INTERNAL_APP_URL`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID`, `RESEND_API_KEY`, `RESEND_FROM`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`.
 - Deployment flow is staging-first: `buildproof-staging.vercel.app` for iteration/validation, `buildproof-kappa.vercel.app` is the protected live tester production app. The local Vercel link (`.vercel/project.json`) normally points at staging — confirm the deploy target before running `vercel --prod`, and if output ever references `buildproof-kappa` unexpectedly, stop and verify linking before proceeding.
+
+## Notes & Rules Reference
+
+Project notes and historical context live in the Obsidian vault at:
+C:\dev\BuildProof Brain
+
+Key files to check before proposing any non-trivial change:
+- C:\dev\BuildProof Brain\10-Handoffs\Current Project Handoff.md
+  (master status doc — current state, protected systems, what to avoid)
+- C:\dev\BuildProof Brain\08-Lessons-Learned\
+  (past bugs, failed experiments — check before repeating past mistakes)
+- C:\dev\BuildProof Brain\09-Regression-Ledger\
+  (known regressions and their fixes)
+
+## Production Safety Rules
+
+- This repo deploys to production automatically on push to main (Vercel).
+  The Android app (Capacitor wrapper) loads the live production URL
+  directly, so a push to main can affect real customers within minutes.
+- Leeward is in "launch operations" phase — architecture is locked/stable.
+  Do not propose architecture changes, refactors, or rewrites unless
+  explicitly asked.
+- Before making ANY code change (not docs), create a new branch first.
+  Never commit or push code changes directly to main.
+- Test changes against staging (buildproof-staging.vercel.app) before
+  merging to main.
+- Protected systems — do not modify without explicit confirmation:
+  reconnect orchestration, offline sync, send/approval architecture,
+  attachment/send ownership, PDF/export & dispute packet architecture,
+  service worker/IndexedDB, Supabase auth, billing webhook & subscription
+  enforcement, production deployment/Vercel alias routing.
