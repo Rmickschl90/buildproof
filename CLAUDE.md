@@ -124,12 +124,11 @@ Source of truth (read before any Team Accounts work):
 
 ### Status
 Phase 0 (audit + planning) COMPLETE. Phase 1 (Organization Data Model
-Design) drafted and decisions resolved as of 2026-07-14 — see
-Current Implement/Team Accounts V1 Data Model Design.md. Phase 2
-(Membership Model) also drafted and decisions resolved as of 2026-07-14
-— see Current Implement/Team Accounts V1 Phase 2 - Membership Model
-Design.md. Both pending final review before treating as fully locked.
-Phase 3 (Invitation System) is next.
+Design), Phase 2 (Membership Model), and Phase 3 (Invitation System) are
+all drafted and decisions resolved as of 2026-07-14 — see the
+corresponding design notes in Current Implement/. All three pending
+final review before treating as fully locked. Phase 4 (Authentication
+Integration) is next.
 
 ### Locked Decisions (do not re-litigate)
 - Roles: Owner (billing, invites, removes members, full access) and
