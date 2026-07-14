@@ -237,6 +237,24 @@ export async function buildProjectPdf(
     return bTime - aTime;
   });
 
+  const proofDisplayNumberById = new Map<number, number>();
+
+  const proofsInChronologicalOrder = [...(proofs ?? [])].sort((a, b) => {
+    const timeDifference =
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+
+    if (timeDifference !== 0) return timeDifference;
+
+    return a.id - b.id;
+  });
+
+  for (let index = 0; index < proofsInChronologicalOrder.length; index++) {
+    proofDisplayNumberById.set(
+      proofsInChronologicalOrder[index].id,
+      index + 1
+    );
+  }
+
   const byProofId = new Map<number, AttachmentRow[]>();
   for (const att of attachments ?? []) {
     if (!byProofId.has(att.proof_id)) byProofId.set(att.proof_id, []);
@@ -379,7 +397,7 @@ export async function buildProjectPdf(
       const evidenceHeight =
         disputeEvidenceLines.length > 0 ? disputeEvidenceLines.length * 14 + 10 : 0;
       const attachmentHeight =
-        approvalAttachments.length > 0 ? approvalAttachments.length * 14 + 10 : 0;
+        approvalAttachments.length > 0 ? approvalAttachments.length * 14 + 38 : 0;
 
       const approvalPreviewBoxW = 120;
       const approvalPreviewBoxH = 140;
@@ -825,7 +843,7 @@ export async function buildProjectPdf(
       color: COLORS.soft,
     });
 
-    page.drawText(`Entry ${i + 1}`, {
+    page.drawText(`Entry ${proofDisplayNumberById.get(proof.id) ?? "?"}`, {
       x: cardX + 22,
       y: top - 25,
       size: 14,
@@ -1167,16 +1185,29 @@ export async function buildProjectPdf(
       return new Date(a.created_at ?? "").getTime() - new Date(b.created_at ?? "").getTime();
     });
 
-    pageNumber += 1;
-    page = addTimelinePage(
-      pdf,
-      font,
-      fontBold,
-      project.title || "Project",
-      pageNumber,
-      { reportMode, timelineHash }
-    );
-    y = PAGE_HEIGHT - MARGIN - 64;
+    y -= 18;
+
+    if (y < MARGIN + 150) {
+      pageNumber += 1;
+      page = addTimelinePage(
+        pdf,
+        font,
+        fontBold,
+        project.title || "Project",
+        pageNumber,
+        { reportMode, timelineHash }
+      );
+      y = PAGE_HEIGHT - MARGIN - 64;
+    } else {
+      page.drawLine({
+        start: { x: MARGIN, y },
+        end: { x: PAGE_WIDTH - MARGIN, y },
+        thickness: 1.5,
+        color: COLORS.navy3,
+      });
+
+      y -= 26;
+    }
 
     page.drawText("Delivery History", {
       x: MARGIN,
@@ -1338,16 +1369,29 @@ export async function buildProjectPdf(
       return new Date(a.viewed_at ?? "").getTime() - new Date(b.viewed_at ?? "").getTime();
     });
 
-    pageNumber += 1;
-    page = addTimelinePage(
-      pdf,
-      font,
-      fontBold,
-      project.title || "Project",
-      pageNumber,
-      { reportMode, timelineHash }
-    );
-    y = PAGE_HEIGHT - MARGIN - 64;
+    y -= 18;
+
+    if (y < MARGIN + 170) {
+      pageNumber += 1;
+      page = addTimelinePage(
+        pdf,
+        font,
+        fontBold,
+        project.title || "Project",
+        pageNumber,
+        { reportMode, timelineHash }
+      );
+      y = PAGE_HEIGHT - MARGIN - 64;
+    } else {
+      page.drawLine({
+        start: { x: MARGIN, y },
+        end: { x: PAGE_WIDTH - MARGIN, y },
+        thickness: 1.5,
+        color: COLORS.navy3,
+      });
+
+      y -= 26;
+    }
 
     page.drawText("Project View Record", {
       x: MARGIN,
@@ -1470,6 +1514,56 @@ export async function buildProjectPdf(
 
         y = cardY - 14;
       }
+    }
+  }
+
+  if (reportMode === "dispute") {
+    const pdfExhibits: PdfExhibit[] = [];
+
+    for (let timelineIndex = 0; timelineIndex < timelineItems.length; timelineIndex++) {
+      const item = timelineItems[timelineIndex];
+
+      if (item.kind === "proof") {
+        for (const attachment of byProofId.get(item.proof.id) ?? []) {
+          if (!isPdfAttachment(attachment)) continue;
+
+          pdfExhibits.push({
+            attachment,
+            sourceLabel: `Entry ${proofDisplayNumberById.get(item.proof.id) ?? "?"}`,
+            sourceDate: item.proof.created_at,
+            timezoneOffsetMinutes:
+              item.proof.created_timezone_offset_minutes ?? null,
+          });
+        }
+
+        continue;
+      }
+
+      for (const attachment of item.approval.attachments ?? []) {
+        if (!isPdfAttachment(attachment)) continue;
+
+        pdfExhibits.push({
+          attachment,
+          sourceLabel: `Approval Request: ${
+            item.approval.title || "Untitled Approval"
+          }`,
+          sourceDate: item.approval.sent_at || item.approval.created_at,
+          timezoneOffsetMinutes:
+            item.approval.created_timezone_offset_minutes ?? null,
+        });
+      }
+    }
+
+    if (pdfExhibits.length > 0) {
+      await appendPdfExhibits({
+        pdf,
+        supabase,
+        font,
+        fontBold,
+        projectTitle: project.title || "Project",
+        timelineHash,
+        exhibits: pdfExhibits,
+      });
     }
   }
 
@@ -2196,6 +2290,277 @@ async function loadEmbeddedImage(pdf: PDFDocument, supabase: any, att: Attachmen
     });
     return null;
   }
+}
+
+type PdfExhibit = {
+  attachment: {
+    id: string;
+    filename: string | null;
+    mime_type: string | null;
+    path: string;
+    created_at?: string | null;
+  };
+  sourceLabel: string;
+  sourceDate?: string | null;
+  timezoneOffsetMinutes?: number | null;
+};
+
+async function appendPdfExhibits(opts: {
+  pdf: PDFDocument;
+  supabase: any;
+  font: any;
+  fontBold: any;
+  projectTitle: string;
+  timelineHash?: string | null;
+  exhibits: PdfExhibit[];
+}) {
+  const {
+    pdf,
+    supabase,
+    font,
+    fontBold,
+    projectTitle,
+    timelineHash,
+    exhibits,
+  } = opts;
+
+  for (let index = 0; index < exhibits.length; index++) {
+    const exhibit = exhibits[index];
+    const label = getExhibitLabel(index);
+    const filename = sanitizePdfText(
+      exhibit.attachment.filename || "Attached Document.pdf"
+    );
+
+    const coverPageNumber = pdf.getPageCount() + 1;
+    const coverPage = addTimelinePage(
+      pdf,
+      font,
+      fontBold,
+      projectTitle,
+      coverPageNumber,
+      { reportMode: "dispute", timelineHash }
+    );
+
+    let coverY = PAGE_HEIGHT - MARGIN - 70;
+
+    coverPage.drawText("SUPPORTING DOCUMENTS", {
+      x: MARGIN,
+      y: coverY,
+      size: 14,
+      font: fontBold,
+      color: COLORS.navy3,
+    });
+
+    coverY -= 44;
+
+    coverPage.drawText(`EXHIBIT ${label}`, {
+      x: MARGIN,
+      y: coverY,
+      size: 28,
+      font: fontBold,
+      color: COLORS.ink,
+    });
+
+    coverY -= 44;
+
+    coverPage.drawText("Document type:", {
+      x: MARGIN,
+      y: coverY,
+      size: 10,
+      font: fontBold,
+      color: COLORS.muted,
+    });
+
+    coverPage.drawText("Original PDF attachment", {
+      x: MARGIN + 138,
+      y: coverY,
+      size: 10,
+      font,
+      color: COLORS.text,
+    });
+
+    coverY -= 26;
+
+    coverPage.drawText("Original filename:", {
+      x: MARGIN,
+      y: coverY,
+      size: 10,
+      font: fontBold,
+      color: COLORS.muted,
+    });
+
+    coverPage.drawText(filename, {
+      x: MARGIN + 138,
+      y: coverY,
+      size: 10,
+      font,
+      color: COLORS.text,
+    });
+
+    coverY -= 26;
+
+    coverPage.drawText("Associated record:", {
+      x: MARGIN,
+      y: coverY,
+      size: 10,
+      font: fontBold,
+      color: COLORS.muted,
+    });
+
+    coverPage.drawText(sanitizePdfText(exhibit.sourceLabel), {
+      x: MARGIN + 138,
+      y: coverY,
+      size: 10,
+      font,
+      color: COLORS.text,
+    });
+
+    coverY -= 26;
+
+    coverPage.drawText("Recorded:", {
+      x: MARGIN,
+      y: coverY,
+      size: 10,
+      font: fontBold,
+      color: COLORS.muted,
+    });
+
+    coverPage.drawText(
+      exhibit.sourceDate
+        ? sanitizePdfText(
+            formatDateTime(
+              exhibit.sourceDate,
+              exhibit.timezoneOffsetMinutes ?? null
+            )
+          )
+        : "Unknown date",
+      {
+        x: MARGIN + 138,
+        y: coverY,
+        size: 10,
+        font,
+        color: COLORS.text,
+      }
+    );
+
+    coverY -= 48;
+
+    const descriptionLines = wrapParagraphs(
+      "This exhibit contains the complete PDF document uploaded to the project record. The filename, date, and associated timeline record identify where the document appears in the chronological project history. The following pages are reproduced from the original uploaded file without modification.",
+      font,
+      10.5,
+      CONTENT_WIDTH
+    );
+
+    for (const line of descriptionLines) {
+      coverPage.drawText(line, {
+        x: MARGIN,
+        y: coverY,
+        size: 10.5,
+        font,
+        color: COLORS.muted,
+      });
+
+      coverY -= 15;
+    }
+
+    const bytes = await downloadAttachmentBytes(
+      supabase,
+      exhibit.attachment.path
+    );
+
+    if (!bytes) {
+      coverY -= 28;
+
+      coverPage.drawText(
+        "Unable to retrieve the original PDF from storage.",
+        {
+          x: MARGIN,
+          y: coverY,
+          size: 11,
+          font: fontBold,
+          color: COLORS.dangerText,
+        }
+      );
+
+      continue;
+    }
+
+    try {
+      const sourcePdf = await PDFDocument.load(bytes);
+      const copiedPages = await pdf.copyPages(
+        sourcePdf,
+        sourcePdf.getPageIndices()
+      );
+
+      for (const copiedPage of copiedPages) {
+        pdf.addPage(copiedPage);
+      }
+    } catch (error) {
+      console.error("[pdf] failed to append PDF exhibit", {
+        attachmentId: exhibit.attachment.id,
+        filename: exhibit.attachment.filename,
+        path: exhibit.attachment.path,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      coverY -= 28;
+
+      coverPage.drawText(
+        "The original PDF could not be embedded. It may be corrupted, encrypted, or unsupported.",
+        {
+          x: MARGIN,
+          y: coverY,
+          size: 10.5,
+          font: fontBold,
+          color: COLORS.dangerText,
+        }
+      );
+    }
+  }
+}
+
+function isPdfAttachment(
+  att: Pick<AttachmentRow, "mime_type" | "filename">
+) {
+  const mimeType = (att.mime_type || "").toLowerCase();
+  const filename = (att.filename || "").toLowerCase();
+
+  return mimeType.includes("pdf") || filename.endsWith(".pdf");
+}
+
+async function downloadAttachmentBytes(
+  supabase: any,
+  storagePath: string
+): Promise<Uint8Array | null> {
+  try {
+    const bucket = supabase.storage.from("attachments");
+    const { data, error } = await bucket.download(storagePath);
+
+    if (error || !data) return null;
+
+    return new Uint8Array(await data.arrayBuffer());
+  } catch (error) {
+    console.error("[pdf] failed to download attachment", {
+      storagePath,
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    return null;
+  }
+}
+
+function getExhibitLabel(index: number) {
+  let value = index + 1;
+  let label = "";
+
+  while (value > 0) {
+    value -= 1;
+    label = String.fromCharCode(65 + (value % 26)) + label;
+    value = Math.floor(value / 26);
+  }
+
+  return label;
 }
 
 function isEmbeddableImage(att: AttachmentRow) {

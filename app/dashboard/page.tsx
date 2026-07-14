@@ -5,6 +5,19 @@ export const dynamic = "force-dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { Capacitor, registerPlugin } from "@capacitor/core";
+
+type PdfSaverPlugin = {
+  savePdf(options: {
+    fileName: string;
+    exportUrl: string;
+    accessToken: string;
+    projectId: string;
+    reportMode: "standard" | "dispute";
+  }): Promise<{ saved: boolean; uri?: string }>;
+};
+
+const PdfSaver = registerPlugin<PdfSaverPlugin>("PdfSaver");
 
 import OnboardingWizard from "../components/OnboardingWizard";
 import SendUpdatePack from "../components/SendUpdatePack";
@@ -1923,6 +1936,29 @@ export default function DashboardPage() {
       setStatus("Preparing dispute package...");
       const token = await getAccessToken();
 
+      const safeTitle = (selectedProject.title || "Leeward_Project").replace(
+        /[^\w\-]+/g,
+        "_"
+      );
+
+      const useNativePdfSaver =
+        Capacitor.isNativePlatform() &&
+        Capacitor.getPlatform() === "android" &&
+        Capacitor.isPluginAvailable("PdfSaver");
+
+      if (useNativePdfSaver) {
+        await PdfSaver.savePdf({
+          fileName: `Leeward_Dispute_Package_${safeTitle}.pdf`,
+          exportUrl: `${window.location.origin}/api/export/pdf`,
+          accessToken: token,
+          projectId: selectedProject.id,
+          reportMode: "dispute",
+        });
+
+        setStatus("Dispute package saved.");
+        return;
+      }
+
       const res = await fetch("/api/export/pdf", {
         method: "POST",
         headers: {
@@ -1942,8 +1978,6 @@ export default function DashboardPage() {
 
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
-
-      const safeTitle = (selectedProject.title || "Leeward_Project").replace(/[^\w\-]+/g, "_");
 
       const a = document.createElement("a");
       a.href = url;
