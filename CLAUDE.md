@@ -4,9 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Product
 
-BuildProof is a contractor-to-client communication timeline and dispute-ready documentation tool: contractors log project updates/entries, request client approvals, and send finalized "update packs" (with PDF exhibits) that clients view via share links. It is mobile-first and must work fully offline in the field, syncing when connectivity returns.
+Leeward (formerly BuildProof, company: Linque Labs LLC) is a contractor/field-team communication timeline and dispute-ready documentation tool: contractors log timestamped project entries, request client approvals, and send finalized "update packs" (with embedded PDF exhibits) that clients view via share links. Built-in dispute protection includes locked/finalized records, integrity hashes, and read-only dispute packets with delivery/view history. It is mobile-first and must work fully offline in the field, syncing when connectivity returns.
 
-The product is currently in **controlled private V1 field testing**, not active feature development. See `BUILDPROOF_MASTER_HANDOFF.md` for current rollout status/blockers and `REGRESSION_LEDGER.md` (append-only) for the history of verified fixes — check both before touching offline/send/reconnect/PDF code, since they document prior failed experiments and why certain approaches were rejected.
+Current stage: **LIVE on Google Play**, in "launch operations" phase. Architecture is considered locked/stable. Current focus is production stability, customer support, and App Store (iOS) prep — not new features, EXCEPT for the sanctioned Team Accounts V1 build (see below).
+
+See `BUILDPROOF_MASTER_HANDOFF.md` for rollout history and `REGRESSION_LEDGER.md` (append-only) for the history of verified fixes — check both, along with the Obsidian notes vault (below), before touching offline/send/reconnect/PDF code or proposing architecture changes.
 
 ## Commands
 
@@ -66,35 +68,109 @@ Reconnection is coordinated by a **single** orchestrator, `app/components/Offlin
 - Required env vars (see `.env.local`, not committed): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_APP_URL`, `INTERNAL_APP_URL`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID`, `RESEND_API_KEY`, `RESEND_FROM`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`.
 - Deployment flow is staging-first: `buildproof-staging.vercel.app` for iteration/validation, `buildproof-kappa.vercel.app` is the protected live tester production app. The local Vercel link (`.vercel/project.json`) normally points at staging — confirm the deploy target before running `vercel --prod`, and if output ever references `buildproof-kappa` unexpectedly, stop and verify linking before proceeding.
 
-## Notes & Rules Reference
+## Notes Vault Reference
 
-Project notes and historical context live in the Obsidian vault at:
-C:\dev\BuildProof Brain
+Full project history and rules live in the Obsidian vault at:
+C:\dev\BuildProof Brain (51 notes across 14 folders)
 
-Key files to check before proposing any non-trivial change:
-- C:\dev\BuildProof Brain\10-Handoffs\Current Project Handoff.md
-  (master status doc — current state, protected systems, what to avoid)
-- C:\dev\BuildProof Brain\08-Lessons-Learned\
-  (past bugs, failed experiments — check before repeating past mistakes)
-- C:\dev\BuildProof Brain\09-Regression-Ledger\
-  (known regressions and their fixes)
+Key folders:
+- 01-Current-State/ — current product identity and principles
+- 03-Architecture/ — offline, send, and approval architecture docs
+- 05-Decisions/ — locked architecture rules, protected systems list
+- 08-Lessons-Learned/ — past failures/regressions, avoid repeating
+- 09-Regression-Ledger/ — known-good recovery points
+- 10-Handoffs/Current Project Handoff.md — living master status doc,
+  single source of truth for current state
+- Current Implement/ — Team Accounts V1 implementation plan + progress log
+
+Check relevant notes before proposing any non-trivial change.
 
 ## Production Safety Rules
 
-- Production deploys are manual (`vercel --prod`), not git-triggered — no
-  Vercel project here auto-deploys on push. But the deployed app is what
-  the Android app (Capacitor wrapper) loads directly via the live
-  production URL, so a manual production deploy can affect real
+- Production deployment is MANUAL (`vercel --prod`), not git-triggered.
+  Pushing/merging branches does not by itself deploy anything. But the
+  deployed app is what the Android/iOS wrapper loads directly via the
+  live production URL, so a manual production deploy can affect real
   customers within minutes.
+- app.getleeward.com = production (real customers, Android wrapper loads
+  this directly). buildproof-staging.vercel.app = staging/testing.
 - Leeward is in "launch operations" phase — architecture is locked/stable.
   Do not propose architecture changes, refactors, or rewrites unless
-  explicitly asked.
-- Before making ANY code change (not docs), create a new branch first.
-  Never commit or push code changes directly to main.
+  explicitly asked (current sanctioned exception: Team Accounts V1, see
+  below).
+- Before making ANY code change, create a new branch first. Never commit
+  or push code changes directly to main.
 - Test changes against staging (buildproof-staging.vercel.app) before
-  merging to main.
+  promoting to production.
 - Protected systems — do not modify without explicit confirmation:
-  reconnect orchestration, offline sync, send/approval architecture,
-  attachment/send ownership, PDF/export & dispute packet architecture,
-  service worker/IndexedDB, Supabase auth, billing webhook & subscription
-  enforcement, production deployment/Vercel alias routing.
+  reconnect orchestration, offline sync/queue ownership, proof remap
+  architecture, send snapshot architecture, approval lifecycle,
+  attachment replay, PDF/export & dispute packet architecture,
+  service worker/IndexedDB, Supabase auth, billing webhook &
+  subscription enforcement, production deployment/Vercel alias routing.
+
+## Active Build: Team Accounts V1
+
+This is the current, deliberate, sanctioned exception to "architecture
+is locked." It is being moved up ahead of the original Phase 2 timeline
+to restructure ownership around organizations before the customer base
+grows larger (to avoid painful migrations later).
+
+Source of truth (read before any Team Accounts work):
+- Current Implement/Team Accounts V1 Implementation.md — master plan
+- Current Implement/Team Accounts V1 Progress Log.md — dated progress
+- 06-Roadmap/Team Accounts Architecture Assessment.md — high-level findings
+- 06-Roadmap/Team Accounts V1 Architecture Audit.md — detailed system audit
+
+### Status
+Phase 0 (audit + planning) COMPLETE. Phase 1 (Organization Data Model
+Design) NOT STARTED — no code, no migrations, no schema changes yet.
+Architecture/design work must happen and be reviewed before any
+implementation begins.
+
+### Locked Decisions (do not re-litigate)
+- Roles: Owner (billing, invites, removes members, full access) and
+  Member (full project access) ONLY. No admin/read-only/custom roles,
+  no departments, no per-project permissions — ever, in V1.
+- Organizations own projects (not users). Existing user-owned projects
+  will migrate to org ownership later.
+- All org members can access ALL org projects — no visibility
+  restrictions in V1.
+- Users belong to only ONE organization in V1.
+- Removed members lose access immediately.
+
+### Explicit Non-Goals for V1
+Admin roles, project-level permissions, read-only users, custom roles,
+department-based access, seat pools, role hierarchies, multi-org
+membership, ownership delegation.
+
+### Key Risks Identified in Audit (address carefully in design)
+- Many fields serve as BOTH attribution (who did this) and authorization
+  (who's allowed) — e.g. approval_requests.created_by, send_jobs.user_id,
+  attachments.user_id. These must be separated: authorization should
+  derive from org/project access; attribution fields stay historical.
+- Send job active-job uniqueness is currently scoped per-user, not
+  per-project — two team members could collide.
+- Export snapshot selection is currently scoped by current user — could
+  miss a teammate's send when generating a dispute export.
+- A "dual finalization path" exists in send code (email route + process
+  route both can finalize proofs) — flagged as needing regression
+  testing independent of Team Accounts.
+- Offline caches/outbox records currently store NO owner/org context —
+  offline architecture changes here are protected-system territory.
+
+### Implementation Phases (sequential, do not skip ahead)
+0. Planning — COMPLETE
+1. Organization Data Model Design — NOT STARTED (current step)
+2. Membership Model
+3. Invitation System
+4. Authentication Integration
+5. Project Ownership Migration
+6. Billing Integration
+7. Offline Validation
+8. Production Rollout
+
+Immediate next step: inventory current user/account tables, then design
+organization ownership model, membership model, invitation model, and
+migration strategy for existing (241) projects — architecture/design
+only, no coding yet.
