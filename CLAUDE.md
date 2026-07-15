@@ -109,6 +109,23 @@ Check relevant notes before proposing any non-trivial change.
   service worker/IndexedDB, Supabase auth, billing webhook &
   subscription enforcement, production deployment/Vercel alias routing.
 
+### CRITICAL: No Real Staging Environment Exists (discovered 2026-07-14)
+
+Despite the guidance above to "test changes against staging before promoting to
+production," buildproof-staging.vercel.app and app.getleeward.com currently share
+the SAME Supabase database (project uzuzwhzilhakewtbtzxh.supabase.co) and were, at
+time of discovery, aliased to the literal same Vercel deployment. There is no
+actual isolated testing environment right now — anything run against "staging"
+runs directly against real production data (241 real projects, live Stripe
+customers).
+
+DO NOT run database migrations or other risky changes against "staging" believing
+it to be isolated from production — it is not, until this is fixed. See
+09-Regression-Ledger/No Real Staging Environment - Critical Gap.md in the Obsidian
+vault for full detail. Provisioning a genuinely separate staging Supabase project
+and Vercel deployment is a priority task, ahead of continuing Team Accounts V1
+implementation.
+
 ## Active Build: Team Accounts V1
 
 This is the current, deliberate, sanctioned exception to "architecture
