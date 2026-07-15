@@ -123,12 +123,12 @@ Source of truth (read before any Team Accounts work):
 - 06-Roadmap/Team Accounts V1 Architecture Audit.md — detailed system audit
 
 ### Status
-Phase 0 (audit + planning) COMPLETE. Phases 1 through 5 (Organization
+Phase 0 (audit + planning) COMPLETE. Phases 1 through 6 (Organization
 Data Model, Membership Model, Invitation System, Authentication
-Integration, Project Ownership Migration) are all drafted and decisions
-resolved as of 2026-07-14 — see the corresponding design notes in
-Current Implement/. All five pending final review before treating as
-fully locked. Phase 6 (Billing Integration) is next.
+Integration, Project Ownership Migration, Billing Integration) are all
+drafted and decisions resolved as of 2026-07-14 — see the corresponding
+design notes in Current Implement/. All six pending final review before
+treating as fully locked. Phase 7 (Offline Validation) is next.
 
 ### Locked Decisions (do not re-litigate)
 - Roles: Owner (billing, invites, removes members, full access) and
