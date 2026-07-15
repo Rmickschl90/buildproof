@@ -125,10 +125,16 @@ Source of truth (read before any Team Accounts work):
 ### Status
 Phase 0 (audit + planning) COMPLETE. Phases 1 through 6 (Organization
 Data Model, Membership Model, Invitation System, Authentication
-Integration, Project Ownership Migration, Billing Integration) are all
+Integration, Project Ownership Migration, Billing Integration) are
 drafted and decisions resolved as of 2026-07-14 — see the corresponding
-design notes in Current Implement/. All six pending final review before
-treating as fully locked. Phase 7 (Offline Validation) is next.
+design notes in Current Implement/. Phase 7 (Offline Validation) has a
+design DRAFTED (attribution-at-queue-time approach, reconnect billing
+recheck) but NOT YET VALIDATED — no actual testing against real
+offline/reconnect/multi-device scenarios has been performed. Given this
+touches the most fragile, most previously-broken part of the codebase
+(see failed-experiment history), Phase 7's design must be actually
+exercised end-to-end before being treated as resolved, and before Phase
+8 (Production Rollout) proceeds on top of it.
 
 ### Locked Decisions (do not re-litigate)
 - Roles: Owner (billing, invites, removes members, full access) and
