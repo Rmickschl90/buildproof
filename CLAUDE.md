@@ -147,18 +147,38 @@ Source of truth (read before any Team Accounts work):
 - 06-Roadmap/Team Accounts V1 Architecture Audit.md — detailed system audit
 
 ### Status
-Phase 0 (audit + planning) COMPLETE. Phases 1 through 6 (Organization
-Data Model, Membership Model, Invitation System, Authentication
-Integration, Project Ownership Migration, Billing Integration) are
-drafted and decisions resolved as of 2026-07-14 — see the corresponding
-design notes in Current Implement/. Phase 7 (Offline Validation) has a
-design DRAFTED (attribution-at-queue-time approach, reconnect billing
-recheck) but NOT YET VALIDATED — no actual testing against real
-offline/reconnect/multi-device scenarios has been performed. Given this
-touches the most fragile, most previously-broken part of the codebase
-(see failed-experiment history), Phase 7's design must be actually
-exercised end-to-end before being treated as resolved, and before Phase
-8 (Production Rollout) proceeds on top of it.
+Phase 0 (audit + planning) COMPLETE. Phase 1 (Organization Data Model)
+is implemented and behaviorally tested on staging — schema applied,
+RLS policies and the owner-removal trigger verified end-to-end (not
+just schema-checked), including one real bug (an infinite-recursion
+policy) found and fixed along the way. Phase 2 (Membership Model) is
+also implemented and behaviorally tested on staging: the three
+authorization helpers (getUserOrganizationContext,
+canUserAccessProject, canUserManageOrganization), the organization
+create/list-members/remove-member routes, and migration of all 17
+existing routes with inline ownership checks to canUserAccessProject —
+all exercised as real signed-in users on staging, not just type-checked.
+Phases 3 through 6 (Invitation System, Authentication Integration,
+Project Ownership Migration, Billing Integration) remain drafted and
+decisions resolved as of 2026-07-14 only — see the corresponding design
+notes in Current Implement/ — no implementation has started on them yet.
+Phase 7 (Offline Validation) has a design DRAFTED (attribution-at-queue-
+time approach, reconnect billing recheck) but NOT YET VALIDATED — no
+actual testing against real offline/reconnect/multi-device scenarios
+has been performed. Given this touches the most fragile, most
+previously-broken part of the codebase (see failed-experiment history),
+Phase 7's design must be actually exercised end-to-end before being
+treated as resolved, and before Phase 8 (Production Rollout) proceeds
+on top of it.
+
+Phase 3 (Invitation System) is next.
+
+### Git Workflow During Phase Implementation
+When implementing Team Accounts phases, commit and push directly to
+the current phase branch (e.g. team-accounts-phase-2) after each unit
+of work. Do NOT open a pull request after every commit. Open exactly
+one PR per phase, into the parent phase branch, only when explicitly
+requested.
 
 ### Locked Decisions (do not re-litigate)
 - Roles: Owner (billing, invites, removes members, full access) and
