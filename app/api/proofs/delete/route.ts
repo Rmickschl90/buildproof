@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { requireUser } from "@/lib/requireUser";
+import { canUserAccessProject } from "@/lib/organizationAuth";
 
 export const runtime = "nodejs";
 
@@ -37,12 +38,12 @@ export async function POST(req: Request) {
     // 3) Ownership check via project
     const { data: project, error: projErr } = await supabaseServer
       .from("projects")
-      .select("id, user_id")
+      .select("id")
       .eq("id", proof.project_id)
       .single();
 
     if (projErr || !project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
-    if (project.user_id !== userId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!(await canUserAccessProject(userId, proof.project_id))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     // 4) Get attachments for this proof
     const { data: attachments, error: attErr } = await supabaseServer

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/requireUser";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { canUserAccessProject } from "@/lib/organizationAuth";
 
 const ALLOWED_TYPES = [
   "change_order",
@@ -82,7 +83,7 @@ export async function POST(req: Request) {
 
     const { data: project, error: projectError } = await supabaseServer
       .from("projects")
-      .select("id, user_id, client_email")
+      .select("id, client_email")
       .eq("id", projectId)
       .single();
 
@@ -90,7 +91,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Project not found." }, { status: 404 });
     }
 
-    if (project.user_id !== user.id) {
+    if (!(await canUserAccessProject(user.id, projectId))) {
       return NextResponse.json({ error: "Not authorized." }, { status: 403 });
     }
 
