@@ -8,13 +8,17 @@ import {
 
 export async function POST(
   req: Request,
-  ctx: { params: Promise<{ id: string }> }
+  ctx: { params: Promise<{ token: string }> }
 ) {
   try {
     const { user, errorResponse } = await requireUser(req);
     if (!user) return errorResponse;
 
-    const { id } = await ctx.params;
+    // This dynamic segment is named "token" only to match its [token] sibling
+    // routes (Next.js/Vercel requires consistent dynamic segment names across
+    // siblings at the same directory level) - the value passed here is always
+    // the invite's UUID id, never a raw invite token.
+    const { token: id } = await ctx.params;
 
     if (!id) {
       return NextResponse.json({ error: "Missing id." }, { status: 400 });
@@ -72,7 +76,7 @@ export async function POST(
       .single();
 
     if (updateError) {
-      console.error("[organization/invites/[id]/revoke] update error", updateError);
+      console.error("[organization/invites/[token]/revoke] update error", updateError);
       return NextResponse.json(
         { error: "Failed to revoke invite." },
         { status: 500 }
@@ -81,7 +85,7 @@ export async function POST(
 
     return NextResponse.json({ invite: updated });
   } catch (error: any) {
-    console.error("[organization/invites/[id]/revoke] unexpected error", error);
+    console.error("[organization/invites/[token]/revoke] unexpected error", error);
     return NextResponse.json(
       { error: error?.message || "Unexpected server error." },
       { status: 500 }
