@@ -3,7 +3,14 @@
 -- Design reference: "Team Accounts V1 Data Model Design.md"
 --   (Obsidian vault: Current Implement/)
 --
--- STATUS: DRAFT FOR REVIEW. Not applied to any database (staging or production).
+-- STATUS: Applied to staging (leeward-staging, dnlkmxetxhcwlrjzncwp) on 2026-07-15.
+-- Confirmed via REST/schema introspection: all 3 new tables, their columns, and the
+-- projects.organization_id foreign key are present and match this file exactly.
+-- Confirmed via the original psql apply output (not independently re-verified since):
+-- all CREATE POLICY, CREATE TRIGGER, and CREATE INDEX statements executed successfully
+-- with zero errors during the actual migration run.
+-- NOT YET applied to production. Still pending: full behavioral testing (not just
+-- schema/creation verification) before this should be considered production-ready.
 --
 -- Scope (per design doc):
 --   1. organizations
