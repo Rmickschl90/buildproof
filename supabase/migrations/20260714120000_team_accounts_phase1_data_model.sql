@@ -9,8 +9,19 @@
 -- Confirmed via the original psql apply output (not independently re-verified since):
 -- all CREATE POLICY, CREATE TRIGGER, and CREATE INDEX statements executed successfully
 -- with zero errors during the actual migration run.
--- NOT YET applied to production. Still pending: full behavioral testing (not just
--- schema/creation verification) before this should be considered production-ready.
+--
+-- Behavioral testing completed 2026-07-16 (direct REST API testing against staging, signed
+-- in as a real test user): all organizations/organization_invites RLS policies and both
+-- branches of the owner-removal trigger (UPDATE and DELETE) confirmed working as designed.
+-- organization_members_select_active_member was found broken (infinite recursion, error
+-- 42P17 -- a self-referential policy subquery) and had NO working SELECT policy at all until
+-- fixed. See 20260716150000_fix_organization_members_select_recursion.sql for the fix
+-- (applied to staging 2026-07-16, confirmed working) -- deliberately a separate migration
+-- file rather than an edit to this one, since this file was already applied.
+--
+-- NOT YET applied to production. This file alone (without the follow-up fix) would leave
+-- organization_members SELECT completely broken for authenticated users -- both migrations
+-- must be applied together for production.
 --
 -- Scope (per design doc):
 --   1. organizations
