@@ -109,22 +109,21 @@ Check relevant notes before proposing any non-trivial change.
   service worker/IndexedDB, Supabase auth, billing webhook &
   subscription enforcement, production deployment/Vercel alias routing.
 
-### CRITICAL: No Real Staging Environment Exists (discovered 2026-07-14)
+### Staging Environment (fixed 2026-07-15)
 
-Despite the guidance above to "test changes against staging before promoting to
-production," buildproof-staging.vercel.app and app.getleeward.com currently share
-the SAME Supabase database (project uzuzwhzilhakewtbtzxh.supabase.co) and were, at
-time of discovery, aliased to the literal same Vercel deployment. There is no
-actual isolated testing environment right now — anything run against "staging"
-runs directly against real production data (241 real projects, live Stripe
-customers).
+Use buildproof-kappa.vercel.app for testing/staging going forward - NOT
+buildproof-staging.vercel.app (that one still shares production's database
+despite its name, due to a Vercel domain-scoping limitation that wasn't
+fully resolved). buildproof-kappa runs code matching production but reads/
+writes to a genuinely isolated Supabase project (leeward-staging,
+dnlkmxetxhcwlrjzncwp.supabase.co) - safe to run migrations and test against.
 
-DO NOT run database migrations or other risky changes against "staging" believing
-it to be isolated from production — it is not, until this is fixed. See
-09-Regression-Ledger/No Real Staging Environment - Critical Gap.md in the Obsidian
-vault for full detail. Provisioning a genuinely separate staging Supabase project
-and Vercel deployment is a priority task, ahead of continuing Team Accounts V1
-implementation.
+Known limitation: email sending (Resend) is NOT isolated - staging shares
+the same Resend account as production, so any email actually triggered
+during staging tests is a real email. Test using your own email addresses.
+
+Full detail: 09-Regression-Ledger/Staging Environment - Resolved.md in the
+Obsidian vault (renamed from the original gap note).
 
 ## Active Build: Team Accounts V1
 
