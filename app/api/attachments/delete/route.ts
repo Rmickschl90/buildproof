@@ -84,7 +84,7 @@ export async function POST(req: Request) {
 
     const { data: attachment, error: attachmentErr } = await supabaseServer
       .from("attachments")
-      .select("id,user_id,path,proof_id")
+      .select("id,project_id,path,proof_id")
       .eq("id", attachmentId)
       .single();
 
@@ -92,7 +92,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Attachment not found" }, { status: 404 });
     }
 
-    if (attachment.user_id !== userId) {
+    if (!(await canUserAccessProject(userId, attachment.project_id))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
