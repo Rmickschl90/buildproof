@@ -165,10 +165,19 @@ were exercised together as a complete flow — invite created, public
 pre-login preview, a genuinely new user account created and accepting,
 the new member appearing in the roster, a duplicate-accept correctly
 rejected, and a revoked invite correctly blocked — not just
-individually. Phases 4 through 6 (Authentication Integration, Project
-Ownership Migration, Billing Integration) remain drafted and decisions
-resolved as of 2026-07-14 only — see the corresponding design notes in
-Current Implement/ — no implementation has started on them yet.
+individually. Phase 4 (Authentication Integration) is implemented:
+GET /api/auth/context is behaviorally verified on staging (owner case
+and no-org case both confirmed), and the dashboard now calls it on
+initial load and inside the reconnect flow. The dashboard-integration
+half is confirmed only at the build level (the call is present in the
+compiled/shipped bundle) — live in-browser runtime behavior (the fetch
+actually firing on page load and on reconnect, orgContext populating)
+has NOT been observed, since browser tooling was unavailable this
+session; still worth an actual browser check before relying on it.
+Phases 5 and 6 (Project Ownership Migration, Billing Integration)
+remain drafted and decisions resolved as of 2026-07-14 only — see the
+corresponding design notes in Current Implement/ — no implementation
+has started on them yet.
 Phase 7 (Offline Validation) has a design DRAFTED (attribution-at-queue-
 time approach, reconnect billing recheck) but NOT YET VALIDATED — no
 actual testing against real offline/reconnect/multi-device scenarios
@@ -178,7 +187,7 @@ Phase 7's design must be actually exercised end-to-end before being
 treated as resolved, and before Phase 8 (Production Rollout) proceeds
 on top of it.
 
-Phase 4 (Authentication Integration) is next.
+Phase 5 (Project Ownership Migration) is next.
 
 ### Git Workflow During Phase Implementation
 When implementing Team Accounts phases, commit and push directly to
