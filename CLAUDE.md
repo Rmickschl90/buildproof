@@ -158,10 +158,17 @@ canUserAccessProject, canUserManageOrganization), the organization
 create/list-members/remove-member routes, and migration of all 17
 existing routes with inline ownership checks to canUserAccessProject —
 all exercised as real signed-in users on staging, not just type-checked.
-Phases 3 through 6 (Invitation System, Authentication Integration,
-Project Ownership Migration, Billing Integration) remain drafted and
-decisions resolved as of 2026-07-14 only — see the corresponding design
-notes in Current Implement/ — no implementation has started on them yet.
+Phase 3 (Invitation System) is also implemented and behaviorally
+tested end-to-end on staging: all four routes (invite/create,
+invites/[token] GET, invites/[token]/accept, invites/[token]/revoke)
+were exercised together as a complete flow — invite created, public
+pre-login preview, a genuinely new user account created and accepting,
+the new member appearing in the roster, a duplicate-accept correctly
+rejected, and a revoked invite correctly blocked — not just
+individually. Phases 4 through 6 (Authentication Integration, Project
+Ownership Migration, Billing Integration) remain drafted and decisions
+resolved as of 2026-07-14 only — see the corresponding design notes in
+Current Implement/ — no implementation has started on them yet.
 Phase 7 (Offline Validation) has a design DRAFTED (attribution-at-queue-
 time approach, reconnect billing recheck) but NOT YET VALIDATED — no
 actual testing against real offline/reconnect/multi-device scenarios
@@ -171,7 +178,7 @@ Phase 7's design must be actually exercised end-to-end before being
 treated as resolved, and before Phase 8 (Production Rollout) proceeds
 on top of it.
 
-Phase 3 (Invitation System) is next.
+Phase 4 (Authentication Integration) is next.
 
 ### Git Workflow During Phase Implementation
 When implementing Team Accounts phases, commit and push directly to
@@ -179,6 +186,12 @@ the current phase branch (e.g. team-accounts-phase-2) after each unit
 of work. Do NOT open a pull request after every commit. Open exactly
 one PR per phase, into the parent phase branch, only when explicitly
 requested.
+
+### Workflow Notes
+- Before implementing Phase 4: the native Android/iOS branch divergence
+  (see 09-Regression-Ledger/Branch Divergence - Native Platform Gap.md)
+  must be reconciled, since Phase 4 could touch native login/session
+  handling.
 
 ### Locked Decisions (do not re-litigate)
 - Roles: Owner (billing, invites, removes members, full access) and
