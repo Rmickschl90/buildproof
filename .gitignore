@@ -6,3 +6,6 @@ node_modules/
 .vercel/
 *.log
 .vercel
+android/.idea/
+android/keystore.properties
+.env*
