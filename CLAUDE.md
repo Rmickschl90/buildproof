@@ -174,8 +174,8 @@ compiled/shipped bundle) — live in-browser runtime behavior (the fetch
 actually firing on page load and on reconnect, orgContext populating)
 has NOT been observed, since browser tooling was unavailable this
 session; still worth an actual browser check before relying on it.
-Phase 5 (Project Ownership Migration) has started: the projects table's
-RLS was extended for organization access via a new migration,
+Phase 5 (Project Ownership Migration) is implemented. The projects
+table's RLS was extended for organization access via a new migration,
 20260717120000_extend_projects_rls_for_org_access.sql (adds permissive
 projects_select_org_member and projects_update_org_member policies —
 OR'd with the original individual-ownership policies rather than
@@ -186,14 +186,22 @@ org the inserting user doesn't belong to). Applied to staging and
 behaviorally verified with real signed-in test users: a non-owner org
 member can now SELECT and UPDATE another member's org project, and an
 insert with a foreign organization_id is correctly rejected (403,
-42501). NOT YET applied to production. Still outstanding for Phase 5:
-the client-side "future projects default to organization ownership"
-change itself — addProject()'s online and offline-sync paths in
-app/dashboard/page.tsx still only set user_id, never organization_id,
-regardless of the creating user's org membership. Phase 6 (Billing
-Integration) remains drafted and decisions resolved as of 2026-07-14
-only — see the corresponding design note in Current Implement/ — no
-implementation has started on it yet.
+42501). New-project creation (addProject() in app/dashboard/page.tsx)
+now sets organization_id on both its online path and its offline-
+queue-then-sync path (organizationId captured at queue time, per the
+codebase's existing attribution-at-queue-time convention). The online
+path is behaviorally verified on staging end-to-end: an org owner's
+new project gets organization_id set correctly, a solo user's stays
+null, a different org member can immediately see the org-owned project
+via the new RLS policies, and cannot see the solo user's project. The
+offline-queue-then-sync path is confirmed only at the code/type level
+(no browser tooling available this session to drive the actual
+IndexedDB queue + reconnect flush) — still worth an actual browser/
+offline check before relying on it. NOT YET applied to production
+(the RLS migration). Phase 6 (Billing Integration) remains drafted and
+decisions resolved as of 2026-07-14 only — see the corresponding
+design note in Current Implement/ — no implementation has started on
+it yet.
 Phase 7 (Offline Validation) has a design DRAFTED (attribution-at-queue-
 time approach, reconnect billing recheck) but NOT YET VALIDATED — no
 actual testing against real offline/reconnect/multi-device scenarios
@@ -203,8 +211,7 @@ Phase 7's design must be actually exercised end-to-end before being
 treated as resolved, and before Phase 8 (Production Rollout) proceeds
 on top of it.
 
-Finishing Phase 5 (wiring organization_id into new-project creation,
-both online and offline-sync paths) is next, before Phase 6.
+Phase 6 (Billing Integration) is next.
 
 ### Git Workflow During Phase Implementation
 When implementing Team Accounts phases, commit and push directly to
