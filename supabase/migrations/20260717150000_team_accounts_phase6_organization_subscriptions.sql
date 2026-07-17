@@ -3,7 +3,42 @@
 -- Design reference: "Team Accounts V1 Phase 6 - Billing Integration Design.md"
 --   (Obsidian vault: Current Implement/)
 --
--- STATUS: Drafted 2026-07-17. NOT YET applied anywhere (not staging, not production).
+-- STATUS: Applied to staging (leeward-staging, dnlkmxetxhcwlrjzncwp) on 2026-07-17, via
+-- the Supabase Studio SQL Editor (no direct DB/Management API access available for this
+-- repo's tooling, same gap noted in prior migrations).
+--
+-- Real gotcha hit along the way: the CREATE TABLE/index/RLS statements ran successfully
+-- and the table was confirmed to exist directly in Postgres (via Table Editor and later
+-- pg_class), but it was completely invisible to PostgREST -- every REST query returned
+-- PGRST205 "Could not find the table in the schema cache", and this persisted through
+-- multiple NOTIFY pgrst, 'reload schema' calls AND a full project restart. Root cause,
+-- found via information_schema.role_table_grants: the table had been created with ZERO
+-- grants to anon/authenticated/service_role, unlike tables provisioned through Supabase's
+-- normal path (which get default privileges automatically). PostgREST only introspects
+-- tables the API roles have at least some privilege on, so no amount of cache-reloading
+-- would have found it until the grants existed. Fixed with explicit GRANT ALL ON TABLE
+-- statements for postgres/anon/authenticated/service_role (matching organization_members'
+-- grants), followed by one more schema reload, which then worked immediately. Confirmed
+-- via direct REST query (200, empty array) and via PostgREST's own OpenAPI schema listing
+-- showing the table.
+--
+-- Also worth noting for future migrations applied through the SQL Editor: Table Editor
+-- showing a table as "existing" is not sufficient confirmation that CREATE TABLE actually
+-- ran -- at one point Table Editor showed the table while pg_class showed no such relation
+-- in any schema at all (the CREATE TABLE apparently hadn't been run yet at that point,
+-- despite what Table Editor displayed). pg_class is the reliable source of truth, not
+-- Table Editor.
+--
+-- Behavioral testing completed 2026-07-17: POST /api/billing/team-checkout exercised
+-- end-to-end on staging, including the individual-to-team cancellation path against a
+-- genuine Stripe test-mode subscription (not a placeholder row) -- confirmed the real
+-- subscription was actually canceled, a real proration credit invoice item was generated,
+-- and the new team checkout session correctly reused the existing Stripe customer.
+-- NOT YET behaviorally tested: the Stripe webhook's organization_id branch (never fired --
+-- requires completing a real Stripe Checkout, which needs browser tooling unavailable this
+-- session), POST /api/billing/portal/team, and the extended GET /api/billing/status.
+--
+-- NOT YET applied to production.
 --
 -- Scope (per design doc):
 --   New table only -- organization_subscriptions, mirroring the existing (pre-migrations-
