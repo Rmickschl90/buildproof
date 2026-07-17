@@ -1206,6 +1206,7 @@ export default function DashboardPage() {
               client_phone: record.clientPhone,
               project_address: record.projectAddress,
               private_notes: record.privateNotes ?? null,
+              organization_id: record.organizationId ?? null,
             })
             .select(
               "id,title,user_id,client_name,client_email,client_phone,project_address,private_notes,archived_at,created_at"
@@ -1629,6 +1630,7 @@ export default function DashboardPage() {
           clientPhone: null,
           projectAddress: null,
           privateNotes: null,
+          organizationId: orgContext?.organizationId ?? null,
           createdAt: now,
           updatedAt: now,
           status: "pending",
@@ -1696,6 +1698,7 @@ export default function DashboardPage() {
     const { error } = await supabase.from("projects").insert({
       title,
       user_id: userId,
+      organization_id: orgContext?.organizationId ?? null,
     });
 
     if (error) {
