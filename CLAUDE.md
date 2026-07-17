@@ -188,10 +188,12 @@ one PR per phase, into the parent phase branch, only when explicitly
 requested.
 
 ### Workflow Notes
-- Before implementing Phase 4: the native Android/iOS branch divergence
-  (see 09-Regression-Ledger/Branch Divergence - Native Platform Gap.md)
-  must be reconciled, since Phase 4 could touch native login/session
-  handling.
+- Native Android/iOS platform history is now reconciled (previously
+  diverged since ~2026-05-22 — see 09-Regression-Ledger/Branch
+  Divergence - Native Platform Gap.md): merged via reconcile-native-
+  platform (android-pdf-download-native-safe into team-accounts-
+  phase-1), verified with a clean `next build` and a successful
+  `./gradlew assembleDebug`. Phase 4 can proceed.
 
 ### Locked Decisions (do not re-litigate)
 - Roles: Owner (billing, invites, removes members, full access) and
