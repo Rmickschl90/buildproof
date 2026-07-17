@@ -229,6 +229,11 @@ export default function DashboardPage() {
     return cached?.project.user_id ?? null;
   });
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [orgContext, setOrgContext] = useState<{
+    organizationId: string | null;
+    organizationName?: string;
+    role?: "owner" | "member";
+  } | null>(null);
 
   // ---------------- DATA ----------------
   const [projects, setProjects] = useState<Project[]>([]);
@@ -562,6 +567,8 @@ export default function DashboardPage() {
           return;
         }
 
+        void refreshOrgContext(billingAccessToken);
+
         await refreshOfflineProjects();
         await flushOfflineProofs();
         await loadActiveProjects(data.user.id);
@@ -641,6 +648,21 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
+  async function refreshOrgContext(token: string) {
+    try {
+      const res = await fetch("/api/auth/context", {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) return;
+
+      const json = await res.json();
+      setOrgContext(json);
+    } catch {
+      // non-critical - display-only, safe to skip on failure
+    }
+  }
 
   async function runReconnectFlow() {
     if (isRunningReconnectRef.current) {
@@ -703,6 +725,7 @@ export default function DashboardPage() {
         return token;
       };
 
+      void refreshOrgContext(await getAccessToken());
 
       await flushOfflineApprovalOutbox(getAccessToken);
 
