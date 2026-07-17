@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { requireUser } from "@/lib/requireUser";
+import { canUserAccessProject } from "@/lib/organizationAuth";
 
 export const runtime = "nodejs";
 
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
 
     const { data: project, error: projectErr } = await supabaseServer
       .from("projects")
-      .select("id,user_id")
+      .select("id")
       .eq("id", projectId)
       .single();
 
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    if (project.user_id !== userId) {
+    if (!(await canUserAccessProject(userId, projectId))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

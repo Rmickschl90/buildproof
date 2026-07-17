@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { canUserAccessProject } from "@/lib/organizationAuth";
 
 export const runtime = "nodejs";
 
@@ -48,12 +49,12 @@ export async function POST(req: Request) {
     // 3) OWNERSHIP CHECK
     const { data: project, error: projectErr } = await supabaseServer
       .from("projects")
-      .select("id,user_id")
+      .select("id")
       .eq("id", projectId)
       .single();
 
     if (projectErr || !project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
-    if (project.user_id !== userId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!(await canUserAccessProject(userId, projectId))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     // 4) LOAD DELIVERIES (NO JOIN — robust)
     const { data: deliveries, error: delErr } = await supabaseServer

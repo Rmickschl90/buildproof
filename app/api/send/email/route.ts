@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { buildProjectPdf } from "@/lib/pdf/buildProjectPdf";
+import { canUserAccessProject } from "@/lib/organizationAuth";
 console.log("🔥 EMAIL ROUTE FILE LOADED");
 
 export const runtime = "nodejs";
@@ -116,7 +117,7 @@ export async function POST(req: Request) {
 
     const { data: project, error: projectErr } = await supabaseServer
       .from("projects")
-      .select("id,title,user_id,created_at")
+      .select("id,title,created_at")
       .eq("id", projectId)
       .single();
 
@@ -124,7 +125,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    if (project.user_id !== userId) {
+    if (!(await canUserAccessProject(userId, projectId))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabaseServer";
 import { createApprovalToken } from "@/lib/approvals/createApprovalToken";
 import { hashApprovalToken } from "@/lib/approvals/hashApprovalToken";
 import { canSendApproval } from "@/lib/approvals/approvalStatusGuards";
+import { canUserAccessProject } from "@/lib/organizationAuth";
 
 export async function POST(req: Request) {
     try {
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Approval not found." }, { status: 404 });
         }
 
-        if (approval.created_by !== user.id) {
+        if (!(await canUserAccessProject(user.id, approval.project_id))) {
             return NextResponse.json({ error: "Not authorized." }, { status: 403 });
         }
 
@@ -87,7 +88,6 @@ export async function POST(req: Request) {
                 updated_at: sentAt,
             })
             .eq("id", approval.id)
-            .eq("created_by", user.id)
             .eq("status", "draft")
             .select("*")
             .single();
@@ -120,7 +120,6 @@ export async function POST(req: Request) {
                     updated_at: new Date().toISOString(),
                 })
                 .eq("id", approval.id)
-                .eq("created_by", user.id)
                 .eq("status", "pending");
 
             return NextResponse.json(
@@ -149,7 +148,6 @@ export async function POST(req: Request) {
                     updated_at: new Date().toISOString(),
                 })
                 .eq("id", approval.id)
-                .eq("created_by", user.id)
                 .eq("status", "pending");
 
             return NextResponse.json(
@@ -324,7 +322,6 @@ export async function POST(req: Request) {
                     updated_at: new Date().toISOString(),
                 })
                 .eq("id", approval.id)
-                .eq("created_by", user.id)
                 .eq("status", "pending");
 
             return NextResponse.json(

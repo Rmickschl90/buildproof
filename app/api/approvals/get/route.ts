@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/requireUser";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { canUserAccessProject } from "@/lib/organizationAuth";
 
 export async function POST(req: Request) {
   try {
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Approval not found." }, { status: 404 });
     }
 
-    if (approval.created_by !== user.id) {
+    if (!(await canUserAccessProject(user.id, approval.project_id))) {
       return NextResponse.json({ error: "Not authorized." }, { status: 403 });
     }
 

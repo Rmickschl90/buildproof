@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import twilio from "twilio";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { requireUser } from "@/lib/requireUser";
+import { canUserAccessProject } from "@/lib/organizationAuth";
 
 export const runtime = "nodejs";
 
@@ -49,12 +50,12 @@ export async function POST(req: Request) {
     // --- Ownership check ---
     const { data: project, error: projectErr } = await supabaseServer
       .from("projects")
-      .select("id,user_id,title")
+      .select("id,title")
       .eq("id", projectId)
       .single();
 
     if (projectErr || !project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
-    if (project.user_id !== userId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!(await canUserAccessProject(userId, projectId))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     // --- Create share token ---
     const shareToken = makeToken();

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/requireUser";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { canUserAccessProject } from "@/lib/organizationAuth";
 
 export async function POST(req: Request) {
   try {
@@ -17,11 +18,9 @@ export async function POST(req: Request) {
 
     const { data: project, error: projectError } = await supabaseServer
       .from("projects")
-      .select("id, user_id")
+      .select("id")
       .eq("id", projectId)
       .single();
-
-    
 
     if (projectError || !project) {
       return NextResponse.json(
@@ -38,7 +37,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (project.user_id !== user.id) {
+    if (!(await canUserAccessProject(user.id, projectId))) {
       return NextResponse.json({ error: "Not authorized." }, { status: 403 });
     }
 

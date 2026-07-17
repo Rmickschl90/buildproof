@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Leeward</string>
+    <string name="title_activity_main">Leeward</string>
+    <string name="package_name">com.linquelabs.leeward</string>
+    <string name="custom_url_scheme">com.linquelabs.leeward</string>
+</resources>
