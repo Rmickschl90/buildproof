@@ -198,10 +198,53 @@ offline-queue-then-sync path is confirmed only at the code/type level
 (no browser tooling available this session to drive the actual
 IndexedDB queue + reconnect flush) — still worth an actual browser/
 offline check before relying on it. NOT YET applied to production
-(the RLS migration). Phase 6 (Billing Integration) remains drafted and
-decisions resolved as of 2026-07-14 only — see the corresponding
-design note in Current Implement/ — no implementation has started on
-it yet.
+(the RLS migration). Phase 6 (Billing Integration) is implemented:
+the organization_subscriptions migration, POST /api/billing/team-
+checkout, the Stripe webhook's new organization_id branch
+(upsertOrganizationSubscription), POST /api/billing/portal/team, and
+the extended GET /api/billing/status (adds source: "individual" |
+"organization" | null, grants access if either subscription is
+active/trialing). The migration is applied to staging and confirmed —
+note a real gotcha hit along the way: a table created directly via the
+Supabase SQL Editor got zero GRANTs to anon/authenticated/service_role
+(unlike tables provisioned through Supabase's normal path), which left
+it fully invisible to PostgREST (schema-cache-style 404s) despite
+existing in Postgres and despite repeated NOTIFY/project-restart
+attempts — only fixed by explicitly granting privileges to match
+organization_members, confirmed via information_schema.role_table_grants
+and pg_class directly (not Table Editor, which showed the table before
+it was actually queryable). team-checkout is thoroughly behaviorally
+verified on staging: owner-only auth (owner succeeds, non-owner 403,
+no-org 403), correct checkout-session metadata/price/trial-eligibility,
+and — using a genuine Stripe test-mode subscription, not a placeholder
+row — the full individual-to-team cancellation path: the real
+subscription was actually canceled, a real proration credit invoice
+item was generated, and the new team checkout session correctly reused
+the existing Stripe customer (confirms the customer vs. customer_email
+bug fixed earlier is real and working). POST /api/billing/portal/team
+is also behaviorally verified on staging: owner gets a real Stripe
+billing portal session URL for the org's Stripe customer, non-owner
+member correctly rejected (403). The extended GET /api/billing/status
+is behaviorally verified across all three states: an individual-only
+active subscription (source: "individual", all fields from the
+individual row), an organization-only active subscription (source:
+"organization", all fields from the org row, not individual — confirms
+the per-source field consistency fix), and neither (source: null,
+status: "inactive", every other field null/false). The webhook's
+organization_id branch is also behaviorally verified — worked around
+the "needs a browser to complete Checkout" limitation by creating a
+real Stripe test-mode subscription directly via the Stripe API (not
+Checkout) with metadata.organization_id/billing_owner_id set, since
+Stripe fires customer.subscription.created for any new subscription
+regardless of how it was created. Confirmed via three independent
+signals: the resulting organization_subscriptions row matched exactly
+(only creatable via upsertOrganizationSubscription, since the table
+has no client-side INSERT policy), Stripe's event object showed
+pending_webhooks: 0 (fully delivered, no retries pending), and Vercel's
+own function logs showed POST /api/stripe/webhook 200 at the exact
+timestamp of the test. Phase 6 is now fully behaviorally verified on
+staging — every route and the webhook branch. NOT YET applied to
+production (the organization_subscriptions migration).
 Phase 7 (Offline Validation) has a design DRAFTED (attribution-at-queue-
 time approach, reconnect billing recheck) but NOT YET VALIDATED — no
 actual testing against real offline/reconnect/multi-device scenarios
@@ -211,7 +254,7 @@ Phase 7's design must be actually exercised end-to-end before being
 treated as resolved, and before Phase 8 (Production Rollout) proceeds
 on top of it.
 
-Phase 6 (Billing Integration) is next.
+Phase 7 (Offline Validation) is next.
 
 ### Git Workflow During Phase Implementation
 When implementing Team Accounts phases, commit and push directly to
