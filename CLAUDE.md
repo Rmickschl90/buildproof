@@ -221,11 +221,21 @@ row — the full individual-to-team cancellation path: the real
 subscription was actually canceled, a real proration credit invoice
 item was generated, and the new team checkout session correctly reused
 the existing Stripe customer (confirms the customer vs. customer_email
-bug fixed earlier is real and working). NOT YET behaviorally tested:
-the webhook's organization_id branch (never fired — requires actually
-completing Stripe Checkout, which needs a browser this session doesn't
-have), POST /api/billing/portal/team, and the extended
-GET /api/billing/status.
+bug fixed earlier is real and working). POST /api/billing/portal/team
+is also behaviorally verified on staging: owner gets a real Stripe
+billing portal session URL for the org's Stripe customer, non-owner
+member correctly rejected (403). The extended GET /api/billing/status
+is behaviorally verified across all three states: an individual-only
+active subscription (source: "individual", all fields from the
+individual row), an organization-only active subscription (source:
+"organization", all fields from the org row, not individual — confirms
+the per-source field consistency fix), and neither (source: null,
+status: "inactive", every other field null/false). NOT YET behaviorally
+tested: the webhook's organization_id branch — never fired, since
+exercising it requires actually completing a real Stripe Checkout
+(payment form), which needs browser tooling unavailable this session.
+This is the one remaining gap before Phase 6 can be considered fully
+verified.
 Phase 7 (Offline Validation) has a design DRAFTED (attribution-at-queue-
 time approach, reconnect billing recheck) but NOT YET VALIDATED — no
 actual testing against real offline/reconnect/multi-device scenarios
@@ -235,10 +245,9 @@ Phase 7's design must be actually exercised end-to-end before being
 treated as resolved, and before Phase 8 (Production Rollout) proceeds
 on top of it.
 
-Finishing Phase 6 behavioral testing (org billing portal, extended
-status check; the webhook branch needs either browser tooling to
-complete a real Checkout or another verification approach) is next,
-before Phase 7.
+Verifying Phase 6's remaining gap — the webhook's organization_id
+branch, which needs either browser tooling to complete a real Stripe
+Checkout or another verification approach — is next, before Phase 7.
 
 ### Git Workflow During Phase Implementation
 When implementing Team Accounts phases, commit and push directly to
