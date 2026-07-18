@@ -230,12 +230,21 @@ active subscription (source: "individual", all fields from the
 individual row), an organization-only active subscription (source:
 "organization", all fields from the org row, not individual — confirms
 the per-source field consistency fix), and neither (source: null,
-status: "inactive", every other field null/false). NOT YET behaviorally
-tested: the webhook's organization_id branch — never fired, since
-exercising it requires actually completing a real Stripe Checkout
-(payment form), which needs browser tooling unavailable this session.
-This is the one remaining gap before Phase 6 can be considered fully
-verified.
+status: "inactive", every other field null/false). The webhook's
+organization_id branch is also behaviorally verified — worked around
+the "needs a browser to complete Checkout" limitation by creating a
+real Stripe test-mode subscription directly via the Stripe API (not
+Checkout) with metadata.organization_id/billing_owner_id set, since
+Stripe fires customer.subscription.created for any new subscription
+regardless of how it was created. Confirmed via three independent
+signals: the resulting organization_subscriptions row matched exactly
+(only creatable via upsertOrganizationSubscription, since the table
+has no client-side INSERT policy), Stripe's event object showed
+pending_webhooks: 0 (fully delivered, no retries pending), and Vercel's
+own function logs showed POST /api/stripe/webhook 200 at the exact
+timestamp of the test. Phase 6 is now fully behaviorally verified on
+staging — every route and the webhook branch. NOT YET applied to
+production (the organization_subscriptions migration).
 Phase 7 (Offline Validation) has a design DRAFTED (attribution-at-queue-
 time approach, reconnect billing recheck) but NOT YET VALIDATED — no
 actual testing against real offline/reconnect/multi-device scenarios
@@ -245,9 +254,7 @@ Phase 7's design must be actually exercised end-to-end before being
 treated as resolved, and before Phase 8 (Production Rollout) proceeds
 on top of it.
 
-Verifying Phase 6's remaining gap — the webhook's organization_id
-branch, which needs either browser tooling to complete a real Stripe
-Checkout or another verification approach — is next, before Phase 7.
+Phase 7 (Offline Validation) is next.
 
 ### Git Workflow During Phase Implementation
 When implementing Team Accounts phases, commit and push directly to

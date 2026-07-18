@@ -34,9 +34,23 @@
 -- genuine Stripe test-mode subscription (not a placeholder row) -- confirmed the real
 -- subscription was actually canceled, a real proration credit invoice item was generated,
 -- and the new team checkout session correctly reused the existing Stripe customer.
--- NOT YET behaviorally tested: the Stripe webhook's organization_id branch (never fired --
--- requires completing a real Stripe Checkout, which needs browser tooling unavailable this
--- session), POST /api/billing/portal/team, and the extended GET /api/billing/status.
+-- POST /api/billing/portal/team and the extended GET /api/billing/status were also
+-- exercised and confirmed correct (portal: owner gets a real Stripe portal session for the
+-- org's customer, non-owner rejected; status: all three states -- individual-only,
+-- organization-only, neither -- verified with exact field-level matches).
+--
+-- The Stripe webhook's organization_id branch (upsertOrganizationSubscription) was also
+-- confirmed working, without needing a browser: created a real Stripe test-mode
+-- subscription directly via the Stripe API (not Checkout) with metadata.organization_id/
+-- billing_owner_id set, since Stripe fires customer.subscription.created for any new
+-- subscription regardless of how it was created. Verified via three independent signals:
+-- the resulting organization_subscriptions row matched exactly (only creatable via this
+-- webhook function, since the table has no client-side INSERT policy), Stripe's event
+-- object showed pending_webhooks: 0 (fully delivered), and Vercel's own function logs
+-- showed POST /api/stripe/webhook 200 at the exact timestamp of the test.
+--
+-- Phase 6 is now fully behaviorally verified on staging -- every route and the webhook
+-- branch.
 --
 -- NOT YET applied to production.
 --
