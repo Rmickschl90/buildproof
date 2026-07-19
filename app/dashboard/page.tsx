@@ -1446,7 +1446,6 @@ export default function DashboardPage() {
     const { data, error } = await supabase
       .from("projects")
       .select("id,title,user_id,client_name,client_email,client_phone,project_address,private_notes,archived_at,created_at")
-      .eq("user_id", uid)
       .is("archived_at", null)
       .order("created_at", { ascending: false });
 
