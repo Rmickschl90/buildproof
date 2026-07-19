@@ -664,6 +664,28 @@ export default function DashboardPage() {
     }
   }
 
+  async function checkBillingOnReconnect(token: string) {
+    try {
+      const res = await fetch("/api/billing/status", {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) return;
+
+      const json = await res.json();
+
+      if (json?.status !== "active" && json?.status !== "trialing") {
+        setProofStatus(
+          "Your subscription is no longer active — some features may be limited until billing is resolved. Visit Subscribe to renew."
+        );
+      }
+    } catch {
+      // non-critical - a failed check here shouldn't falsely warn the user;
+      // the existing boot-time billing gate remains the authoritative check
+    }
+  }
+
   async function runReconnectFlow() {
     if (isRunningReconnectRef.current) {
       console.log("🧱 RECONNECT SKIPPED - already running");
@@ -726,6 +748,7 @@ export default function DashboardPage() {
       };
 
       void refreshOrgContext(await getAccessToken());
+      void checkBillingOnReconnect(await getAccessToken());
 
       await flushOfflineApprovalOutbox(getAccessToken);
 
