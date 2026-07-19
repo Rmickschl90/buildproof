@@ -12,6 +12,7 @@ export type OfflineAttachmentRecord = {
   sizeBytes: number;
   fileBytes: ArrayBuffer;
   fileBlob?: Blob;
+  creatingUserId?: string;
   status: OfflineAttachmentStatus;
   createdAt: string;
   updatedAt: string;
@@ -149,6 +150,7 @@ export async function createOfflineAttachmentRecord(input: {
   proofId?: number;
   offlineProofId?: string;
   file: File;
+  creatingUserId?: string;
 }): Promise<OfflineAttachmentRecord> {
   const now = new Date().toISOString();
   const fileBytes = await input.file.arrayBuffer();
@@ -162,6 +164,7 @@ export async function createOfflineAttachmentRecord(input: {
     mimeType: input.file.type,
     sizeBytes: input.file.size,
     fileBytes,
+    creatingUserId: input.creatingUserId,
     status: "pending",
     createdAt: now,
     updatedAt: now,

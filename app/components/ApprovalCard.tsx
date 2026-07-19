@@ -188,6 +188,8 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
     }
 
     const now = new Date().toISOString();
+    const { data: sessionData } = await supabase.auth.getSession();
+    const creatingUserId = sessionData.session?.user?.id;
 
     await putOfflineApprovalSend({
       id: createOfflineApprovalSendId(),
@@ -195,6 +197,7 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
       offlineApprovalId: null,
       projectId: approval.project_id,
       expectedAttachmentCount: approval.attachments?.length || 0,
+      creatingUserId,
       createdAt: now,
       updatedAt: now,
       status: "pending",

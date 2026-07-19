@@ -66,6 +66,7 @@ export async function flushOfflineApprovalOutbox(
             dueAt: record.dueAt,
             createdTimezoneId: record.createdTimezoneId,
             createdTimezoneOffsetMinutes: record.createdTimezoneOffsetMinutes,
+            creatingUserId: record.creatingUserId,
           }
           : {
             approvalId: record.id,

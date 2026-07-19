@@ -8,6 +8,7 @@ export type OfflineSendRecord = {
   projectId: string;
   toEmail: string;
   includeArchived: boolean;
+  creatingUserId?: string;
 
   status: OfflineSendStatus;
 
@@ -129,6 +130,7 @@ export async function createOfflineSendRecord(input: {
   toEmail: string;
   includeArchived: boolean;
   idempotencyKey?: string;
+  creatingUserId?: string;
 }): Promise<OfflineSendRecord> {
   const now = new Date().toISOString();
 
@@ -138,6 +140,7 @@ export async function createOfflineSendRecord(input: {
     projectId: input.projectId,
     toEmail: input.toEmail.trim().toLowerCase(),
     includeArchived: Boolean(input.includeArchived),
+    creatingUserId: input.creatingUserId,
 
     status: "pending",
 

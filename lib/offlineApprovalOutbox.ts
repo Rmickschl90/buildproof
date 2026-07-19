@@ -15,6 +15,7 @@ export type OfflineApprovalRecord = {
     costDelta: number | null;
     scheduleDelta: string | null;
     dueAt?: string | null;
+    creatingUserId?: string;
     createdAt: number;
     updatedAt: number;
     createdTimezoneId: string | null;

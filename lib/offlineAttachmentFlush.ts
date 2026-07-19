@@ -114,6 +114,7 @@ export async function flushOfflineAttachmentOutbox(
             fileName: record.fileName,
             mimeType: record.mimeType,
             sizeBytes: record.sizeBytes,
+            creatingUserId: record.creatingUserId,
           }),
         });
 

@@ -198,7 +198,19 @@ offline-queue-then-sync path is confirmed only at the code/type level
 (no browser tooling available this session to drive the actual
 IndexedDB queue + reconnect flush) — still worth an actual browser/
 offline check before relying on it. NOT YET applied to production
-(the RLS migration). Phase 6 (Billing Integration) is implemented:
+(the RLS migration).
+
+Correction (found during Phase 7 browser testing): the RLS layer above
+was and is correct — verified again directly via PostgREST with a real
+member token. But "behaviorally verified" here meant verified at the
+RLS/API layer only, not through the actual dashboard UI that's supposed
+to rely on it. The dashboard's own project-list query had an
+independent bug (see Phase 7) that made org-shared visibility
+non-functional in the actual product despite RLS being sound. Direct
+RLS verification is not the same as verifying the UI built on top of
+it — a distinction this phase's sign-off missed.
+
+Phase 6 (Billing Integration) is implemented:
 the organization_subscriptions migration, POST /api/billing/team-
 checkout, the Stripe webhook's new organization_id branch
 (upsertOrganizationSubscription), POST /api/billing/portal/team, and
@@ -245,16 +257,131 @@ own function logs showed POST /api/stripe/webhook 200 at the exact
 timestamp of the test. Phase 6 is now fully behaviorally verified on
 staging — every route and the webhook branch. NOT YET applied to
 production (the organization_subscriptions migration).
-Phase 7 (Offline Validation) has a design DRAFTED (attribution-at-queue-
-time approach, reconnect billing recheck) but NOT YET VALIDATED — no
-actual testing against real offline/reconnect/multi-device scenarios
-has been performed. Given this touches the most fragile, most
-previously-broken part of the codebase (see failed-experiment history),
-Phase 7's design must be actually exercised end-to-end before being
-treated as resolved, and before Phase 8 (Production Rollout) proceeds
-on top of it.
+Phase 7 (Offline Validation) is implemented and now genuinely
+behaviorally verified end-to-end in a real browser session, meeting
+the design doc's own stated bar: real offline queuing, a real
+device/account switch, real automatic reconnect timing, and actual
+queued IndexedDB data — not code review or API-simulated checks. Two
+pieces:
 
-Phase 7 (Offline Validation) is next.
+1. Attribution-at-queue-time: creatingUserId added to all 7 offline
+outbox record types (proofs, attachments, approvals, approval
+attachments, approval sends, projects, sends), captured at the moment
+an action is queued. Before implementing anything, investigated all 5
+design-doc-listed flush files against their actual server routes: only
+2 of the 5 (attachments, approvals) have a real attribution column in
+the schema today (attachments.user_id, approval_requests.created_by) —
+proofs, approval attachments, and approval sends have no attribution
+column at all, so nothing was changed for those three. For the 2 real
+fixes, flush logic now sends creatingUserId to the server, which
+validates it via canUserAccessProject() before trusting it (falls back
+to the authenticated caller if validation fails or the field is
+missing). Also fixed a real authorization bug found along the way:
+approval-attachments/insert was gating on .eq("created_by", user.id)
+as an authorization check, not just a read — a route Phase 2's
+created_by-to-canUserAccessProject migration appears to have missed —
+which would have broken attachment uploads for the exact reconnect-
+misattribution scenario this phase exists to fix. This core fix IS
+genuinely behaviorally proven on staging: both the positive case
+(authenticated as Employee B, creatingUserId set to Employee A's real
+id — resulting attachments.user_id and approval_requests.created_by
+both correctly show A, not B) and the negative/fallback case (a
+fabricated, non-member creatingUserId correctly falls back to the
+authenticated caller B, proving the validation actually rejects
+invalid attribution rather than trusting anything sent) were tested
+with real API calls against staging, using two real signed-in org
+members.
+
+That API-level proof has now been superseded by a genuine
+browser/IndexedDB end-to-end run. Queued a real approval offline as
+the org owner (Employee A) via a forced navigator.onLine=false
+override — the app's real offline code path, not a mock — and
+confirmed the record landed in IndexedDB (buildproof-offline /
+offline_approvals) with creatingUserId set to A's real user id.
+Logged out and signed in as a second, genuinely distinct org member
+(Employee B, created via the real invite-create/accept API flow) on
+the same browser/device, which is exactly the cross-account IndexedDB
+persistence scenario this phase exists to address. On a real
+online-transition reconnect (interval-detected, not manually
+dispatched), the queued approval flushed automatically while B was the
+authenticated session, and the resulting approval_requests.created_by
+row correctly shows A, not B — attribution survives the account
+switch on a shared device.
+
+2. Reconnect billing re-check: implemented (checkBillingOnReconnect()
+inside runReconnectFlow(), reusing the Phase 4 refreshOrgContext()
+pattern) and now behaviorally verified — previously zero verification
+beyond type-check/build passing. Forced Test Org Beta's
+organization_subscriptions.status to "canceled", triggered a real
+offline→online transition with a project open, and confirmed the
+reconnect flow's billing re-check fired and surfaced the exact expected
+non-silent message ("Your subscription is no longer active — some
+features may be limited until billing is resolved. Visit Subscribe to
+renew.") rather than failing silently or retrying indefinitely. Billing
+was restored to active immediately after to leave staging clean.
+
+This phase's own stated validation bar — genuine end-to-end exercising
+with real reconnect timing and actual queued IndexedDB data, not code
+review or type-checking — has now been met for both pieces above.
+
+Two additional things surfaced during this browser testing, both worth
+tracking separately from the attribution fix itself:
+
+- Found and fixed a real regression against Team Accounts V1's core
+promise: the dashboard's project-list query (loadActiveProjects() in
+app/dashboard/page.tsx) filtered .eq("user_id", uid) on top of RLS, so
+an org member's project list only ever showed projects they personally
+created — never a teammate's org-owned project. This directly
+contradicted the locked decision "all org members can access all org
+projects, no visibility restrictions in V1." Phase 5's RLS was correct
+and had already been proven correct via direct PostgREST queries with
+a real member token, but nobody had exercised the actual dashboard
+fetch code until this session — see the correction added to Phase 5's
+entry above. Fixed by dropping the redundant user_id filter (safe,
+since RLS already ORs individual ownership with active org
+membership); committed (30d2ce3c) and deployed to
+leeward-staging-internal; confirmed afterward that a second org member
+could then see and open the owner's project through the real dashboard
+UI.
+
+- Found and fixed: there was no app/invite/[token] frontend page at
+all — only the backend API routes existed (create/GET/accept/revoke).
+The invite email's "Accept Invite" link pointed at a URL that 404'd in
+the browser. Phase 3's "full end-to-end test" of the invite flow was
+real but was driven entirely via direct API calls, never by an actual
+user clicking the emailed link — so a real user could not previously
+accept a team invite through the product at all. Built
+app/invite/[token]/page.tsx (commit 503d231d): a self-contained client
+page that loads the invite, handles inline sign-in (either entering
+the emailed code or clicking the emailed magic link — both land back
+on this same page), detects a signed-in wrong-account mismatch, and
+calls the accept endpoint. Deliberately does NOT reuse the generic
+/login -> /auth/finish -> /auth/finish/signing-in redirect chain: that
+chain unconditionally bounces any user without active individual
+billing to /subscribe regardless of redirectedFrom, which is every
+brand-new invitee (joining an org is what grants them access) — this
+is the same trap manually hit earlier in this session's Phase 7
+testing. Also flagged, not fixed, while tracing that chain: a separate
+pre-existing bug in app/auth/finish/page.tsx (line ~53) redirects to
+/auth/signing-in, a route that doesn't exist — the real page is at
+/auth/finish/signing-in. Worth a standalone fix, unrelated to Team
+Accounts.
+
+The new invite page is genuinely behaviorally verified end-to-end on
+staging via real browser sessions and real emailed magic links, not
+simulated: already-accepted (409), revoked (410), a real
+member-limit-reached (409) hit organically during testing and handled
+correctly by the page's generic error passthrough (proving it doesn't
+need every message hardcoded), signed-in-as-wrong-account mismatch and
+recovery via "Log Out and Continue", a fresh invite's full sign-in +
+accept flow via both code entry and clicking the actual emailed magic
+link, and a final DB check confirming organization_invites.accepted_at
+was genuinely set server-side, not just a client-side illusion.
+
+NOT YET applied to production: the organization_subscriptions
+migration, the projects RLS migration, the dashboard project-list fix
+(30d2ce3c), and the new invite page (503d231d) — all staging-only so
+far.
 
 ### Git Workflow During Phase Implementation
 When implementing Team Accounts phases, commit and push directly to

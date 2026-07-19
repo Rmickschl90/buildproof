@@ -697,6 +697,9 @@ export default function SendUpdatePack({
     const isOffline =
       typeof navigator !== "undefined" && !navigator.onLine;
 
+    const { data: sessionData } = await supabase.auth.getSession();
+    const creatingUserId = sessionData.session?.user?.id;
+
     try {
       setSending(true);
 
@@ -709,6 +712,7 @@ export default function SendUpdatePack({
           toEmail: officialEmail,
           includeArchived,
           idempotencyKey,
+          creatingUserId,
         });
 
         setUiStatus(
@@ -749,6 +753,7 @@ export default function SendUpdatePack({
         toEmail: officialEmail,
         includeArchived,
         idempotencyKey,
+        creatingUserId,
       });
 
       if (navigator.onLine) {

@@ -53,6 +53,11 @@ export async function POST(req: Request) {
 
     const dueAt = body?.dueAt ? String(body.dueAt) : null;
 
+    let creatingUserId =
+      typeof body?.creatingUserId === "string" && body.creatingUserId
+        ? body.creatingUserId
+        : user.id;
+
     if (!projectId) {
       return NextResponse.json({ error: "Missing projectId." }, { status: 400 });
     }
@@ -95,6 +100,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Not authorized." }, { status: 403 });
     }
 
+    // A client-supplied creatingUserId is only trusted if that user genuinely has
+    // access to this project (individual owner or active org member) - otherwise it
+    // falls back to the authenticated caller, same as the "missing" case.
+    if (
+      creatingUserId !== user.id &&
+      !(await canUserAccessProject(creatingUserId, projectId))
+    ) {
+      creatingUserId = user.id;
+    }
+
     const projectClientEmail =
       typeof project.client_email === "string"
         ? project.client_email.trim().toLowerCase()
@@ -109,7 +124,7 @@ export async function POST(req: Request) {
       .from("approval_requests")
       .insert({
         project_id: projectId,
-        created_by: user.id,
+        created_by: creatingUserId,
         title,
         approval_type: approvalType,
         description,
