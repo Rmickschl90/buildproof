@@ -344,19 +344,44 @@ leeward-staging-internal; confirmed afterward that a second org member
 could then see and open the owner's project through the real dashboard
 UI.
 
-- Found, NOT fixed: there is no app/invite/[token] frontend page at
-all — only the backend API routes exist (create/GET/accept/revoke).
-The invite email's "Accept Invite" link points at a URL that 404s in
+- Found and fixed: there was no app/invite/[token] frontend page at
+all — only the backend API routes existed (create/GET/accept/revoke).
+The invite email's "Accept Invite" link pointed at a URL that 404'd in
 the browser. Phase 3's "full end-to-end test" of the invite flow was
 real but was driven entirely via direct API calls, never by an actual
-user clicking the emailed link — so a real user cannot currently
-accept a team invite through the product at all. This blocks real
-invite usability and should be addressed before Phase 8 rollout
-involves any real (non-test) invites.
+user clicking the emailed link — so a real user could not previously
+accept a team invite through the product at all. Built
+app/invite/[token]/page.tsx (commit 503d231d): a self-contained client
+page that loads the invite, handles inline sign-in (either entering
+the emailed code or clicking the emailed magic link — both land back
+on this same page), detects a signed-in wrong-account mismatch, and
+calls the accept endpoint. Deliberately does NOT reuse the generic
+/login -> /auth/finish -> /auth/finish/signing-in redirect chain: that
+chain unconditionally bounces any user without active individual
+billing to /subscribe regardless of redirectedFrom, which is every
+brand-new invitee (joining an org is what grants them access) — this
+is the same trap manually hit earlier in this session's Phase 7
+testing. Also flagged, not fixed, while tracing that chain: a separate
+pre-existing bug in app/auth/finish/page.tsx (line ~53) redirects to
+/auth/signing-in, a route that doesn't exist — the real page is at
+/auth/finish/signing-in. Worth a standalone fix, unrelated to Team
+Accounts.
+
+The new invite page is genuinely behaviorally verified end-to-end on
+staging via real browser sessions and real emailed magic links, not
+simulated: already-accepted (409), revoked (410), a real
+member-limit-reached (409) hit organically during testing and handled
+correctly by the page's generic error passthrough (proving it doesn't
+need every message hardcoded), signed-in-as-wrong-account mismatch and
+recovery via "Log Out and Continue", a fresh invite's full sign-in +
+accept flow via both code entry and clicking the actual emailed magic
+link, and a final DB check confirming organization_invites.accepted_at
+was genuinely set server-side, not just a client-side illusion.
 
 NOT YET applied to production: the organization_subscriptions
-migration, the projects RLS migration, and the dashboard project-list
-fix (30d2ce3c) — all staging-only so far.
+migration, the projects RLS migration, the dashboard project-list fix
+(30d2ce3c), and the new invite page (503d231d) — all staging-only so
+far.
 
 ### Git Workflow During Phase Implementation
 When implementing Team Accounts phases, commit and push directly to
