@@ -245,16 +245,62 @@ own function logs showed POST /api/stripe/webhook 200 at the exact
 timestamp of the test. Phase 6 is now fully behaviorally verified on
 staging — every route and the webhook branch. NOT YET applied to
 production (the organization_subscriptions migration).
-Phase 7 (Offline Validation) has a design DRAFTED (attribution-at-queue-
-time approach, reconnect billing recheck) but NOT YET VALIDATED — no
-actual testing against real offline/reconnect/multi-device scenarios
-has been performed. Given this touches the most fragile, most
-previously-broken part of the codebase (see failed-experiment history),
-Phase 7's design must be actually exercised end-to-end before being
-treated as resolved, and before Phase 8 (Production Rollout) proceeds
-on top of it.
+Phase 7 (Offline Validation) is implemented but only partially tested —
+real progress, but it does NOT yet meet this phase's own stated
+validation bar (see below). Two pieces:
 
-Phase 7 (Offline Validation) is next.
+1. Attribution-at-queue-time: creatingUserId added to all 7 offline
+outbox record types (proofs, attachments, approvals, approval
+attachments, approval sends, projects, sends), captured at the moment
+an action is queued. Before implementing anything, investigated all 5
+design-doc-listed flush files against their actual server routes: only
+2 of the 5 (attachments, approvals) have a real attribution column in
+the schema today (attachments.user_id, approval_requests.created_by) —
+proofs, approval attachments, and approval sends have no attribution
+column at all, so nothing was changed for those three. For the 2 real
+fixes, flush logic now sends creatingUserId to the server, which
+validates it via canUserAccessProject() before trusting it (falls back
+to the authenticated caller if validation fails or the field is
+missing). Also fixed a real authorization bug found along the way:
+approval-attachments/insert was gating on .eq("created_by", user.id)
+as an authorization check, not just a read — a route Phase 2's
+created_by-to-canUserAccessProject migration appears to have missed —
+which would have broken attachment uploads for the exact reconnect-
+misattribution scenario this phase exists to fix. This core fix IS
+genuinely behaviorally proven on staging: both the positive case
+(authenticated as Employee B, creatingUserId set to Employee A's real
+id — resulting attachments.user_id and approval_requests.created_by
+both correctly show A, not B) and the negative/fallback case (a
+fabricated, non-member creatingUserId correctly falls back to the
+authenticated caller B, proving the validation actually rejects
+invalid attribution rather than trusting anything sent) were tested
+with real API calls against staging, using two real signed-in org
+members.
+
+2. Reconnect billing re-check: implemented (checkBillingOnReconnect()
+inside runReconnectFlow(), reusing the Phase 4 refreshOrgContext()
+pattern) but has NOT been behaviorally tested at all — zero
+verification beyond type-check/build passing.
+
+What's NOT yet done, and matters: this phase's own design doc opens
+with an explicit warning that its bar for being resolved is genuine
+end-to-end exercising — multiple users, multiple devices, real
+reconnect timing, actual queued IndexedDB data — not code review or
+type-checking. Everything verified so far was server-side API-level
+testing (direct authenticated requests simulating what a flush would
+send), not actual browser/IndexedDB offline queuing and not real
+reconnect timing across real devices — no browser tooling was
+available this session to do that. So: the core attribution logic is
+now demonstrably correct at the API layer, which is real progress, but
+the design doc's actual stated validation bar has NOT been met yet.
+Given this touches the most fragile, most previously-broken part of
+the codebase (see failed-experiment history), Phase 8 (Production
+Rollout) should not proceed on the assumption that Phase 7 is fully
+resolved.
+
+Completing Phase 7's actual browser/IndexedDB-level validation (or
+explicitly deciding on an alternate way to satisfy the design doc's
+bar) is next, before Phase 8.
 
 ### Git Workflow During Phase Implementation
 When implementing Team Accounts phases, commit and push directly to
