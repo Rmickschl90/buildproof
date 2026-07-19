@@ -1631,6 +1631,7 @@ export default function DashboardPage() {
           projectAddress: null,
           privateNotes: null,
           organizationId: orgContext?.organizationId ?? null,
+          creatingUserId: userId ?? undefined,
           createdAt: now,
           updatedAt: now,
           status: "pending",
@@ -2038,6 +2039,7 @@ export default function DashboardPage() {
       await createOfflineProof({
         projectId,
         content: text,
+        creatingUserId: userId ?? undefined,
       });
 
       setNewProofContent("");

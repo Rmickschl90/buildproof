@@ -20,6 +20,10 @@ export async function POST(req: Request) {
     const fileName = body.fileName;
     const mimeType = body.mimeType;
     const sizeBytes = Number(body.sizeBytes);
+    let creatingUserId =
+      typeof body.creatingUserId === "string" && body.creatingUserId
+        ? body.creatingUserId
+        : userId;
 
     if (!id || !projectId || !proofId || !path || !fileName || !mimeType || !sizeBytes) {
       return NextResponse.json(
@@ -40,6 +44,16 @@ export async function POST(req: Request) {
 
     if (!(await canUserAccessProject(userId, projectId))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // A client-supplied creatingUserId is only trusted if that user genuinely has
+    // access to this project (individual owner or active org member) - otherwise it
+    // falls back to the authenticated caller, same as the "missing" case.
+    if (
+      creatingUserId !== userId &&
+      !(await canUserAccessProject(creatingUserId, projectId))
+    ) {
+      creatingUserId = userId;
     }
 
     const { data: proof, error: proofErr } = await supabaseServer
@@ -63,7 +77,7 @@ export async function POST(req: Request) {
       .from("attachments")
       .insert({
         id,
-        user_id: userId,
+        user_id: creatingUserId,
         project_id: projectId,
         proof_id: proofId,
         path,

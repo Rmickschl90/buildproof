@@ -130,6 +130,9 @@ export default function AttachmentUploader({
     setMessage("");
 
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const creatingUserId = sessionData.session?.user?.id;
+
       for (const rawFile of Array.from(files)) {
         const rawFileType = (rawFile.type || "").toLowerCase();
         const rawFileName = (rawFile.name || "").toLowerCase();
@@ -160,6 +163,7 @@ export default function AttachmentUploader({
           proofId,
           offlineProofId,
           file,
+          creatingUserId,
         });
       }
 

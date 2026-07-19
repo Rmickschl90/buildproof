@@ -11,6 +11,7 @@ export type OfflineProjectRecord = {
   projectAddress: string | null;
   privateNotes: string | null;
   organizationId?: string | null;
+  creatingUserId?: string;
   createdAt: string;
   updatedAt: string;
   status: "pending" | "syncing" | "synced";

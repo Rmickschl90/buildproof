@@ -12,6 +12,7 @@ export type OfflineApprovalSendRecord = {
     offlineApprovalId: string | null;
     projectId: string;
     expectedAttachmentCount: number;
+    creatingUserId?: string;
     createdAt: string;
     updatedAt: string;
     status: OfflineApprovalSendStatus;

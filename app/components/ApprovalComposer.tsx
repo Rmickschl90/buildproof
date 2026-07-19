@@ -22,6 +22,11 @@ import {
 } from "@/lib/offlineApprovalSendOutbox";
 import { flushOfflineApprovalSendOutbox } from "@/lib/offlineApprovalSendFlush";
 
+async function getCurrentUserId(): Promise<string | undefined> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user?.id;
+}
+
 type ApprovalType =
   | "change_order"
   | "scope"
@@ -393,6 +398,7 @@ export default function ApprovalComposer({
     }
 
     const now = new Date().toISOString();
+    const creatingUserId = await getCurrentUserId();
 
     await putOfflineApprovalSend({
       id: createOfflineApprovalSendId(),
@@ -400,6 +406,7 @@ export default function ApprovalComposer({
       offlineApprovalId: args.offlineApprovalId,
       projectId: args.projectId,
       expectedAttachmentCount: args.expectedAttachmentCount,
+      creatingUserId,
       createdAt: now,
       updatedAt: now,
       status: "pending",
@@ -517,6 +524,7 @@ export default function ApprovalComposer({
 
     if (isOffline) {
       let approvalId = draftApprovalIdRef.current;
+      const creatingUserId = await getCurrentUserId();
 
       if (!approvalId) {
         approvalId = createTempApprovalId();
@@ -532,6 +540,7 @@ export default function ApprovalComposer({
           recipientSource: getRecipientSource(),
           costDelta: costDelta === "" ? null : Number(costDelta),
           scheduleDelta,
+          creatingUserId,
         });
 
         draftApprovalIdRef.current = approvalId;
@@ -549,6 +558,7 @@ export default function ApprovalComposer({
           recipientSource: getRecipientSource(),
           costDelta: costDelta === "" ? null : Number(costDelta),
           scheduleDelta,
+          creatingUserId,
         });
       }
 
@@ -753,6 +763,7 @@ export default function ApprovalComposer({
         const isTempOfflineApproval = approvalId.startsWith("offline-");
 
         const localPreviewAttachments: UploadedApprovalAttachment[] = [];
+        const creatingUserId = await getCurrentUserId();
 
         for (const rawFile of files) {
           const rawFileType = (rawFile.type || "").toLowerCase();
@@ -781,6 +792,7 @@ export default function ApprovalComposer({
             file,
             fileName: file.name,
             mimeType: file.type || "application/octet-stream",
+            creatingUserId,
           });
 
           localPreviewAttachments.push({
@@ -891,6 +903,7 @@ export default function ApprovalComposer({
 
       const saveOffline = async () => {
         let approvalId = draftApprovalIdRef.current;
+        const creatingUserId = await getCurrentUserId();
 
         if (!approvalId) {
           approvalId = createTempApprovalId();
@@ -906,6 +919,7 @@ export default function ApprovalComposer({
             recipientSource: getRecipientSource(),
             costDelta: costDelta === "" ? null : Number(costDelta),
             scheduleDelta: scheduleDelta || null,
+            creatingUserId,
           });
 
           draftApprovalIdRef.current = approvalId;
@@ -934,6 +948,7 @@ export default function ApprovalComposer({
             recipientSource: getRecipientSource(),
             costDelta: costDelta === "" ? null : Number(costDelta),
             scheduleDelta: scheduleDelta || null,
+            creatingUserId,
           });
         }
 

@@ -11,6 +11,7 @@ export type OfflineProofRecord = {
   id: string;
   projectId: string;
   content: string;
+  creatingUserId?: string;
   createdAt: string;
   updatedAt: string;
   createdTimezoneId: string | null;
@@ -92,6 +93,7 @@ function makeOfflineProofId() {
 export async function createOfflineProof(input: {
   projectId: string;
   content: string;
+  creatingUserId?: string;
 }): Promise<OfflineProofRecord> {
   const nowDate = new Date();
   const now = nowDate.toISOString();
@@ -107,6 +109,7 @@ export async function createOfflineProof(input: {
     id: makeOfflineProofId(),
     projectId: input.projectId,
     content: input.content,
+    creatingUserId: input.creatingUserId,
     createdAt: now,
     updatedAt: now,
     createdTimezoneId,
