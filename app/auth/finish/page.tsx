@@ -50,7 +50,7 @@ export default function AuthFinish() {
         }
 
         setMsg("Signed in! Redirecting…");
-        router.replace("/auth/signing-in");
+        router.replace("/auth/finish/signing-in");
       } catch (e: any) {
         if (!cancelled) {
           router.replace(`/login?error=${encodeURIComponent(e?.message ?? "auth_finish_failed")}`);
