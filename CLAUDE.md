@@ -91,7 +91,9 @@ Check relevant notes before proposing any non-trivial change.
   Pushing/merging branches does not by itself deploy anything. But the
   deployed app is what the Android/iOS wrapper loads directly via the
   live production URL, so a manual production deploy can affect real
-  customers within minutes.
+  customers within minutes. This is enforced as of 2026-07-20 (see
+  incident note directly below) — before that date it was NOT actually
+  true.
 - app.getleeward.com = production (real customers, Android wrapper loads
   this directly). buildproof-staging.vercel.app = staging/testing.
 - Leeward is in "launch operations" phase — architecture is locked/stable.
@@ -108,6 +110,54 @@ Check relevant notes before proposing any non-trivial change.
   attachment replay, PDF/export & dispute packet architecture,
   service worker/IndexedDB, Supabase auth, billing webhook &
   subscription enforcement, production deployment/Vercel alias routing.
+
+### Incident (2026-07-19/20): accidental production rollback via git auto-deploy — fixed
+
+The Vercel project `buildproof-staging` (which despite its name serves
+`app.getleeward.com`, real production - see the naming confusion noted
+below under Staging Environment) had `productionBranch: "main"` with
+git-triggered deployments enabled (`gitProviderOptions.createDeployments:
+"enabled"`), contradicting the "MANUAL, not git-triggered" rule above.
+This had gone unnoticed because `main` itself had been essentially
+frozen since 2026-04-16 (only a handful of commits since), while all
+real development - the entire Team Accounts V1 epic and everything
+else - happened exclusively on the `team-accounts-phase-*` branch
+line and reached production only via occasional manual `vercel --prod`
+deploys from other branches (e.g. `android-pdf-download-safe`).
+
+Merging PR #28 (a small, unrelated, correctly-isolated fix) into this
+stale `main` triggered an automatic git-based production deployment,
+which aliased `app.getleeward.com` to `main`'s ~3-month-old state -
+overwriting the real, current, manually-deployed build and silently
+dropping ~211 commits of shipped work (Stripe/billing integration,
+subscription enforcement, PDF exhibit embedding, etc.) from the live
+site. Caught and diagnosed within the same session: confirmed via
+Vercel's build logs (`Cloning ... Branch: main, Commit: 4df569e`) and
+directly via the project settings API (`productionBranch: "main"`).
+Production was restored by redeploying the last-known-good commit
+(`a5dc5cfebc674729cbbfe4a7a69d508a24665378`, "Add native Android
+dispute PDF save path") from a clean detached-HEAD worktree via
+`vercel deploy --project buildproof-staging --prod`, confirmed
+afterward via the deployment's own `meta.gitCommitSha` (not just CLI
+output) matching exactly.
+
+Fixed: set `commandForIgnoringBuildStep` on the `buildproof-staging`
+project to:
+```
+if [ "$VERCEL_GIT_COMMIT_REF" = "main" ]; then exit 0; else exit 1; fi
+```
+This tells Vercel to skip (ignore) any build/deploy triggered by a push
+to `main` specifically, while leaving other branches unaffected.
+Confirmed applied via the project settings API afterward. Pushing or
+merging into `main` can no longer auto-deploy to production - a
+manual `vercel --prod` (or `vercel deploy --prod`) is required again,
+restoring the rule stated above as actually true.
+
+Separately (found during the same investigation, undocumented until
+now): `user_subscriptions.current_period_start` and
+`current_period_end` are null on every row in production, including
+real active subscriptions - see "Known Data Issue" further below.
+Unrelated to the rollback itself.
 
 ### Staging Environment (fixed 2026-07-15)
 
@@ -132,6 +182,43 @@ during staging tests is a real email. Test using your own email addresses.
 
 Full detail: 09-Regression-Ledger/Staging Environment - Resolved.md in the
 Obsidian vault (renamed from the original gap note).
+
+### Known Data Issue: user_subscriptions period columns are always null
+
+Found 2026-07-19/20 while investigating an unrelated production incident
+(an accidental rollback of app.getleeward.com caused by merging into a
+long-stale `main`, since restored). Confirmed directly against
+production: both `current_period_start` and `current_period_end` are
+null on every row in `user_subscriptions`, including real, actively
+billing accounts (verified via Stripe's live API against
+sub_1TlcFY2WIlxElWw0U7ViTJB0 - a genuine active subscription).
+
+Root cause: `app/api/stripe/webhook/route.ts`'s `upsertSubscription()`
+reads `sub.current_period_start` / `sub.current_period_end` off the
+top-level Stripe Subscription object. On this Stripe API
+version/account, those fields no longer exist at that level - the real
+values live per line item, at
+`subscription.items.data[0].current_period_start` /
+`.current_period_end`. So every webhook upsert has been writing null
+for both columns, for every subscription, since this code was written -
+not something the rollback caused.
+
+Practical impact, traced through the codebase: `current_period_start`
+has zero consumers anywhere in the app. `current_period_end` is read
+only by `GET /api/billing/status`, which returns it as
+`currentPeriodEnd` - but `app/subscribe/page.tsx` (the only place that
+types it) fetches it and never actually reads `.currentPeriodEnd`
+anywhere. Billing enforcement (dashboard boot gate, `/subscribe`
+redirect, Phase 7's `checkBillingOnReconnect`) only ever checks
+`status`, never the period fields. The "Manage Billing" button opens
+Stripe's own hosted customer portal, which shows real renewal dates
+live from Stripe, unaffected by this DB bug. So: real, latent data
+corruption in a billing table, but no currently-shipped user-facing
+behavior depends on either column - it's a landmine for whenever
+someone adds period-based display/logic that reads from the DB instead
+of Stripe directly. NOT fixed as of this writing (billing webhook is a
+protected system - flagging, not touching without explicit
+confirmation).
 
 ## Active Build: Team Accounts V1
 
