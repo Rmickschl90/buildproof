@@ -465,10 +465,56 @@ accept flow via both code entry and clicking the actual emailed magic
 link, and a final DB check confirming organization_invites.accepted_at
 was genuinely set server-side, not just a client-side illusion.
 
-NOT YET applied to production: the organization_subscriptions
-migration, the projects RLS migration, the dashboard project-list fix
-(30d2ce3c), and the new invite page (503d231d) — all staging-only so
-far.
+Phase 8 (Production Rollout) has begun. As of 2026-07-20, all 4
+database migrations are now applied and verified on PRODUCTION
+(uzuzwhzilhakewtbtzxh) — not just staging:
+20260714120000_team_accounts_phase1_data_model.sql,
+20260716150000_fix_organization_members_select_recursion.sql,
+20260717120000_extend_projects_rls_for_org_access.sql, and
+20260717150000_team_accounts_phase6_organization_subscriptions.sql.
+Applied one at a time, in order, via the Supabase Studio SQL Editor
+(same no-direct-DB-access constraint noted in every migration's own
+header — this repo's tooling has no direct Postgres/Management API
+access), each verified directly against pg_catalog/information_schema
+rather than trusting "it ran successfully" or PostgREST's response.
+The known GRANTs gotcha from the Phase 6 migration (documented in that
+file's own header) was handled proactively this time — an explicit
+GRANT statement was run immediately after table creation and confirmed
+via information_schema.role_table_grants, rather than discovered the
+hard way again. The organization_members_select_active_member policy
+was confirmed to carry the fixed (non-recursive, is_active_org_member()
+-based) qual, not the original buggy one, and
+projects_insert_valid_organization_id was confirmed genuinely
+RESTRICTIVE (not permissive).
+
+One real scare during this process, worth remembering: an early
+verification pass appeared to show all 4 tables already existing in
+production with real data (1 organization, 5 members, 6 invites, 1
+subscription). This turned out to be a Supabase Studio tab mixup — the
+query had actually run against staging (dnlkmxetxhcwlrjzncwp), not
+production — confirmed decisively by finding the exact same row
+(matching UUID and timestamps down to the microsecond) still present
+in staging. No production data was ever at risk, but it's a genuinely
+easy mistake to make when juggling both projects' SQL Editor tabs
+mid-rollout; worth a visible project-ref check before running anything
+against production going forward.
+
+This is schema-only so far. No Team Accounts application code (routes,
+dashboard changes, the invite page) has been deployed to production
+yet — that's Step 3 of the Phase 8 sequencing plan, still ahead.
+Existing production users are unaffected: the new tables are purely
+additive, and the extended `projects` RLS policies are either
+permissive (OR'd with the original individual-ownership policies,
+changing nothing for existing behavior) or only reject values
+(`projects_insert_valid_organization_id`) that no current production
+project can trigger, since no project in production has a non-null
+`organization_id` yet.
+
+NOT YET on production: application code deploy (Step 3), Stripe
+live-mode setup (blocked on the team-pricing decision), and the
+soft-launch step (Step 4) — see the Phase 8 planning doc
+(Current Implement/Team Accounts V1 Phase 8 - Production Rollout
+Planning.md) for the full sequencing plan.
 
 ### Git Workflow During Phase Implementation
 When implementing Team Accounts phases, commit and push directly to
