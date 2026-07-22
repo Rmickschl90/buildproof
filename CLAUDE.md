@@ -159,6 +159,38 @@ now): `user_subscriptions.current_period_start` and
 real active subscriptions - see "Known Data Issue" further below.
 Unrelated to the rollback itself.
 
+Follow-up (2026-07-21/22): the identical misconfiguration existed on
+`leeward-staging-internal` too - same `productionBranch: "main"`, same
+`gitProviderOptions.createDeployments: "enabled"` - and had already
+fired at the exact same moment as the production incident (both
+projects' auto-deploys triggered off the same PR #28 merge into
+`main`, 5 seconds apart). This went unnoticed for about a day and a
+half: `leeward-staging-internal` had been silently serving `main`'s
+near-empty state (missing `OfflineReconnectBootstrap.tsx`, every
+Team Accounts route, the invite page - everything) since
+2026-07-19 19:05 CDT, right up until this was caught during Phase 8
+planning while cross-checking staging's deployment history against
+production's. Confirmed via `vercel inspect` and the project settings
+API, the same way the original incident was diagnosed. Notably, the
+Phase 7 invite-page/dashboard-fix behavioral testing documented above
+is unaffected - both were tested before 19:05 CDT that day, strictly
+prior to the overwrite - but nothing was verified against staging
+between then and this discovery.
+
+Fixed the same way: `commandForIgnoringBuildStep` set on
+`leeward-staging-internal` to skip `main` specifically, confirmed via
+the project settings API. Then restored by redeploying
+`team-accounts-phase-1`'s current tip
+(`52862588a62945a49443cbe246002f5739023750`) to
+`leeward-staging-internal` via `vercel deploy --project
+leeward-staging-internal --prod`, confirmed afterward via the
+deployment's own `meta.githubCommitSha` matching exactly. Both
+`buildproof-staging` (production) and `leeward-staging-internal`
+(staging) now have the same protection - worth checking whether any
+other Vercel project tied to this repo has the same
+`productionBranch: "main"` + auto-deploy combination before assuming
+this is fully closed out.
+
 ### Staging Environment (fixed 2026-07-15)
 
 Use leeward-staging-internal.vercel.app (renamed from buildproof-kappa.vercel.app
