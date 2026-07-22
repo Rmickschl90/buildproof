@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { getUserOrganizationContext } from "@/lib/organizationAuth";
 
 export const runtime = "nodejs";
 
@@ -61,10 +62,17 @@ async function upsertSubscription(subscription: Stripe.Subscription) {
   }
 }
 
-async function upsertOrganizationSubscription(subscription: Stripe.Subscription) {
+async function upsertOrganizationSubscription(
+  subscription: Stripe.Subscription,
+  organizationIdOverride?: string
+) {
   const sub = subscription as any;
 
-  const organizationId = subscription.metadata?.organization_id;
+  // organizationIdOverride is passed by createOrganizationFromSignupAndUpsertSubscription
+  // for first-time Team signups, where the organization didn't exist yet when the
+  // Checkout Session was created - so subscription.metadata never carries organization_id
+  // in that case (see that function for the full first-time-signup path).
+  const organizationId = organizationIdOverride ?? subscription.metadata?.organization_id;
   if (!organizationId) {
     throw new Error("Missing subscription metadata.organization_id");
   }
@@ -118,6 +126,92 @@ async function upsertOrganizationSubscription(subscription: Stripe.Subscription)
   }
 }
 
+// Handles first-time Team signup (see "Signup Flow Redesign and Invite UI" design doc,
+// Current Implement/ in the Obsidian vault). Organization creation is deliberately deferred
+// until this webhook fires with a confirmed real payment - the checkout session for a
+// brand-new Team signup is created before any organization exists, so it carries
+// subscription.metadata.pending_organization_name + billing_owner_id instead of
+// organization_id. If checkout is abandoned, nothing is ever created here - no orphaned org.
+//
+// Idempotency: reuses getUserOrganizationContext(billingOwnerId) as the guard rather than
+// a new DB transaction/migration, since "one org per user" is already the locked V1 rule
+// enforced at the application layer everywhere else in this codebase. A full webhook retry
+// after success finds the existing org via context and skips straight to the (idempotent,
+// unique(stripe_subscription_id)) subscription upsert below. A retry after a partial failure
+// (org + membership created, but the subscription row not yet written) also finds the
+// existing org via context and just writes the missing subscription row, rather than
+// creating a second organization.
+//
+// Known accepted gap (flagged, not fixed, per discussion): organization_members only has
+// unique(organization_id, user_id), not unique(user_id) - so two genuinely concurrent
+// webhook deliveries for the same brand-new user (e.g. two tabs completing checkout at
+// nearly the same instant) could both pass the getUserOrganizationContext check before
+// either writes, producing two organizations for one user. Treated as a low-probability V1
+// edge case, same as other flagged known gaps in this project, not worth a new migration.
+async function createOrganizationFromSignupAndUpsertSubscription(
+  subscription: Stripe.Subscription
+) {
+  const billingOwnerId = subscription.metadata?.billing_owner_id;
+  if (!billingOwnerId) {
+    throw new Error("Missing subscription metadata.billing_owner_id");
+  }
+
+  const pendingOrganizationName = subscription.metadata?.pending_organization_name;
+  if (!pendingOrganizationName) {
+    throw new Error("Missing subscription metadata.pending_organization_name");
+  }
+
+  let organizationId: string;
+
+  const existingContext = await getUserOrganizationContext(billingOwnerId);
+
+  if (existingContext) {
+    organizationId = existingContext.organizationId;
+  } else {
+    const { data: organization, error: orgError } = await supabaseServer
+      .from("organizations")
+      .insert({ name: pendingOrganizationName, owner_id: billingOwnerId })
+      .select("id")
+      .single();
+
+    if (orgError || !organization) {
+      throw new Error(
+        orgError?.message ?? "Failed to create organization from signup"
+      );
+    }
+
+    const { error: memberError } = await supabaseServer
+      .from("organization_members")
+      .insert({
+        organization_id: organization.id,
+        user_id: billingOwnerId,
+        role: "owner",
+      });
+
+    if (memberError) {
+      // Compensating cleanup, same pattern as /api/organization/create's insert path -
+      // don't leave an orphaned organization with no owner membership behind.
+      const { error: cleanupError } = await supabaseServer
+        .from("organizations")
+        .delete()
+        .eq("id", organization.id);
+
+      if (cleanupError) {
+        console.error(
+          "[stripe/webhook] failed to clean up orphaned organization",
+          cleanupError
+        );
+      }
+
+      throw new Error(memberError.message);
+    }
+
+    organizationId = organization.id;
+  }
+
+  await upsertOrganizationSubscription(subscription, organizationId);
+}
+
 export async function POST(req: Request) {
   if (!stripe || !webhookSecret) {
     return NextResponse.json(
@@ -157,6 +251,8 @@ export async function POST(req: Request) {
 
       if (subscription.metadata?.organization_id) {
         await upsertOrganizationSubscription(subscription);
+      } else if (subscription.metadata?.pending_organization_name) {
+        await createOrganizationFromSignupAndUpsertSubscription(subscription);
       } else {
         await upsertSubscription(subscription);
       }
@@ -170,4 +266,3 @@ export async function POST(req: Request) {
     );
   }
 }
-
