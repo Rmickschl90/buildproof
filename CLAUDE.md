@@ -531,22 +531,78 @@ easy mistake to make when juggling both projects' SQL Editor tabs
 mid-rollout; worth a visible project-ref check before running anything
 against production going forward.
 
-This is schema-only so far. No Team Accounts application code (routes,
-dashboard changes, the invite page) has been deployed to production
-yet — that's Step 3 of the Phase 8 sequencing plan, still ahead.
-Existing production users are unaffected: the new tables are purely
-additive, and the extended `projects` RLS policies are either
-permissive (OR'd with the original individual-ownership policies,
-changing nothing for existing behavior) or only reject values
-(`projects_insert_valid_organization_id`) that no current production
-project can trigger, since no project in production has a non-null
-`organization_id` yet.
+Existing production users are unaffected throughout: the new tables
+are purely additive, and the extended `projects` RLS policies are
+either permissive (OR'd with the original individual-ownership
+policies, changing nothing for existing behavior) or only reject
+values (`projects_insert_valid_organization_id`) that no
+individual-only project can trigger.
 
-NOT YET on production: application code deploy (Step 3), Stripe
-live-mode setup (blocked on the team-pricing decision), and the
-soft-launch step (Step 4) — see the Phase 8 planning doc
-(Current Implement/Team Accounts V1 Phase 8 - Production Rollout
-Planning.md) for the full sequencing plan.
+Correction (2026-07-22, this paragraph was stale): the two lines above
+used to say application code deploy and Stripe live-mode setup were
+"NOT YET on production" — that's no longer true and was left
+un-updated after the fact. As of 2026-07-21: Stripe live-mode setup is
+COMPLETE ($69/month "Leeward Team" price live, up to 5 users,
+STRIPE_TEAM_PRICE_ID on production), and application code (Step 3) is
+COMPLETE (team-accounts-phase-1 deployed to app.getleeward.com,
+verified via commit SHA match). Soft launch (Step 4) is PARTIALLY
+complete — see Current Implement/Team Accounts V1 Phase 8 - Production
+Rollout Planning.md and the Progress Log for current detail rather
+than trusting this file's older phase-by-phase narrative above, which
+is written progressively and not always corrected in place when later
+sessions move things forward.
+
+### Signup Flow Redesign (2026-07-22)
+Sanctioned follow-on to Phase 8, moved up ahead of the existing-user
+"Upgrade to Team" button: brand-new visitors can now choose the Team
+plan directly at initial signup (no forced individual-account detour).
+Source of truth: Current Implement/Team Accounts V1 - Signup Flow
+Redesign and Invite UI.md.
+
+Key design decision: organization creation is deferred until the
+Stripe webhook confirms payment (not created up front when someone
+picks "Team"), so an abandoned checkout never leaves an orphaned org
+behind. This is a deliberate divergence from the existing-user
+upgrade path (`/api/organization/create`), which still creates the org
+immediately since that flow already has an authenticated, established
+user.
+
+Three changes, all on branch `team-accounts-signup-flow-redesign`
+(commits `3bdddc7b`, `682b07bd`): a new webhook branch in
+`app/api/stripe/webhook/route.ts`
+(`createOrganizationFromSignupAndUpsertSubscription`, detected via
+`pending_organization_name` metadata with no `organization_id`); a new
+`POST /api/billing/team-signup-checkout` route; and a Plan Choice +
+team-naming step added to `app/subscribe/page.tsx` in front of the
+existing (unchanged) individual flow.
+
+Full line-by-line code review completed before any deployment (per
+this repo's own rule of not trusting "it builds" as sufficient). Two
+real findings, both fixed: (1) the webhook never promoted the Stripe
+subscription's own metadata to include `organization_id` after
+creating the org, so every future event for that subscription's whole
+lifetime would keep re-running the first-time-signup path instead of
+the normal one — fixed via a best-effort, non-fatal
+`promoteSubscriptionMetadataToOrganizationId` call; (2) the "reuse
+existing org" branch didn't check `existingContext.role === "owner"`
+before reusing it, which could have let a user who joined an unrelated
+org mid-checkout silently attach a new subscription to that org's
+billing — fixed, now throws instead.
+
+Deployed to `leeward-staging-internal` and genuinely behaviorally
+verified (not just type-checked): signed up as a real new user, chose
+Team, paid with a real Stripe test-mode card, and confirmed directly in
+Supabase (`organizations`, `organization_members`, and
+`organization_subscriptions` rows all correct) and directly in Stripe's
+own dashboard (subscription metadata now carries `organization_id`,
+confirmed via the Activity Log showing the actual promotion API call
+succeed, not just the end state). NOT YET deployed to production.
+
+Next: design and build the Members/Invite UI (the invite backend APIs
+from Phase 3 already work, but there is still no dashboard UI for a
+new Team owner to actually invite anyone) — see the design doc's
+sequencing for what's left before this can go to production alongside
+the rest of Phase 8's soft launch.
 
 ### Git Workflow During Phase Implementation
 When implementing Team Accounts phases, commit and push directly to
