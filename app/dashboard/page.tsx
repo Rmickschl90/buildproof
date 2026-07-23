@@ -234,6 +234,38 @@ export default function DashboardPage() {
     organizationName?: string;
     role?: "owner" | "member";
   } | null>(null);
+  // Which billing plan is actually active right now (not just "does an org
+  // membership row exist"). A dissolved-but-not-deleted org owner still has an
+  // org membership row, but no active org subscription -- billingSource is
+  // what actually gates whether the header shows "Invite Team" vs "Upgrade".
+  const [billingSource, setBillingSource] = useState<
+    "individual" | "organization" | null
+  >(null);
+
+  // ---- Members / Invite panel ----
+  const [membersOpen, setMembersOpen] = useState(false);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [membersError, setMembersError] = useState("");
+  const [orgMembers, setOrgMembers] = useState<
+    Array<{ id: string; user_id: string; role: string; joined_at: string; email: string | null }>
+  >([]);
+  const [orgPendingInvites, setOrgPendingInvites] = useState<
+    Array<{ id: string; email: string; expires_at: string }>
+  >([]);
+  const [inviteEmailDraft, setInviteEmailDraft] = useState("");
+  const [inviteSending, setInviteSending] = useState(false);
+  const [inviteError, setInviteError] = useState("");
+  const [memberActionBusyId, setMemberActionBusyId] = useState<string | null>(null);
+  const [dissolveConfirmOpen, setDissolveConfirmOpen] = useState(false);
+  const [dissolveConfirmName, setDissolveConfirmName] = useState("");
+  const [dissolveBusy, setDissolveBusy] = useState(false);
+  const [dissolveError, setDissolveError] = useState("");
+
+  // ---- Upgrade to Team panel ----
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeTeamName, setUpgradeTeamName] = useState("");
+  const [upgradeSubmitting, setUpgradeSubmitting] = useState(false);
+  const [upgradeError, setUpgradeError] = useState("");
 
   // ---------------- DATA ----------------
   const [projects, setProjects] = useState<Project[]>([]);
@@ -567,6 +599,8 @@ export default function DashboardPage() {
           return;
         }
 
+        setBillingSource(billing?.source ?? null);
+
         void refreshOrgContext(billingAccessToken);
 
         await refreshOfflineProjects();
@@ -675,6 +709,8 @@ export default function DashboardPage() {
 
       const json = await res.json();
 
+      setBillingSource(json?.source ?? null);
+
       if (json?.status !== "active" && json?.status !== "trialing") {
         setProofStatus(
           "Your subscription is no longer active — some features may be limited until billing is resolved. Visit Subscribe to renew."
@@ -683,6 +719,260 @@ export default function DashboardPage() {
     } catch {
       // non-critical - a failed check here shouldn't falsely warn the user;
       // the existing boot-time billing gate remains the authoritative check
+    }
+  }
+
+  async function getAuthToken(): Promise<string | null> {
+    const { data } = await supabase.auth.getSession();
+    return data?.session?.access_token ?? null;
+  }
+
+  async function openMembersPanel() {
+    setMembersOpen(true);
+    setMembersError("");
+    setInviteError("");
+    setDissolveConfirmOpen(false);
+    setDissolveConfirmName("");
+    setDissolveError("");
+    await loadMembersAndInvites();
+  }
+
+  async function loadMembersAndInvites() {
+    setMembersLoading(true);
+    setMembersError("");
+
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        setMembersError("Not signed in.");
+        return;
+      }
+
+      const res = await fetch("/api/organization/members", {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        setMembersError(json?.error || "Failed to load members.");
+        return;
+      }
+
+      setOrgMembers(json.members ?? []);
+      setOrgPendingInvites(json.invites ?? []);
+    } catch (e: any) {
+      setMembersError(e?.message || "Failed to load members.");
+    } finally {
+      setMembersLoading(false);
+    }
+  }
+
+  async function sendInvite() {
+    const email = inviteEmailDraft.trim();
+    if (!email) return;
+
+    setInviteSending(true);
+    setInviteError("");
+
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        setInviteError("Not signed in.");
+        return;
+      }
+
+      const res = await fetch("/api/organization/invite", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        setInviteError(json?.error || "Failed to send invite.");
+        return;
+      }
+
+      setInviteEmailDraft("");
+      await loadMembersAndInvites();
+    } catch (e: any) {
+      setInviteError(e?.message || "Failed to send invite.");
+    } finally {
+      setInviteSending(false);
+    }
+  }
+
+  async function revokeInvite(id: string) {
+    setMemberActionBusyId(id);
+    setMembersError("");
+
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        setMembersError("Not signed in.");
+        return;
+      }
+
+      const res = await fetch(`/api/organization/invites/${id}/revoke`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        setMembersError(json?.error || "Failed to revoke invite.");
+        return;
+      }
+
+      await loadMembersAndInvites();
+    } catch (e: any) {
+      setMembersError(e?.message || "Failed to revoke invite.");
+    } finally {
+      setMemberActionBusyId(null);
+    }
+  }
+
+  async function removeOrgMember(memberRowId: string) {
+    setMemberActionBusyId(memberRowId);
+    setMembersError("");
+
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        setMembersError("Not signed in.");
+        return;
+      }
+
+      const res = await fetch(`/api/organization/members/${memberRowId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        setMembersError(json?.error || "Failed to remove member.");
+        return;
+      }
+
+      await loadMembersAndInvites();
+    } catch (e: any) {
+      setMembersError(e?.message || "Failed to remove member.");
+    } finally {
+      setMemberActionBusyId(null);
+    }
+  }
+
+  async function confirmDissolveOrganization() {
+    if (!orgContext?.organizationName) return;
+
+    setDissolveBusy(true);
+    setDissolveError("");
+
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        setDissolveError("Not signed in.");
+        return;
+      }
+
+      const res = await fetch("/api/organization/dissolve", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ confirmName: dissolveConfirmName.trim() }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        setDissolveError(json?.error || "Failed to cancel team.");
+        return;
+      }
+
+      setMembersOpen(false);
+      setDissolveConfirmOpen(false);
+      setDissolveConfirmName("");
+      router.replace("/subscribe");
+    } catch (e: any) {
+      setDissolveError(e?.message || "Failed to cancel team.");
+    } finally {
+      setDissolveBusy(false);
+    }
+  }
+
+  function openUpgradePanel() {
+    setUpgradeOpen(true);
+    setUpgradeError("");
+    setUpgradeTeamName("");
+  }
+
+  async function submitUpgrade() {
+    setUpgradeSubmitting(true);
+    setUpgradeError("");
+
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        setUpgradeError("Not signed in.");
+        return;
+      }
+
+      // A dormant former-owner (dissolved a team previously, but their
+      // organization_members/organizations rows still exist per the
+      // dissolve route's design) already has an org context. In that case,
+      // skip organization/create (it would 409) and resume billing on the
+      // same org directly.
+      if (!orgContext?.organizationId) {
+        const name = upgradeTeamName.trim();
+        if (!name) {
+          setUpgradeError("Enter a team name.");
+          return;
+        }
+
+        const createRes = await fetch("/api/organization/create", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ name }),
+        });
+
+        const createJson = await createRes.json();
+
+        if (!createRes.ok) {
+          setUpgradeError(createJson?.error || "Failed to create organization.");
+          return;
+        }
+      }
+
+      const checkoutRes = await fetch("/api/billing/team-checkout", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const checkoutJson = await checkoutRes.json();
+
+      if (!checkoutRes.ok || !checkoutJson?.url) {
+        setUpgradeError(checkoutJson?.error || "Failed to start checkout.");
+        return;
+      }
+
+      window.location.href = checkoutJson.url;
+    } catch (e: any) {
+      setUpgradeError(e?.message || "Failed to start checkout.");
+    } finally {
+      setUpgradeSubmitting(false);
     }
   }
 
@@ -2936,9 +3226,20 @@ export default function DashboardPage() {
                   }}
                 />
               </div>
-              <button className="btn btnDanger" onClick={logout}>
-                Logout
-              </button>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                {billingSource === "organization" ? (
+                  <button className="btn" onClick={openMembersPanel}>
+                    {orgContext?.role === "owner" ? "Invite Team" : "Team"}
+                  </button>
+                ) : (
+                  <button className="btn" onClick={openUpgradePanel}>
+                    Upgrade
+                  </button>
+                )}
+                <button className="btn btnDanger" onClick={logout}>
+                  Logout
+                </button>
+              </div>
             </div>
 
             <p className="sub">
@@ -4326,6 +4627,285 @@ export default function DashboardPage() {
                 onClick={() => setProjectNotesOpen(false)}
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {membersOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,0.35)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+          onClick={() => setMembersOpen(false)}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 520,
+              maxHeight: "85vh",
+              overflowY: "auto",
+              background: "white",
+              borderRadius: 16,
+              padding: 16,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+              display: "grid",
+              gap: 14,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontWeight: 600 }}>
+              {orgContext?.organizationName || "Team"}
+            </div>
+
+            {membersError && (
+              <div style={{ fontSize: 13, color: "#b91c1c" }}>{membersError}</div>
+            )}
+
+            {orgContext?.role === "owner" && (
+              <div style={{ display: "grid", gap: 8 }}>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>Invite a member</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    type="email"
+                    value={inviteEmailDraft}
+                    onChange={(e) => setInviteEmailDraft(e.target.value)}
+                    placeholder="teammate@example.com"
+                    style={{
+                      flex: 1,
+                      borderRadius: 10,
+                      border: "1px solid rgba(15,23,42,0.15)",
+                      padding: "8px 10px",
+                      fontSize: 14,
+                    }}
+                  />
+                  <button
+                    className="btn"
+                    disabled={inviteSending || !inviteEmailDraft.trim()}
+                    onClick={sendInvite}
+                  >
+                    {inviteSending ? "Sending..." : "Send Invite"}
+                  </button>
+                </div>
+                {inviteError && (
+                  <div style={{ fontSize: 13, color: "#b91c1c" }}>{inviteError}</div>
+                )}
+              </div>
+            )}
+
+            <div style={{ display: "grid", gap: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>
+                Members{membersLoading ? " (loading...)" : ""}
+              </div>
+              {orgMembers.map((m) => (
+                <div
+                  key={m.user_id}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    fontSize: 14,
+                    padding: "6px 0",
+                    borderBottom: "1px solid rgba(15,23,42,0.08)",
+                  }}
+                >
+                  <div>
+                    <div>{m.email || m.user_id}</div>
+                    <div style={{ fontSize: 12, opacity: 0.6 }}>{m.role}</div>
+                  </div>
+                  {orgContext?.role === "owner" && m.role !== "owner" && (
+                    <button
+                      className="btn btnDanger"
+                      disabled={memberActionBusyId === m.id}
+                      onClick={() => removeOrgMember(m.id)}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              ))}
+              {orgMembers.length === 0 && !membersLoading && (
+                <div style={{ fontSize: 13, opacity: 0.6 }}>No members yet.</div>
+              )}
+            </div>
+
+            {orgContext?.role === "owner" && (
+              <div style={{ display: "grid", gap: 8 }}>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>Pending Invites</div>
+                {orgPendingInvites.map((inv) => (
+                  <div
+                    key={inv.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      fontSize: 14,
+                      padding: "6px 0",
+                      borderBottom: "1px solid rgba(15,23,42,0.08)",
+                    }}
+                  >
+                    <div>{inv.email}</div>
+                    <button
+                      className="btn btnDanger"
+                      disabled={memberActionBusyId === inv.id}
+                      onClick={() => revokeInvite(inv.id)}
+                    >
+                      Revoke
+                    </button>
+                  </div>
+                ))}
+                {orgPendingInvites.length === 0 && (
+                  <div style={{ fontSize: 13, opacity: 0.6 }}>No pending invites.</div>
+                )}
+              </div>
+            )}
+
+            {orgContext?.role === "owner" && (
+              <div
+                style={{
+                  borderTop: "1px solid rgba(15,23,42,0.1)",
+                  paddingTop: 12,
+                  display: "grid",
+                  gap: 8,
+                }}
+              >
+                {!dissolveConfirmOpen ? (
+                  <button
+                    className="btn btnDanger"
+                    onClick={() => setDissolveConfirmOpen(true)}
+                  >
+                    Cancel Team &amp; Return to Solo
+                  </button>
+                ) : (
+                  <div style={{ display: "grid", gap: 8 }}>
+                    <div style={{ fontSize: 13 }}>
+                      This cancels your team subscription, removes all members, and
+                      moves all team projects back to your individual account. Type{" "}
+                      <b>{orgContext?.organizationName}</b> to confirm.
+                    </div>
+                    <input
+                      type="text"
+                      value={dissolveConfirmName}
+                      onChange={(e) => setDissolveConfirmName(e.target.value)}
+                      placeholder={orgContext?.organizationName || ""}
+                      style={{
+                        borderRadius: 10,
+                        border: "1px solid rgba(15,23,42,0.15)",
+                        padding: "8px 10px",
+                        fontSize: 14,
+                      }}
+                    />
+                    {dissolveError && (
+                      <div style={{ fontSize: 13, color: "#b91c1c" }}>
+                        {dissolveError}
+                      </div>
+                    )}
+                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                      <button
+                        className="btn"
+                        onClick={() => {
+                          setDissolveConfirmOpen(false);
+                          setDissolveConfirmName("");
+                          setDissolveError("");
+                        }}
+                      >
+                        Never mind
+                      </button>
+                      <button
+                        className="btn btnDanger"
+                        disabled={
+                          dissolveBusy ||
+                          dissolveConfirmName.trim() !== orgContext?.organizationName
+                        }
+                        onClick={confirmDissolveOrganization}
+                      >
+                        {dissolveBusy ? "Cancelling..." : "Confirm Cancel"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button className="btn" onClick={() => setMembersOpen(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {upgradeOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,0.35)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+          onClick={() => setUpgradeOpen(false)}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 480,
+              background: "white",
+              borderRadius: 16,
+              padding: 16,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+              display: "grid",
+              gap: 12,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontWeight: 600 }}>Upgrade to Team</div>
+            <div style={{ fontSize: 13, opacity: 0.7 }}>
+              $69/month, up to 5 users, 14-day trial.
+            </div>
+
+            {!orgContext?.organizationId && (
+              <input
+                type="text"
+                value={upgradeTeamName}
+                onChange={(e) => setUpgradeTeamName(e.target.value)}
+                placeholder="What's your team called?"
+                style={{
+                  borderRadius: 10,
+                  border: "1px solid rgba(15,23,42,0.15)",
+                  padding: "8px 10px",
+                  fontSize: 14,
+                }}
+              />
+            )}
+
+            {upgradeError && (
+              <div style={{ fontSize: 13, color: "#b91c1c" }}>{upgradeError}</div>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button className="btn" onClick={() => setUpgradeOpen(false)}>
+                Cancel
+              </button>
+              <button
+                className="btn"
+                disabled={
+                  upgradeSubmitting ||
+                  (!orgContext?.organizationId && !upgradeTeamName.trim())
+                }
+                onClick={submitUpgrade}
+              >
+                {upgradeSubmitting ? "Starting checkout..." : "Continue to Payment"}
               </button>
             </div>
           </div>
