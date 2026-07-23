@@ -165,13 +165,70 @@ export async function POST(
       );
     }
 
-    const { error: memberInsertError } = await supabaseServer
-      .from("organization_members")
-      .insert({
-        organization_id: organization.id,
-        user_id: user.id,
-        role: invite.role,
-      });
+    // Check for a prior membership row for this (organization, user) pair before
+    // inserting. A blind insert would previously hit the table's unique
+    // (organization_id, user_id) constraint if this user had been a member
+    // before and was removed -- a real bug found in testing: re-inviting a
+    // previously-removed member silently failed (the 23505 conflict was
+    // mapped to "already a member," which the invite page's UI deliberately
+    // treats as a success case for legitimate double-click races, so the
+    // person saw "You're in!" while remaining fully locked out, since
+    // removed_at was never cleared). Fixed by checking for and reviving a
+    // soft-removed row instead of assuming any conflict means active
+    // membership.
+    const { data: existingMemberRow, error: existingMemberLookupError } =
+      await supabaseServer
+        .from("organization_members")
+        .select("id, removed_at")
+        .eq("organization_id", organization.id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+    if (existingMemberLookupError) {
+      console.error(
+        "[organization/invites/[token]/accept] existing member lookup error",
+        existingMemberLookupError
+      );
+
+      await supabaseServer
+        .from("organization_invites")
+        .update({ accepted_at: null })
+        .eq("id", invite.id);
+
+      return NextResponse.json(
+        { error: "Failed to check existing membership." },
+        { status: 500 }
+      );
+    }
+
+    if (existingMemberRow && existingMemberRow.removed_at === null) {
+      await supabaseServer
+        .from("organization_invites")
+        .update({ accepted_at: null })
+        .eq("id", invite.id);
+
+      return NextResponse.json(
+        { error: "You are already a member of this organization." },
+        { status: 409 }
+      );
+    }
+
+    const memberWriteResult = existingMemberRow
+      ? await supabaseServer
+          .from("organization_members")
+          .update({
+            removed_at: null,
+            role: invite.role,
+            joined_at: nowIso,
+          })
+          .eq("id", existingMemberRow.id)
+      : await supabaseServer.from("organization_members").insert({
+          organization_id: organization.id,
+          user_id: user.id,
+          role: invite.role,
+        });
+
+    const memberInsertError = memberWriteResult.error;
 
     if (memberInsertError) {
       console.error("[organization/invites/[token]/accept] member insert error", memberInsertError);

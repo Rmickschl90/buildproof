@@ -604,6 +604,93 @@ new Team owner to actually invite anyone) — see the design doc's
 sequencing for what's left before this can go to production alongside
 the rest of Phase 8's soft launch.
 
+### Members/Invite UI, Upgrade flow, and Cancel-Team (Dissolve) (2026-07-23)
+
+Sanctioned follow-on to the Signup Flow Redesign above: a lightweight,
+work-around UI (not the full Navigation Overhaul — that remains
+deferred, see 06-Roadmap/UI Navigation Overhaul - Tabs Instead of
+Dropdown Menu.md) so a Team owner can actually invite/remove members,
+and any user can upgrade or cancel Team billing, from the existing
+dashboard header. Branch: `team-accounts-members-invite-ui`.
+
+Header button logic (`app/dashboard/page.tsx`): a solo/individual user
+sees "Upgrade" (opens a plan-picker that also lets an existing Team
+owner resume paying for a dormant org); a Team member/owner with an
+*active* org subscription (`billingSource === "organization"`) sees
+"Invite Team" (owner) or "Team" (member) — gated on real billing
+status, not just org membership, so a dissolved-but-still-a-member
+state never shows an invite button. Clicking opens the Members panel
+(`GET/POST /api/organization/members`, `POST /api/organization/invite`,
+`POST /api/organization/invites/[token]/revoke`,
+`DELETE /api/organization/members/[id]`, all pre-existing Phase 2/3
+routes — this pass only added a dashboard UI on top and one new field
+to the members GET response).
+
+New route: `POST /api/organization/dissolve` ("Cancel Team & Return to
+Solo", owner-only, confirm-by-typing-the-org-name). Resolves a design
+gap this project hadn't addressed: there was no way to leave Team
+billing without abandoning the org outright. Key decision: the owner
+keeps all org projects (not whoever originally created each one) —
+reassigned to `organization_id: null, user_id: <owner>` on dissolve,
+since the paying business owner is the one who should retain the
+records. Works *with* the Phase 1 locked trigger
+(`prevent_owner_removal_from_organization_members`, which hard-blocks
+ever removing an owner's own membership row) rather than against it:
+the route cancels the Stripe subscription, reassigns all org projects
+to the owner, and soft-removes every *non-owner* member
+(`removed_at`) — the owner's own `organization_members` row and the
+`organizations` row are deliberately left alone (inert, not deleted),
+so if the owner later resumes Team billing on the same org, nothing
+needs to be re-created. Individual billing (`user_subscriptions`) is
+fully separate from org billing, so the owner can immediately buy an
+Individual plan right after dissolving.
+
+Bug found and fixed during behavioral testing:
+`POST /api/organization/invites/[token]/accept` did a blind INSERT
+into `organization_members` after claiming the invite. If a row
+already existed for that (org, user) pair — e.g. re-inviting someone
+previously removed — the INSERT hit the table's
+`unique(organization_id, user_id)` constraint, and the resulting
+23505 was mapped to "You are already a member," which
+`app/invite/[token]/page.tsx` deliberately treats as a *success* case
+(to handle legitimate double-click races). Net effect: a re-invited,
+previously-removed member saw "You're in!" while remaining fully
+locked out, since `removed_at` was never cleared. Fixed by checking
+for an existing membership row first and reviving it
+(`removed_at: null`, refreshed `role`/`joined_at`) instead of blindly
+inserting; a genuinely still-active row still correctly returns the
+409 "already a member" response. Verified via a real re-invite/re-accept
+cycle on staging (actual `/dashboard` access confirmed after fix, not
+just the UI's success message).
+
+Full behavioral test pass on `leeward-staging-internal` (real browser,
+real accounts, real Stripe test-mode payment, direct Supabase/Stripe
+verification afterward — not just UI success messages): Members panel
+invite/remove/revoke all confirmed with real org members; the
+re-invite-after-removal bug found, fixed, redeployed, and re-verified;
+the full Dissolve flow run end-to-end as a real owner — confirmed
+directly via SQL that the Stripe subscription shows `canceled`
+(webhook-confirmed, not just the DELETE call succeeding), the org's
+project was reassigned (`organization_id: null`, `user_id` = owner),
+the removed member's row now has `removed_at` set, and the owner's own
+membership row plus the `organizations` row are untouched; then
+confirmed the owner is correctly bounced to `/subscribe`, completes a
+real Individual checkout, lands back on `/dashboard` with the header
+now showing "Upgrade" (not "Team"), and still has the same project
+under their individual account.
+
+Noted, not fixed (pre-existing, unrelated to this work): staging's
+`STRIPE_PRICE_ID` (individual plan) checkout in this session displayed
+the same stale "Leeward Team (Test)" $10/month product previously
+flagged under the Signup Flow Redesign entry above for
+`STRIPE_TEAM_PRICE_ID` — worth confirming staging's individual and
+team test-mode prices are actually distinct Stripe price objects
+before relying on staging Stripe metadata/pricing assertions again.
+Functionally harmless for this test (webhook logic and billing-status
+checks are price-agnostic), but worth cleaning up.
+
+NOT YET deployed to production.
+
 ### Git Workflow During Phase Implementation
 When implementing Team Accounts phases, commit and push directly to
 the current phase branch (e.g. team-accounts-phase-2) after each unit
