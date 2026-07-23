@@ -126,6 +126,60 @@ async function upsertOrganizationSubscription(
   }
 }
 
+// Best-effort promotion of a first-time-signup subscription's Stripe metadata to carry
+// organization_id, once the organization actually exists. Without this, every future event
+// for this subscription's entire lifetime (renewals, trial-ending, cancellation, plan
+// changes) would keep arriving with the original pending_organization_name/no-organization_id
+// shape, perpetually routing through createOrganizationFromSignupAndUpsertSubscription
+// instead of the normal upsertOrganizationSubscription branch every other org subscription
+// uses. That's not incorrect on its own (getUserOrganizationContext reuse makes it
+// idempotent), but it means correctness for the rest of this subscription's life depends on
+// that lookup never transiently failing - getUserOrganizationContext swallows errors as "no
+// org found," which would otherwise risk creating a duplicate organization on some future
+// event for an already-onboarded, paying team. Deliberately non-fatal: failure here is logged
+// but never thrown, so it can never turn an otherwise-successful subscription/org creation
+// into a Stripe-visible failed webhook delivery.
+async function promoteSubscriptionMetadataToOrganizationId(
+  subscriptionId: string,
+  organizationId: string
+) {
+  if (!stripeSecretKey) return;
+
+  try {
+    const params = new URLSearchParams();
+    params.append("metadata[organization_id]", organizationId);
+
+    const res = await fetch(
+      `https://api.stripe.com/v1/subscriptions/${subscriptionId}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${stripeSecretKey}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: params.toString(),
+      }
+    );
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.error(
+        "[stripe/webhook] failed to promote subscription metadata with organization_id",
+        subscriptionId,
+        organizationId,
+        text
+      );
+    }
+  } catch (e) {
+    console.error(
+      "[stripe/webhook] error promoting subscription metadata with organization_id",
+      subscriptionId,
+      organizationId,
+      e
+    );
+  }
+}
+
 // Handles first-time Team signup (see "Signup Flow Redesign and Invite UI" design doc,
 // Current Implement/ in the Obsidian vault). Organization creation is deliberately deferred
 // until this webhook fires with a confirmed real payment - the checkout session for a
@@ -166,6 +220,21 @@ async function createOrganizationFromSignupAndUpsertSubscription(
   const existingContext = await getUserOrganizationContext(billingOwnerId);
 
   if (existingContext) {
+    // Guards against a narrow but real race: the user started this Team checkout while
+    // orgless (enforced by team-signup-checkout's own guard at session-creation time), then
+    // joined a DIFFERENT organization as a member (e.g. accepted an unrelated invite in
+    // another tab) before completing payment. Without this check, this branch would
+    // silently attach the new paid subscription to that unrelated org via
+    // upsertOrganizationSubscription's onConflict: organization_id, overwriting its real
+    // billing_owner_id/subscription data. Only reuse the existing org if this user is
+    // actually its owner - i.e. this really is the same signup being retried/re-delivered,
+    // not a different org they merely joined in the meantime.
+    if (existingContext.role !== "owner") {
+      throw new Error(
+        `User ${billingOwnerId} already belongs to a different organization as a non-owner member; refusing to attach a new Team subscription to it.`
+      );
+    }
+
     organizationId = existingContext.organizationId;
   } else {
     const { data: organization, error: orgError } = await supabaseServer
@@ -210,6 +279,7 @@ async function createOrganizationFromSignupAndUpsertSubscription(
   }
 
   await upsertOrganizationSubscription(subscription, organizationId);
+  await promoteSubscriptionMetadataToOrganizationId(subscription.id, organizationId);
 }
 
 export async function POST(req: Request) {
