@@ -327,6 +327,8 @@ export default function DashboardPage() {
 
   const [showArchivedEntries, setShowArchivedEntries] = useState(false);
 
+  // ---- Global navigation (Projects / Account) ----
+  const [activeGlobalTab, setActiveGlobalTab] = useState<"projects" | "account">("projects");
 
   // Send mode focus
   const [isSendMode, setIsSendMode] = useState(false);
@@ -3271,7 +3273,53 @@ export default function DashboardPage() {
             ) : null}
           </div>
 
-          {dashboardReady ? (
+          <div
+            className="card"
+            style={{
+              display: "flex",
+              gap: 6,
+              padding: 6,
+            }}
+          >
+            <button
+              className="btn"
+              onClick={() => setActiveGlobalTab("projects")}
+              style={{
+                flex: 1,
+                background: activeGlobalTab === "projects" ? "rgba(37,99,235,0.10)" : undefined,
+                color: activeGlobalTab === "projects" ? "#1d4ed8" : undefined,
+                fontWeight: activeGlobalTab === "projects" ? 700 : undefined,
+                border: "none",
+              }}
+            >
+              Projects
+            </button>
+            <button
+              className="btn"
+              onClick={() => setActiveGlobalTab("account")}
+              style={{
+                flex: 1,
+                background: activeGlobalTab === "account" ? "rgba(37,99,235,0.10)" : undefined,
+                color: activeGlobalTab === "account" ? "#1d4ed8" : undefined,
+                fontWeight: activeGlobalTab === "account" ? 700 : undefined,
+                border: "none",
+              }}
+            >
+              Account
+            </button>
+          </div>
+
+          {activeGlobalTab === "account" ? (
+            <div className="card">
+              <div style={{ fontWeight: 800, marginBottom: 6 }}>Account</div>
+              <p className="sub" style={{ opacity: 0.75 }}>
+                Billing, Team, and Help are moving here in a follow-up step. For now, use the
+                buttons in the header above.
+              </p>
+            </div>
+          ) : null}
+
+          {dashboardReady && activeGlobalTab === "projects" ? (
             <OnboardingWizard
               projectCount={projects.length}
               entryCount={proofs.length}
@@ -3305,7 +3353,7 @@ export default function DashboardPage() {
             </div>
           ) : null}
 
-          {!isSendMode && !selectedProject ? (
+          {!isSendMode && !selectedProject && activeGlobalTab === "projects" ? (
             <div
               id="onboarding-project-area"
               className="card"
@@ -3507,7 +3555,7 @@ export default function DashboardPage() {
             </div>
           ) : null}
 
-          {selectedProject && (
+          {selectedProject && activeGlobalTab === "projects" && (
             <div className="card">
               <div
                 style={{
