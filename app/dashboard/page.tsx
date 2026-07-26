@@ -55,7 +55,7 @@ import {
   saveRecentProject,
   getRecentProjects,
 } from "@/lib/offlineRecentProjects";
-import { saveCachedAttachments } from "@/lib/offlineAttachmentCache";
+import { saveCachedAttachments, loadCachedAttachments } from "@/lib/offlineAttachmentCache";
 
 type Project = {
   id: string;
@@ -327,6 +327,36 @@ export default function DashboardPage() {
 
   const [showArchivedEntries, setShowArchivedEntries] = useState(false);
 
+  // ---- Timeline content-type / status filtering ----
+  const [entryContentFilter, setEntryContentFilter] = useState<
+    "all" | "notes" | "photos" | "files"
+  >("all");
+  const [entryStatusFilter, setEntryStatusFilter] = useState<
+    "all" | "draft" | "finalized" | "archived"
+  >("all");
+  const [statusFilterMenuOpen, setStatusFilterMenuOpen] = useState(false);
+
+  function getProofContentKind(proof: TimelineProof): "notes" | "photos" | "files" {
+    if (isOfflineProof(proof)) return "notes";
+
+    const cached = loadCachedAttachments(proof.id);
+    if (!cached || cached.length === 0) return "notes";
+
+    const hasImage = cached.some((a) => (a.mime_type || "").startsWith("image/"));
+    const hasOther = cached.some((a) => !(a.mime_type || "").startsWith("image/"));
+
+    if (hasImage && !hasOther) return "photos";
+    if (hasOther && !hasImage) return "files";
+    return hasImage ? "photos" : "files";
+  }
+
+  function getProofStatusKind(proof: TimelineProof): "draft" | "finalized" | "archived" {
+    if (isOfflineProof(proof)) return "draft";
+    if (proof.deleted_at) return "archived";
+    if (proof.locked_at) return "finalized";
+    return "draft";
+  }
+
   // ---- Global navigation (Projects / Account) ----
   const [activeGlobalTab, setActiveGlobalTab] = useState<"projects" | "account">("projects");
 
@@ -365,6 +395,9 @@ export default function DashboardPage() {
   // ---- Entry action menu ----
   const [proofMenuOpenId, setProofMenuOpenId] = useState<number | string | null>(null);
   const proofMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // ---- Status filter menu ----
+  const statusFilterMenuRef = useRef<HTMLDivElement | null>(null);
 
   // ---- Edit entry ----
   const [editingProofId, setEditingProofId] = useState<number | string | null>(null);
@@ -1248,6 +1281,24 @@ export default function DashboardPage() {
       document.removeEventListener("touchstart", onDown);
     };
   }, [projectMenuOpen, selectedProject?.id]);
+
+  useEffect(() => {
+    if (!statusFilterMenuOpen) return;
+
+    function onDown(e: MouseEvent | TouchEvent) {
+      const el = statusFilterMenuRef.current;
+      const target = e.target as Node | null;
+      if (!el || !target) return;
+      if (!el.contains(target)) setStatusFilterMenuOpen(false);
+    }
+
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
+    };
+  }, [statusFilterMenuOpen]);
 
   useEffect(() => {
     if (!proofMenuOpenId) return;
@@ -2980,7 +3031,7 @@ export default function DashboardPage() {
   }
 
   function handleSendFirstUpdateClick() {
-    pulseHighlight("onboarding-send-area");
+    pulseHighlight("onboarding-send-trigger");
   }
 
 
@@ -3119,14 +3170,32 @@ export default function DashboardPage() {
         );
 
     const q = cleanText(entrySearch);
-    if (!q) return list;
+    if (q) {
+      list = list.filter((p) =>
+        cleanText(
+          `${p.content} ${"isOffline" in p ? p.createdAt : p.created_at} ${p.id}`
+        ).includes(q)
+      );
+    }
 
-    return list.filter((p) =>
-      cleanText(
-        `${p.content} ${"isOffline" in p ? p.createdAt : p.created_at} ${p.id}`
-      ).includes(q)
-    );
-  }, [proofs, offlineProofs, entrySearch, entrySortMode]);
+    if (entryContentFilter !== "all") {
+      list = list.filter((p) => getProofContentKind(p) === entryContentFilter);
+    }
+
+    if (entryStatusFilter !== "all") {
+      list = list.filter((p) => getProofStatusKind(p) === entryStatusFilter);
+    }
+
+    return list;
+  }, [
+    proofs,
+    offlineProofs,
+    entrySearch,
+    entrySortMode,
+    entryContentFilter,
+    entryStatusFilter,
+    attachmentsRefreshKey,
+  ]);
 
   const [visibleApprovals, setVisibleApprovals] = useState<Approval[]>([]);
 
@@ -3609,9 +3678,148 @@ export default function DashboardPage() {
                 <div style={{ fontWeight: 800, fontSize: 15 }}>
                   {selectedProject.title || "Project"}
                 </div>
-                <button className="btn" onClick={closeProjectView}>
-                  Close
-                </button>
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    flexWrap: "wrap",
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  <button
+                    className="btn"
+                    onClick={() => {
+                      if (isSendMode) {
+                        setIsSendMode(false);
+                        setSendCloseSignal((k) => k + 1);
+                      } else if (isApprovalMode) {
+                        setIsApprovalMode(false);
+                      } else {
+                        closeProjectView();
+                      }
+                    }}
+                    title={
+                      isSendMode
+                        ? "Exit send mode"
+                        : isApprovalMode
+                          ? "Exit approval mode"
+                          : "Close project view"
+                    }
+                  >
+                    {isSendMode ? "Exit Send" : isApprovalMode ? "Exit Approval" : "Close"}
+                  </button>
+
+                  {!isSendMode ? (
+                    <div style={{ position: "relative" }} ref={projectMenuRef}>
+                      <button
+                        id="approval-menu"
+                        className="btn"
+                        onClick={() => setProjectMenuOpen((v) => !v)}
+                        title="Project actions"
+                        style={{
+                          boxShadow:
+                            highlightTarget === "approval-menu"
+                              ? "0 0 0 6px rgba(59,130,246,0.12)"
+                              : undefined,
+                          transition: "all 0.25s ease",
+                        }}
+                      >
+                        …
+                      </button>
+
+                      {projectMenuOpen ? (
+                        <div
+                          style={{
+                            position: "absolute",
+                            right: 0,
+                            top: 44,
+                            zIndex: 20,
+                            width: 260,
+                            maxWidth: "min(320px, calc(100vw - 24px))",
+                            border: "1px solid rgba(15,23,42,0.12)",
+                            borderRadius: 14,
+                            background: "white",
+                            padding: 10,
+                            boxShadow: "0 12px 30px rgba(15,23,42,0.10)",
+                            display: "grid",
+                            gap: 8,
+                            boxSizing: "border-box",
+                            overflow: "visible",
+                          }}
+                        >
+                          {!renaming ? (
+                            <>
+                              <button
+                                className="btn"
+                                style={{ width: "100%" }}
+                                onClick={() => {
+                                  setRenaming(true);
+                                  setRenameTitle(selectedProject.title || "");
+                                }}
+                              >
+                                Rename project
+                              </button>
+
+                              <button
+                                className="btn"
+                                style={{ width: "100%" }}
+                                onClick={exportProjectPdf}
+                              >
+                                Download PDF
+                              </button>
+
+                              <button
+                                className="btn"
+                                style={{ width: "100%" }}
+                                onClick={exportDisputePackage}
+                              >
+                                Export dispute package
+                              </button>
+
+                              <button
+                                className="btn btnDanger"
+                                style={{ width: "100%" }}
+                                onClick={archiveProject}
+                              >
+                                Archive project
+                              </button>
+                            </>
+                          ) : (
+                            <div style={{ display: "grid", gap: 8 }}>
+                              <div className="sub" style={{ opacity: 0.75 }}>
+                                Project name
+                              </div>
+
+                              <textarea
+                                ref={renameInputRef as any}
+                                value={renameTitle}
+                                onChange={(e) => setRenameTitle(e.target.value)}
+                                placeholder="Project name"
+                                style={{
+                                  width: "100%",
+                                  fontSize: 16,
+                                  padding: "8px 12px",
+                                  borderRadius: 10,
+                                  border: "1px solid rgba(15,23,42,0.15)",
+                                }}
+                              />
+
+                              <div style={{ display: "flex", gap: 8 }}>
+                                <button className="btn btnPrimary" onClick={saveProjectRename}>
+                                  Save
+                                </button>
+                                <button className="btn btnDanger" onClick={cancelRename}>
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
               </div>
 
               <div style={{ display: "flex", gap: 6 }}>
@@ -3645,6 +3853,29 @@ export default function DashboardPage() {
 
               {activeProjectTab === "timeline" ? (
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {!isSendMode ? (
+                    <button
+                      id="onboarding-send-trigger"
+                      className="btn"
+                      onClick={() => {
+                        setIsApprovalMode(false);
+                        setIsSendMode(true);
+                      }}
+                      style={{
+                        background: "#16a34a",
+                        color: "white",
+                        borderColor: "#16a34a",
+                        fontWeight: 800,
+                        boxShadow:
+                          highlightTarget === "onboarding-send-trigger"
+                            ? "0 0 0 6px rgba(59,130,246,0.35)"
+                            : undefined,
+                        transition: "all 0.25s ease",
+                      }}
+                    >
+                      Send Update
+                    </button>
+                  ) : null}
                   <button
                     className="btn"
                     onClick={() => setProjectNotesOpen(true)}
@@ -3683,193 +3914,6 @@ export default function DashboardPage() {
 
           {selectedProject && activeGlobalTab === "projects" && activeProjectTab === "timeline" && (
             <div className="card">
-              <div
-                style={{
-                  marginBottom: 16,
-                  paddingBottom: 12,
-                  borderBottom: "1px solid rgba(0,0,0,0.06)",
-                }}
-              >
-                {/* Top row */}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    justifyContent: "space-between",
-                    gap: 8,
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 800,
-                      textTransform: "uppercase",
-                      letterSpacing: 0.5,
-                      opacity: 0.58,
-                      paddingBottom: 6,
-                      borderBottom: "1px solid rgba(15,23,42,0.32)",
-                    }}
-                  >
-                    Active Project
-                  </div>
-
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 8,
-                      flexWrap: "wrap",
-                      justifyContent: "flex-end",
-                    }}
-                  >
-                    <button
-                      className="btn"
-                      onClick={() => {
-                        if (isSendMode) {
-                          setIsSendMode(false);
-                          setSendCloseSignal((k) => k + 1);
-                        } else if (isApprovalMode) {
-                          setIsApprovalMode(false);
-                        } else {
-                          closeProjectView();
-                        }
-                      }}
-                      title={
-                        isSendMode
-                          ? "Exit send mode"
-                          : isApprovalMode
-                            ? "Exit approval mode"
-                            : "Close project view"
-                      }
-                    >
-                      {isSendMode ? "Exit Send" : isApprovalMode ? "Exit Approval" : "Close"}
-                    </button>
-
-                    {!isSendMode ? (
-                      <div style={{ position: "relative" }} ref={projectMenuRef}>
-                        <button
-                          id="approval-menu"
-                          className="btn"
-                          onClick={() => setProjectMenuOpen((v) => !v)}
-                          title="Project actions"
-                          style={{
-                            boxShadow:
-                              highlightTarget === "approval-menu"
-                                ? "0 0 0 6px rgba(59,130,246,0.12)"
-                                : undefined,
-                            transition: "all 0.25s ease",
-                          }}
-                        >
-                          …
-                        </button>
-
-                        {projectMenuOpen ? (
-                          <div
-                            style={{
-                              position: "absolute",
-                              right: 0,
-                              top: 44,
-                              zIndex: 20,
-                              width: 260,
-                              maxWidth: "min(320px, calc(100vw - 24px))",
-                              border: "1px solid rgba(15,23,42,0.12)",
-                              borderRadius: 14,
-                              background: "white",
-                              padding: 10,
-                              boxShadow: "0 12px 30px rgba(15,23,42,0.10)",
-                              display: "grid",
-                              gap: 8,
-                              boxSizing: "border-box",
-                              overflow: "visible",
-                            }}
-                          >
-                            {!renaming ? (
-                              <>
-                                <button
-                                  className="btn"
-                                  style={{ width: "100%" }}
-                                  onClick={() => {
-                                    setRenaming(true);
-                                    setRenameTitle(selectedProject.title || "");
-                                  }}
-                                >
-                                  Rename project
-                                </button>
-
-                                <button
-                                  className="btn"
-                                  style={{ width: "100%" }}
-                                  onClick={exportProjectPdf}
-                                >
-                                  Download PDF
-                                </button>
-
-                                <button
-                                  className="btn"
-                                  style={{ width: "100%" }}
-                                  onClick={exportDisputePackage}
-                                >
-                                  Export dispute package
-                                </button>
-
-                                <button
-                                  className="btn btnDanger"
-                                  style={{ width: "100%" }}
-                                  onClick={archiveProject}
-                                >
-                                  Archive project
-                                </button>
-                              </>
-                            ) : (
-                              <div style={{ display: "grid", gap: 8 }}>
-                                <div className="sub" style={{ opacity: 0.75 }}>
-                                  Project name
-                                </div>
-
-                                <textarea
-                                  ref={renameInputRef as any}
-                                  value={renameTitle}
-                                  onChange={(e) => setRenameTitle(e.target.value)}
-                                  placeholder="Project name"
-                                  style={{
-                                    width: "100%",
-                                    fontSize: 16,
-                                    padding: "8px 12px",
-                                    borderRadius: 10,
-                                    border: "1px solid rgba(15,23,42,0.15)",
-                                  }}
-                                />
-
-                                <div style={{ display: "flex", gap: 8 }}>
-                                  <button className="btn btnPrimary" onClick={saveProjectRename}>
-                                    Save
-                                  </button>
-                                  <button className="btn btnDanger" onClick={cancelRename}>
-                                    Cancel
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-
-                {/* Project title */}
-                <div
-                  style={{
-                    fontWeight: 900,
-                    fontSize: 32,
-                    lineHeight: 1.12,
-                    marginTop: 8,
-                    wordBreak: "break-word",
-                    color: "#111827",
-                  }}
-                >
-                  {selectedProject.title}
-                </div>
-              </div>
 
               {!isSendMode ? (
                 <div
@@ -4015,26 +4059,7 @@ export default function DashboardPage() {
                   transition: "all 0.25s ease",
                 }}
               >
-                {!isSendMode ? (
-                  !isApprovalMode ? (
-                    <button
-                      className="btn"
-                      onClick={() => {
-                        setIsApprovalMode(false);
-                        setIsSendMode(true);
-                      }}
-                      style={{
-                        width: "100%",
-                        background: "#16a34a",
-                        color: "white",
-                        borderColor: "#16a34a",
-                        fontWeight: 800,
-                      }}
-                    >
-                      Send Project Update
-                    </button>
-                  ) : null
-                ) : (
+                {!isSendMode ? null : (
                   <>
                     <div
                       style={{
@@ -4248,6 +4273,132 @@ export default function DashboardPage() {
                           fontSize: 14,
                         }}
                       />
+
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 6,
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        {(
+                          [
+                            { key: "all", label: "All" },
+                            { key: "notes", label: "Notes" },
+                            { key: "photos", label: "Photos" },
+                            { key: "files", label: "Files" },
+                          ] as const
+                        ).map((opt) => (
+                          <button
+                            key={opt.key}
+                            className="btn"
+                            onClick={() => setEntryContentFilter(opt.key)}
+                            style={{
+                              height: 30,
+                              fontSize: 12,
+                              padding: "2px 10px",
+                              borderRadius: 999,
+                              whiteSpace: "nowrap",
+                              background:
+                                entryContentFilter === opt.key
+                                  ? "rgba(37,99,235,0.10)"
+                                  : undefined,
+                              color: entryContentFilter === opt.key ? "#1d4ed8" : undefined,
+                              fontWeight: entryContentFilter === opt.key ? 700 : undefined,
+                              border:
+                                entryContentFilter === opt.key
+                                  ? "1px solid rgba(37,99,235,0.25)"
+                                  : undefined,
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+
+                        <div
+                          style={{ position: "relative", marginLeft: "auto" }}
+                          ref={statusFilterMenuRef}
+                        >
+                          <button
+                            className="btn"
+                            onClick={() => setStatusFilterMenuOpen((v) => !v)}
+                            title="Filter by status"
+                            style={{
+                              height: 30,
+                              fontSize: 12,
+                              padding: "2px 10px",
+                              borderRadius: 999,
+                              whiteSpace: "nowrap",
+                              background:
+                                entryStatusFilter !== "all" ? "rgba(37,99,235,0.10)" : undefined,
+                              color: entryStatusFilter !== "all" ? "#1d4ed8" : undefined,
+                            }}
+                          >
+                            {entryStatusFilter === "all"
+                              ? "Status ▾"
+                              : entryStatusFilter === "draft"
+                                ? "Draft ▾"
+                                : entryStatusFilter === "finalized"
+                                  ? "Finalized ▾"
+                                  : "Archived ▾"}
+                          </button>
+
+                          {statusFilterMenuOpen ? (
+                            <div
+                              style={{
+                                position: "absolute",
+                                right: 0,
+                                top: 36,
+                                zIndex: 20,
+                                width: 160,
+                                border: "1px solid rgba(15,23,42,0.12)",
+                                borderRadius: 12,
+                                background: "white",
+                                padding: 8,
+                                boxShadow: "0 12px 30px rgba(15,23,42,0.10)",
+                                display: "grid",
+                                gap: 4,
+                              }}
+                            >
+                              {(
+                                [
+                                  { key: "all", label: "All statuses" },
+                                  { key: "draft", label: "Draft" },
+                                  { key: "finalized", label: "Finalized" },
+                                  { key: "archived", label: "Archived" },
+                                ] as const
+                              ).map((opt) => (
+                                <button
+                                  key={opt.key}
+                                  className="btn"
+                                  style={{
+                                    width: "100%",
+                                    justifyContent: "flex-start",
+                                    background:
+                                      entryStatusFilter === opt.key
+                                        ? "rgba(37,99,235,0.10)"
+                                        : undefined,
+                                    color: entryStatusFilter === opt.key ? "#1d4ed8" : undefined,
+                                  }}
+                                  onClick={() => {
+                                    setEntryStatusFilter(opt.key);
+                                    setStatusFilterMenuOpen(false);
+
+                                    if (opt.key === "archived" && !showArchivedEntries) {
+                                      setShowArchivedEntries(true);
+                                      loadProofs(selectedProject.id, true);
+                                      loadApprovals(selectedProject.id, true);
+                                    }
+                                  }}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
 
                       <div
                         style={{

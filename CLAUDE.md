@@ -837,16 +837,24 @@ separately-scoped project (e.g. the deferred UI Navigation Overhaul,
 or admin/role features explicitly listed as V1 non-goals above), not
 a continuation of this phase list.
 
-## Next Sanctioned Initiative (Planning): Estimate/Change Order/Invoice + UI Navigation Overhaul
+## Active Initiative: Estimate/Change Order/Invoice + UI Navigation Overhaul
 
-As of 2026-07-23, this is the newly sanctioned next exception to
+As of 2026-07-23, this is the sanctioned next exception to
 "architecture is locked" during launch operations, following the same
-pattern Team Accounts V1 did. Conceptual design is complete (extended
-discussion with Ryan); implementation has NOT started, no code has
-been written, no schema changes have been made. Full plan, decisions,
-and next steps: Current Implement/Estimate, Change Order and Invoice
-System + UI Navigation Overhaul - Implementation Plan.md in the Brain
-vault.
+pattern Team Accounts V1 did. Conceptual design, competitive research,
+and a full codebase audit are complete. Phase 1 (Navigation Restructure
+— global Projects/Account tabs, project-level Timeline/Estimate tabs,
+merged project header, relocated Send Update/Project Notes/Request
+Approval/Help/Manage Billing, new Notes/Photos/Files content filter and
+Draft/Finalized/Archived status filter on Timeline) is COMPLETE as of
+2026-07-25 on branch `estimate-nav-phase-1`, verified locally
+(`npx tsc --noEmit` + manual dev-server browser testing) but NOT yet
+deployed to `leeward-staging-internal` or production. No schema changes,
+API changes, or offline-architecture changes have been made yet — those
+begin in Phase 2 (Data Model) onward. Full plan, decisions, phase
+breakdown, and progress notes: Current Implement/Estimate, Change Order
+and Invoice System + UI Navigation Overhaul - Implementation Plan.md in
+the Brain vault.
 
 Summary: adds a structured Estimate (baseline bid) and Change Order
 system on top of the existing approval lifecycle (both are approvals
