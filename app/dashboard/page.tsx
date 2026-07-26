@@ -3317,11 +3317,45 @@ export default function DashboardPage() {
           </div>
 
           {activeGlobalTab === "account" ? (
-            <div className="card">
-              <div style={{ fontWeight: 800, marginBottom: 6 }}>Account</div>
-              <p className="sub" style={{ opacity: 0.75 }}>
-                Billing, Team, and Help are moving here in a follow-up step. For now, use the
-                buttons in the header above.
+            <div className="card" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ fontWeight: 800, marginBottom: 4 }}>Account</div>
+
+              <button className="btn" style={{ width: "100%" }} onClick={() => router.push("/help")}>
+                Help
+              </button>
+
+              <button
+                className="btn"
+                style={{ width: "100%" }}
+                onClick={async () => {
+                  try {
+                    const token = await getAccessToken();
+
+                    const res = await fetch("/api/billing/portal", {
+                      method: "POST",
+                      headers: {
+                        Authorization: `Bearer ${token}`,
+                      },
+                    });
+
+                    const data = await res.json();
+
+                    if (!res.ok || !data?.url) {
+                      throw new Error(data?.error || "Unable to open billing portal.");
+                    }
+
+                    window.location.href = data.url;
+                  } catch (e: any) {
+                    setStatus(e?.message || "Unable to open billing portal.");
+                  }
+                }}
+              >
+                Manage Billing
+              </button>
+
+              <p className="sub" style={{ opacity: 0.75, marginTop: 4 }}>
+                Team management is moving here in a follow-up step. For now, use the button in the
+                header above.
               </p>
             </div>
           ) : null}
@@ -3760,48 +3794,6 @@ export default function DashboardPage() {
                                   }}
                                 >
                                   Project Notes
-                                </button>
-
-                                <button
-                                  className="btn"
-                                  style={{ width: "100%" }}
-                                  onClick={() => {
-                                    setProjectMenuOpen(false);
-                                    router.push("/help");
-                                  }}
-                                >
-                                  Help
-                                </button>
-
-                                <button
-                                  className="btn"
-                                  style={{ width: "100%" }}
-                                  onClick={async () => {
-                                    try {
-                                      const token = await getAccessToken();
-
-                                      const res = await fetch("/api/billing/portal", {
-                                        method: "POST",
-                                        headers: {
-                                          Authorization: `Bearer ${token}`,
-                                        },
-                                      });
-
-                                      const data = await res.json();
-
-                                      if (!res.ok || !data?.url) {
-                                        throw new Error(data?.error || "Unable to open billing portal.");
-                                      }
-
-                                      window.location.href = data.url;
-                                    } catch (e: any) {
-                                      setStatus(e?.message || "Unable to open billing portal.");
-                                    } finally {
-                                      setProjectMenuOpen(false);
-                                    }
-                                  }}
-                                >
-                                  Manage Billing
                                 </button>
 
                                 <button
