@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Leeward (formerly BuildProof, company: Linque Labs LLC) is a contractor/field-team communication timeline and dispute-ready documentation tool: contractors log timestamped project entries, request client approvals, and send finalized "update packs" (with embedded PDF exhibits) that clients view via share links. Built-in dispute protection includes locked/finalized records, integrity hashes, and read-only dispute packets with delivery/view history. It is mobile-first and must work fully offline in the field, syncing when connectivity returns.
 
-Current stage: **LIVE on Google Play**, in "launch operations" phase. Architecture is considered locked/stable. Current focus is production stability, customer support, and App Store (iOS) prep — not new features, EXCEPT for the sanctioned Team Accounts V1 build (see below).
+Current stage: **LIVE on Google Play**, in "launch operations" phase. Architecture is considered locked/stable. Current focus is production stability, customer support, and App Store (iOS) prep — not new features. Team Accounts V1 (see below) was the one sanctioned exception to this and is now COMPLETE as of 2026-07-23, fully deployed to production and genuinely behaviorally verified there (real signup, real live-mode Stripe payment, real invite, real dissolve) — not just on staging.
 
 See `BUILDPROOF_MASTER_HANDOFF.md` for rollout history and `REGRESSION_LEDGER.md` (append-only) for the history of verified fixes — check both, along with the Obsidian notes vault (below), before touching offline/send/reconnect/PDF code or proposing architecture changes.
 
@@ -484,7 +484,8 @@ testing. Also flagged, not fixed, while tracing that chain: a separate
 pre-existing bug in app/auth/finish/page.tsx (line ~53) redirects to
 /auth/signing-in, a route that doesn't exist — the real page is at
 /auth/finish/signing-in. Worth a standalone fix, unrelated to Team
-Accounts.
+Accounts. (Fixed since — confirmed live in production as of 2026-07-23,
+see the dated entry further below.)
 
 The new invite page is genuinely behaviorally verified end-to-end on
 staging via real browser sessions and real emailed magic links, not
@@ -679,17 +680,94 @@ real Individual checkout, lands back on `/dashboard` with the header
 now showing "Upgrade" (not "Team"), and still has the same project
 under their individual account.
 
-Noted, not fixed (pre-existing, unrelated to this work): staging's
-`STRIPE_PRICE_ID` (individual plan) checkout in this session displayed
-the same stale "Leeward Team (Test)" $10/month product previously
-flagged under the Signup Flow Redesign entry above for
-`STRIPE_TEAM_PRICE_ID` — worth confirming staging's individual and
-team test-mode prices are actually distinct Stripe price objects
-before relying on staging Stripe metadata/pricing assertions again.
-Functionally harmless for this test (webhook logic and billing-status
-checks are price-agnostic), but worth cleaning up.
+Fixed 2026-07-23 (see dated entry below): staging's `STRIPE_PRICE_ID`
+(individual plan) had been pointing at the exact same Stripe price
+object as `STRIPE_TEAM_PRICE_ID` ("Leeward Team (Test)" $10/month) —
+confirmed literally identical, not just visually similar. Created a
+genuinely distinct "Leeward Individual (Test)" price and repointed
+`STRIPE_PRICE_ID` at it on `leeward-staging-internal`.
 
-NOT YET deployed to production.
+DEPLOYED TO PRODUCTION — confirmed 2026-07-23 via a full live
+production test, see dated entry immediately below.
+
+### Live Production Validation + Stale Test Price Fix (2026-07-23)
+
+Two closeout items completed this session:
+
+**1. Staging Stripe price fix.** Root-caused the "worth cleaning up"
+item flagged immediately above: `leeward-staging-internal`'s
+`STRIPE_PRICE_ID` and `STRIPE_TEAM_PRICE_ID` env vars pointed at the
+literal same Stripe test-mode price object
+(`price_1TuKRq2WIlxElWw0768YFf2K`, "Leeward Team (Test)" $10/month) —
+so the individual-plan checkout was showing Team branding/pricing to
+testers. This was staging-only; production's live-mode individual and
+team prices were already confirmed distinct, so no customer-facing
+confusion was ever possible. Created a real, separate "Leeward
+Individual (Test)" product/price (`price_1TwR0H2WIlxElWw0LPMFySsh`,
+$29/month), updated `STRIPE_PRICE_ID` on `leeward-staging-internal`,
+and redeployed. Per Ryan's explicit call, the Team test price's
+dollar amount ($10 vs. the real $69) was deliberately left as-is —
+test-mode-only, never customer-visible, not worth touching.
+
+**2. Full live production Team Accounts test.** With all of Phase 8
+and the Members/Invite/Upgrade/Dissolve UI now deployed to
+`app.getleeward.com`, ran the entire Team Accounts V1 lifecycle for
+real, against real production, with a real live-mode Stripe charge —
+not staging, not API-simulated:
+
+- Brand-new real account signed up through the redesigned signup flow,
+  chose the Team plan, named the org, and completed a genuine live
+  Stripe Checkout with a real card (real $69/month "Leeward Team"
+  subscription, real trial). Confirmed directly in production
+  Supabase: `organizations`, `organization_members` (owner row), and
+  `organization_subscriptions` all created correctly, with the
+  subscription's Stripe metadata carrying `organization_id` (confirms
+  the deferred-org-creation-on-webhook design worked for a genuine
+  first-time signup, not just the earlier staging dry run).
+- Invited a second brand-new real account via the dashboard's Members
+  panel (real invite email, real magic link). Verified the
+  wrong-account-mismatch detection on `/invite/[token]` and the
+  "Log Out and Continue" recovery path, then completed acceptance —
+  new member correctly appeared in the roster and could see the org's
+  shared project via the real dashboard UI (not just via RLS/API
+  checks).
+- Ran the Dissolve ("Cancel Team & Return to Solo") flow as the owner,
+  end-to-end, in production, with triple independent verification:
+  app UI correctly bounced the owner to `/subscribe` post-dissolve;
+  direct Supabase query confirmed the org's project was reassigned
+  (`organization_id: null`, `user_id` = owner), the invited member's
+  row shows `removed_at` set, and the owner's own
+  `organization_members` row plus the `organizations` row were left
+  untouched; Stripe's own live dashboard confirmed the real
+  subscription shows "Canceled", $0.00 paid (real trial, canceled
+  before any charge). Owner account cleaned up afterward by
+  completing a real Individual-plan checkout, confirming the same
+  project remained accessible under solo ownership.
+
+This is the "final piece" the Phase 8 planning doc called out as
+blocking genuine production-readiness (see Current Implement/Team
+Accounts V1 Phase 8 - Production Rollout Planning.md) — Team Accounts
+V1 is now considered fully COMPLETE and production-verified, not just
+staging-verified.
+
+**Also confirmed this session**: the previously-flagged
+`app/auth/finish/page.tsx` broken-redirect bug (line ~53 pointing at
+the nonexistent `/auth/signing-in` instead of `/auth/finish/signing-in`)
+is already fixed and live — current production code on the
+`team-accounts-phase-1` branch correctly calls
+`router.replace("/auth/finish/signing-in")`, and the fix (commit
+`d149c47`) is confirmed part of that branch's own history via GitHub,
+not sitting in an unmerged PR. No action needed; this closes out the
+gap noted under Phase 8 below.
+
+No new Android/iOS release is required for any of this work: the
+Android wrapper (package `com.linquelabs.leeward`) is a thin Capacitor
+WebView shell that loads `https://app.getleeward.com` directly at
+runtime with no bundled web UI of its own (see Mobile app store/Android
+Wrapper Progress.md and 01-Current-State/Current State.md in the Brain
+vault). Team Accounts V1 touched zero native Capacitor code, so the
+already-completed production deploy is immediately live for existing
+Android users with no rebuild, re-signing, or Play Store submission.
 
 ### Git Workflow During Phase Implementation
 When implementing Team Accounts phases, commit and push directly to
@@ -739,16 +817,52 @@ membership, ownership delegation.
 
 ### Implementation Phases (sequential, do not skip ahead)
 0. Planning — COMPLETE
-1. Organization Data Model Design — NOT STARTED (current step)
-2. Membership Model
-3. Invitation System
-4. Authentication Integration
-5. Project Ownership Migration
-6. Billing Integration
-7. Offline Validation
-8. Production Rollout
+1. Organization Data Model Design — COMPLETE
+2. Membership Model — COMPLETE
+3. Invitation System — COMPLETE
+4. Authentication Integration — COMPLETE
+5. Project Ownership Migration — COMPLETE
+6. Billing Integration — COMPLETE
+7. Offline Validation — COMPLETE
+8. Production Rollout — COMPLETE (2026-07-23, incl. Signup Flow
+   Redesign and Members/Invite/Upgrade/Dissolve UI, all fully
+   deployed to production and behaviorally verified there with a
+   real live-mode signup, payment, invite, and dissolve — see the
+   dated entries above for detail)
 
-Immediate next step: inventory current user/account tables, then design
-organization ownership model, membership model, invitation model, and
-migration strategy for existing (241) projects — architecture/design
-only, no coding yet.
+Team Accounts V1 is DONE. All 8 phases complete and production-
+verified as of 2026-07-23. There is no remaining "immediate next step"
+for this build — future Team Accounts work (if any) would be a new,
+separately-scoped project (e.g. the deferred UI Navigation Overhaul,
+or admin/role features explicitly listed as V1 non-goals above), not
+a continuation of this phase list.
+
+## Next Sanctioned Initiative (Planning): Estimate/Change Order/Invoice + UI Navigation Overhaul
+
+As of 2026-07-23, this is the newly sanctioned next exception to
+"architecture is locked" during launch operations, following the same
+pattern Team Accounts V1 did. Conceptual design is complete (extended
+discussion with Ryan); implementation has NOT started, no code has
+been written, no schema changes have been made. Full plan, decisions,
+and next steps: Current Implement/Estimate, Change Order and Invoice
+System + UI Navigation Overhaul - Implementation Plan.md in the Brain
+vault.
+
+Summary: adds a structured Estimate (baseline bid) and Change Order
+system on top of the existing approval lifecycle (both are approvals
+under the hood — line items and a baseline flag are the real additions,
+not a new status system), plus a live, shareable Invoice view (running
+total, reuses the existing share-link mechanism, no payment collection
+in this phase — deliberately deferred, design should not block it
+later). Combined with a UI navigation overhaul: global Projects/Account
+tabs, project-level Timeline/Estimate tabs, replacing the current
+per-project "..." dropdown that mixes settings, project-specific views,
+and account-level concerns. Team Accounts (Members/Invite/Upgrade/
+Billing) folds into the Account tab. Explicit rollout constraint: build
+and test entirely on staging (leeward-staging-internal) until both the
+nav overhaul and the estimate system are complete and behaviorally
+verified together, before any production exposure.
+
+Next actual step is a full codebase audit (dashboard component
+structure, approval schema) — not yet done beyond a partial, targeted
+audit already captured in the design doc above.

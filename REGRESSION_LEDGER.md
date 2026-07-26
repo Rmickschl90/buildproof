@@ -2687,3 +2687,46 @@ Result:
 - PWA install experience is not yet app-store-ready
 
 This is the first App Store prep blocker to investigate.
+
+---
+
+# TEAM ACCOUNTS V1 — STALE STAGING STRIPE PRICE FIXED + FULL LIVE PRODUCTION VALIDATION — 2026-07-23
+
+## Objective
+Close out Team Accounts V1: fix a known staging-only Stripe pricing gap, then run the complete Team Accounts lifecycle for real against production with a genuine live-mode Stripe charge, as the final verification step before considering the build done.
+
+---
+
+## Finding: stale/duplicate Stripe test price on leeward-staging-internal
+
+`STRIPE_PRICE_ID` (individual plan) and `STRIPE_TEAM_PRICE_ID` on `leeward-staging-internal` were confirmed to point at the literal same Stripe test-mode price object (`price_1TuKRq2WIlxElWw0768YFf2K`, "Leeward Team (Test)" $10/month) — not just visually similar, the same price ID. This meant staging's individual-plan checkout displayed Team branding/pricing to testers.
+
+Confirmed this was staging-only: production's live-mode individual ($29/month) and team ($69/month) prices were already distinct Stripe objects. No customer ever saw this — staging is not customer-facing.
+
+### Fix
+Created a genuinely separate "Leeward Individual (Test)" product/price (`price_1TwR0H2WIlxElWw0LPMFySsh`, $29/month) in Stripe test mode. Updated `STRIPE_PRICE_ID` on the `leeward-staging-internal` Vercel project and redeployed. Confirmed via Vercel env var detail view (not the truncated list view) that the new value landed correctly.
+
+Left the Team test price's $10 test-mode amount unchanged, per explicit user decision — never customer-visible, not worth the churn.
+
+---
+
+## Full Live Production Validation
+
+With Phase 8 (Production Rollout) and the Members/Invite/Upgrade/Dissolve UI already deployed to `app.getleeward.com`, ran the entire Team Accounts V1 lifecycle for real — real production, real live-mode Stripe charge, not staging, not API-simulated:
+
+1. **Real Team signup**: a brand-new account signed up through the redesigned signup flow, chose Team, named the org, completed a genuine live Stripe Checkout with a real card (real $69/month subscription, real trial). Confirmed directly in production Supabase: `organizations`, `organization_members` (owner row), and `organization_subscriptions` all created correctly; subscription's Stripe metadata correctly carries `organization_id`.
+2. **Real invite/accept**: invited a second brand-new account via the dashboard Members panel (real invite email, real magic link). Verified the wrong-account-mismatch detection and "Log Out and Continue" recovery path on `/invite/[token]` (triggered organically this session via a shared-origin `localStorage` session collision between two open tabs). New member appeared in the roster and could see the org's shared project through the real dashboard UI.
+3. **Real Dissolve**: ran "Cancel Team & Return to Solo" as the owner. Verified three independent ways: app UI correctly bounced the owner to `/subscribe`; direct Supabase query confirmed the org's project was reassigned (`organization_id: null`, `user_id` = owner), the invited member's row shows `removed_at` set, and the owner's own `organization_members`/`organizations` rows were left untouched; Stripe's live dashboard confirmed the real subscription shows Canceled, $0.00 paid. Owner completed a real Individual-plan checkout afterward, confirming the same project remained accessible under solo ownership.
+
+## Also confirmed (verification only, no new fix needed)
+`app/auth/finish/page.tsx`'s previously-flagged broken redirect (`/auth/signing-in` → nonexistent route) is already fixed in the codebase and live in production — current code calls `router.replace("/auth/finish/signing-in")`, and the fix (commit `d149c47`) is part of `team-accounts-phase-1`'s own history on GitHub, not sitting unmerged.
+
+## Android/iOS release impact
+None. The Android wrapper is a thin Capacitor WebView shell loading `https://app.getleeward.com` directly at runtime with no bundled web UI; this entire body of work touched zero native code, so the existing production deploy is immediately live for Android users with no rebuild or Play Store resubmission required.
+
+---
+
+## Result
+Team Accounts V1 (all 8 phases, plus the Signup Flow Redesign and Members/Invite/Upgrade/Dissolve UI) is now considered COMPLETE and production-verified, not just staging-verified. This is a genuine recovery/reference point: if any Team Accounts regression is suspected later, this entry marks the last point at which the full lifecycle was confirmed working end-to-end in production.
+
+No production data was put at risk by this session's work — the staging price fix touched only `leeward-staging-internal`'s test-mode Stripe config, and the production test used a real but disposable account/org, cleaned up via the app's own Dissolve feature rather than manual data deletion.
