@@ -330,6 +330,13 @@ export default function DashboardPage() {
   // ---- Global navigation (Projects / Account) ----
   const [activeGlobalTab, setActiveGlobalTab] = useState<"projects" | "account">("projects");
 
+  // ---- Project-level navigation (Timeline / Estimate) ----
+  const [activeProjectTab, setActiveProjectTab] = useState<"timeline" | "estimate">("timeline");
+
+  useEffect(() => {
+    setActiveProjectTab("timeline");
+  }, [selectedProject?.id]);
+
   // Send mode focus
   const [isSendMode, setIsSendMode] = useState(false);
   const [isApprovalMode, setIsApprovalMode] = useState(false);
@@ -3556,6 +3563,65 @@ export default function DashboardPage() {
           ) : null}
 
           {selectedProject && activeGlobalTab === "projects" && (
+            <div className="card" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 8,
+                }}
+              >
+                <div style={{ fontWeight: 800, fontSize: 15 }}>
+                  {selectedProject.title || "Project"}
+                </div>
+                <button className="btn" onClick={closeProjectView}>
+                  Close
+                </button>
+              </div>
+
+              <div style={{ display: "flex", gap: 6 }}>
+                <button
+                  className="btn"
+                  onClick={() => setActiveProjectTab("timeline")}
+                  style={{
+                    flex: 1,
+                    background: activeProjectTab === "timeline" ? "rgba(37,99,235,0.10)" : undefined,
+                    color: activeProjectTab === "timeline" ? "#1d4ed8" : undefined,
+                    fontWeight: activeProjectTab === "timeline" ? 700 : undefined,
+                    border: "none",
+                  }}
+                >
+                  Timeline
+                </button>
+                <button
+                  className="btn"
+                  onClick={() => setActiveProjectTab("estimate")}
+                  style={{
+                    flex: 1,
+                    background: activeProjectTab === "estimate" ? "rgba(37,99,235,0.10)" : undefined,
+                    color: activeProjectTab === "estimate" ? "#1d4ed8" : undefined,
+                    fontWeight: activeProjectTab === "estimate" ? 700 : undefined,
+                    border: "none",
+                  }}
+                >
+                  Estimate
+                </button>
+              </div>
+            </div>
+          )}
+
+          {selectedProject && activeGlobalTab === "projects" && activeProjectTab === "estimate" && (
+            <div className="card">
+              <div style={{ fontWeight: 800, marginBottom: 6 }}>Estimate</div>
+              <p className="sub" style={{ opacity: 0.75 }}>
+                The estimate and change order system lands here in a follow-up phase. Nothing to
+                see yet — this confirms the tab switch itself works.
+              </p>
+            </div>
+          )}
+
+          {selectedProject && activeGlobalTab === "projects" && activeProjectTab === "timeline" && (
             <div className="card">
               <div
                 style={{
