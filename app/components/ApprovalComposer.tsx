@@ -41,6 +41,21 @@ type UploadedApprovalAttachment = {
   path: string;
 };
 
+type StoredLineItem = {
+  description: string;
+  quantity: number;
+  unit_cost: number;
+  line_total: number;
+};
+
+// Form-draft shape for a line item row -- kept as strings so partially-typed
+// input (e.g. "12." mid-keystroke) doesn't fight the input's value.
+type LineItemDraft = {
+  description: string;
+  quantity: string;
+  unitCost: string;
+};
+
 type InitialApproval = {
   id: string;
   title: string;
@@ -52,6 +67,8 @@ type InitialApproval = {
   schedule_delta: string | null;
   due_at?: string | null;
   attachments?: UploadedApprovalAttachment[];
+  is_baseline?: boolean;
+  line_items?: StoredLineItem[];
 };
 
 type Props = {
@@ -59,6 +76,10 @@ type Props = {
   projectClientEmail?: string | null;
   onComplete?: () => void | Promise<void>;
   initialApproval?: InitialApproval | null;
+  // When true and there's no initialApproval, pre-checks "this is the
+  // baseline estimate" -- used by the Estimate tab's adaptive "+" button,
+  // which decides this based on whether the project already has one.
+  defaultIsBaseline?: boolean;
 };
 
 function toDateTimeLocalValue(value?: string | null) {
@@ -75,6 +96,7 @@ export default function ApprovalComposer({
   projectClientEmail: projectClientEmailProp,
   onComplete,
   initialApproval,
+  defaultIsBaseline,
 }: Props) {
   const [title, setTitle] = useState("");
   const [approvalType, setApprovalType] = useState<ApprovalType>("change_order");
@@ -86,6 +108,12 @@ export default function ApprovalComposer({
   );
   const [costDelta, setCostDelta] = useState("");
   const [scheduleDelta, setScheduleDelta] = useState("");
+
+  // Estimate/Change Order line items + baseline flag. Only meaningful when
+  // approvalType === "change_order" -- a baseline estimate and a change
+  // order are the same approval_type, distinguished by isBaseline.
+  const [lineItems, setLineItems] = useState<LineItemDraft[]>([]);
+  const [isBaseline, setIsBaseline] = useState(!!defaultIsBaseline);
 
   const [status, setStatus] = useState("");
   const [isUploading, setIsUploading] = useState(false);
@@ -149,6 +177,16 @@ export default function ApprovalComposer({
         : ""
     );
     setScheduleDelta(initialApproval.schedule_delta || "");
+
+    setIsBaseline(!!initialApproval.is_baseline);
+
+    setLineItems(
+      (initialApproval.line_items || []).map((li) => ({
+        description: li.description || "",
+        quantity: li.quantity !== undefined && li.quantity !== null ? String(li.quantity) : "",
+        unitCost: li.unit_cost !== undefined && li.unit_cost !== null ? String(li.unit_cost) : "",
+      }))
+    );
 
     setAttachments(initialApproval.attachments || []);
     setHasSavedOfflineDraft(false);
@@ -289,6 +327,8 @@ export default function ApprovalComposer({
       setRecipientEmail("");
       setCostDelta("");
       setScheduleDelta("");
+      setLineItems([]);
+      setIsBaseline(false);
       setStatus("Approval sent.");
 
       draftApprovalIdRef.current = null;
@@ -351,8 +391,58 @@ export default function ApprovalComposer({
       !!recipientEmail.trim() ||
       costDelta !== "" ||
       !!scheduleDelta.trim() ||
-      attachments.length > 0
+      attachments.length > 0 ||
+      lineItems.some((li) => li.description.trim())
     );
+  }
+
+  // A row only counts once description/quantity/unitCost are all filled in --
+  // a half-typed row is silently excluded rather than blocking save, so
+  // drafting mid-entry never throws an error.
+  function getValidLineItems(): Array<{
+    description: string;
+    quantity: number;
+    unitCost: number;
+  }> {
+    const valid: Array<{ description: string; quantity: number; unitCost: number }> = [];
+
+    for (const row of lineItems) {
+      const description = row.description.trim();
+      const quantity = Number(row.quantity);
+      const unitCost = Number(row.unitCost);
+
+      if (!description) continue;
+      if (!Number.isFinite(quantity) || quantity <= 0) continue;
+      if (!Number.isFinite(unitCost) || unitCost < 0) continue;
+
+      valid.push({ description, quantity, unitCost });
+    }
+
+    return valid;
+  }
+
+  function lineItemsSubtotal(): number {
+    return getValidLineItems().reduce(
+      (sum, li) => sum + li.quantity * li.unitCost,
+      0
+    );
+  }
+
+  function addLineItemRow() {
+    setLineItems((current) => [
+      ...current,
+      { description: "", quantity: "", unitCost: "" },
+    ]);
+  }
+
+  function updateLineItemRow(index: number, patch: Partial<LineItemDraft>) {
+    setLineItems((current) =>
+      current.map((row, i) => (i === index ? { ...row, ...patch } : row))
+    );
+  }
+
+  function removeLineItemRow(index: number) {
+    setLineItems((current) => current.filter((_, i) => i !== index));
   }
 
   async function getAccessToken() {
@@ -422,6 +512,24 @@ export default function ApprovalComposer({
     window.dispatchEvent(new CustomEvent("buildproof-data-changed"));
   }
 
+  // Line items / baseline are only relevant to change_order-type approvals --
+  // a baseline estimate and a change order share that same approval_type,
+  // distinguished by isBaseline. Omitted entirely (not sent as
+  // empty/false) for every other approval type, so the API's
+  // conditional-inclusion logic leaves those columns at their defaults
+  // rather than accidentally baseline-flagging a schedule/material/general
+  // approval.
+  function buildLineItemsAndBaselineFields() {
+    if (approvalType !== "change_order") return {};
+
+    const validLineItems = getValidLineItems();
+
+    return {
+      lineItems: validLineItems.length > 0 ? validLineItems : undefined,
+      isBaseline,
+    };
+  }
+
   function buildApprovalPayload() {
     const now = new Date();
 
@@ -432,6 +540,8 @@ export default function ApprovalComposer({
 
     const createdTimezoneOffsetMinutes = now.getTimezoneOffset();
 
+    const validLineItems = getValidLineItems();
+
     return {
       approvalId: draftApprovalIdRef.current,
       projectId,
@@ -441,10 +551,16 @@ export default function ApprovalComposer({
       recipientName,
       recipientEmail,
       recipientSource: getRecipientSource(),
-      costDelta: costDelta === "" ? null : Number(costDelta),
+      costDelta:
+        approvalType === "change_order" && validLineItems.length > 0
+          ? lineItemsSubtotal()
+          : costDelta === ""
+            ? null
+            : Number(costDelta),
       scheduleDelta,
       createdTimezoneId,
       createdTimezoneOffsetMinutes,
+      ...buildLineItemsAndBaselineFields(),
     };
   }
 
@@ -483,6 +599,8 @@ export default function ApprovalComposer({
       throw new Error("Missing draft id for update.");
     }
 
+    const validLineItemsForUpdate = getValidLineItems();
+
     const res = await fetch("/api/approvals/update", {
       method: "POST",
       headers: {
@@ -496,8 +614,14 @@ export default function ApprovalComposer({
         description,
         recipientName,
         recipientEmail,
-        costDelta: costDelta === "" ? null : Number(costDelta),
+        costDelta:
+          approvalType === "change_order" && validLineItemsForUpdate.length > 0
+            ? lineItemsSubtotal()
+            : costDelta === ""
+              ? null
+              : Number(costDelta),
         scheduleDelta,
+        ...buildLineItemsAndBaselineFields(),
       }),
     });
 
@@ -526,6 +650,30 @@ export default function ApprovalComposer({
       let approvalId = draftApprovalIdRef.current;
       const creatingUserId = await getCurrentUserId();
 
+      const offlineValidLineItems = getValidLineItems();
+
+      const offlineCostDelta =
+        approvalType === "change_order" && offlineValidLineItems.length > 0
+          ? lineItemsSubtotal()
+          : costDelta === ""
+            ? null
+            : Number(costDelta);
+
+      const offlineLineItemsAndBaseline =
+        approvalType === "change_order"
+          ? {
+              lineItems:
+                offlineValidLineItems.length > 0
+                  ? offlineValidLineItems.map((li) => ({
+                      description: li.description,
+                      quantity: li.quantity,
+                      unitCost: li.unitCost,
+                    }))
+                  : undefined,
+              isBaseline,
+            }
+          : {};
+
       if (!approvalId) {
         approvalId = createTempApprovalId();
 
@@ -538,9 +686,10 @@ export default function ApprovalComposer({
           recipientName,
           recipientEmail,
           recipientSource: getRecipientSource(),
-          costDelta: costDelta === "" ? null : Number(costDelta),
+          costDelta: offlineCostDelta,
           scheduleDelta,
           creatingUserId,
+          ...offlineLineItemsAndBaseline,
         });
 
         draftApprovalIdRef.current = approvalId;
@@ -556,9 +705,10 @@ export default function ApprovalComposer({
           recipientName,
           recipientEmail,
           recipientSource: getRecipientSource(),
-          costDelta: costDelta === "" ? null : Number(costDelta),
+          costDelta: offlineCostDelta,
           scheduleDelta,
           creatingUserId,
+          ...offlineLineItemsAndBaseline,
         });
       }
 
@@ -905,6 +1055,30 @@ export default function ApprovalComposer({
         let approvalId = draftApprovalIdRef.current;
         const creatingUserId = await getCurrentUserId();
 
+        const offlineValidLineItems = getValidLineItems();
+
+        const offlineCostDelta =
+          approvalType === "change_order" && offlineValidLineItems.length > 0
+            ? lineItemsSubtotal()
+            : costDelta === ""
+              ? null
+              : Number(costDelta);
+
+        const offlineLineItemsAndBaseline =
+          approvalType === "change_order"
+            ? {
+                lineItems:
+                  offlineValidLineItems.length > 0
+                    ? offlineValidLineItems.map((li) => ({
+                        description: li.description,
+                        quantity: li.quantity,
+                        unitCost: li.unitCost,
+                      }))
+                    : undefined,
+                isBaseline,
+              }
+            : {};
+
         if (!approvalId) {
           approvalId = createTempApprovalId();
 
@@ -917,9 +1091,10 @@ export default function ApprovalComposer({
             recipientName,
             recipientEmail,
             recipientSource: getRecipientSource(),
-            costDelta: costDelta === "" ? null : Number(costDelta),
+            costDelta: offlineCostDelta,
             scheduleDelta: scheduleDelta || null,
             creatingUserId,
+            ...offlineLineItemsAndBaseline,
           });
 
           draftApprovalIdRef.current = approvalId;
@@ -933,8 +1108,9 @@ export default function ApprovalComposer({
             recipientName,
             recipientEmail,
             recipientSource: getRecipientSource(),
-            costDelta: costDelta === "" ? null : Number(costDelta),
+            costDelta: offlineCostDelta,
             scheduleDelta: scheduleDelta || null,
+            ...offlineLineItemsAndBaseline,
           });
         } else {
           await addOfflineApproval({
@@ -946,9 +1122,10 @@ export default function ApprovalComposer({
             recipientName,
             recipientEmail,
             recipientSource: getRecipientSource(),
-            costDelta: costDelta === "" ? null : Number(costDelta),
+            costDelta: offlineCostDelta,
             scheduleDelta: scheduleDelta || null,
             creatingUserId,
+            ...offlineLineItemsAndBaseline,
           });
         }
 
@@ -1113,6 +1290,8 @@ export default function ApprovalComposer({
       setRecipientEmail("");
       setCostDelta("");
       setScheduleDelta("");
+      setLineItems([]);
+      setIsBaseline(false);
 
       if (fileInputRef.current) fileInputRef.current.value = "";
 
@@ -1248,13 +1427,132 @@ export default function ApprovalComposer({
         <input
           className="input"
           placeholder="Cost impact"
-          value={costDelta}
+          value={approvalType === "change_order" ? lineItemsSubtotal().toFixed(2) : costDelta}
+          disabled={approvalType === "change_order"}
           onChange={(e) => {
             clearStatus();
             const val = e.target.value;
             if (/^\d*\.?\d*$/.test(val)) setCostDelta(val);
           }}
         />
+
+        {approvalType === "change_order" ? (
+          <div className="sub" style={{ opacity: 0.65, marginTop: -6, marginBottom: 2 }}>
+            Cost impact for a Change Order is always calculated from the line items below — add at
+            least one to set it.
+          </div>
+        ) : null}
+
+        {approvalType === "change_order" ? (
+          <div
+            style={{
+              border: "1px solid rgba(15,23,42,0.08)",
+              borderRadius: 12,
+              padding: 10,
+              display: "grid",
+              gap: 10,
+            }}
+          >
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 13,
+                fontWeight: 700,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={isBaseline}
+                onChange={(e) => {
+                  clearStatus();
+                  setIsBaseline(e.target.checked);
+                }}
+              />
+              This is the baseline estimate for this project
+            </label>
+
+            <div style={{ fontSize: 13, fontWeight: 700 }}>Line Items</div>
+
+            {lineItems.length > 0 ? (
+              <div style={{ display: "grid", gap: 8 }}>
+                {lineItems.map((row, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 70px 90px auto",
+                      gap: 6,
+                      alignItems: "center",
+                    }}
+                  >
+                    <input
+                      className="input"
+                      placeholder="Description"
+                      value={row.description}
+                      onChange={(e) => {
+                        clearStatus();
+                        updateLineItemRow(index, { description: e.target.value });
+                      }}
+                    />
+                    <input
+                      className="input"
+                      placeholder="Qty"
+                      value={row.quantity}
+                      onChange={(e) => {
+                        clearStatus();
+                        const val = e.target.value;
+                        if (/^\d*\.?\d*$/.test(val)) {
+                          updateLineItemRow(index, { quantity: val });
+                        }
+                      }}
+                    />
+                    <input
+                      className="input"
+                      placeholder="Unit cost"
+                      value={row.unitCost}
+                      onChange={(e) => {
+                        clearStatus();
+                        const val = e.target.value;
+                        if (/^\d*\.?\d*$/.test(val)) {
+                          updateLineItemRow(index, { unitCost: val });
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="btn btnDanger"
+                      style={{ padding: "6px 10px", fontSize: 12 }}
+                      onClick={() => removeLineItemRow(index)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              className="btn"
+              style={{ width: "fit-content" }}
+              onClick={addLineItemRow}
+            >
+              + Add line item
+            </button>
+
+            {getValidLineItems().length > 0 ? (
+              <div className="sub" style={{ opacity: 0.8 }}>
+                Line items subtotal:{" "}
+                {lineItemsSubtotal().toLocaleString("en-US", {
+                  style: "currency",
+                  currency: "USD",
+                })}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <input
           className="input"

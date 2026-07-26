@@ -66,6 +66,52 @@ Reconnection is coordinated by a **single** orchestrator, `app/components/Offlin
 
 - Treat offline/reconnect/send/approval/PDF-export/proof-remap systems as protected: they've each been through multiple failed-experiment cycles (documented in `BUILDPROOF_MASTER_HANDOFF.md` under "Failed Experiments"/"Do Not Touch"). Prefer small, surgical, isolated changes over refactors in these areas, and check the handoff doc for prior art before re-attempting something that sounds like a fix already tried.
 - Required env vars (see `.env.local`, not committed): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_APP_URL`, `INTERNAL_APP_URL`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID`, `RESEND_API_KEY`, `RESEND_FROM`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`.
+
+### Local Dev Environment — known-good config (confirmed 2026-07-26)
+
+Ryan's local `.env.local` is deliberately pointed at **production** Supabase
+(`uzuzwhzilhakewtbtzxh.supabase.co`), not staging — his real account/
+subscription data lives there, and local dev has always run against it.
+`STRIPE_SECRET_KEY` locally is a **live-mode** key, not test — billing/
+checkout flows tested from local dev create real charges. `NEXT_PUBLIC_
+APP_URL` and `INTERNAL_APP_URL` are both `http://localhost:3000` so auth
+redirects and internal server-to-server calls (`app/api/send/process-job/
+route.ts` calls `${INTERNAL_APP_URL}/api/send/email`) stay local instead of
+silently hitting a deployed environment.
+
+For a magic-link login to actually redirect back to `localhost:3000` (rather
+than wherever a given Supabase project's default Site URL points), that
+Supabase project's Authentication → URL Configuration → Redirect URLs
+allowlist must include `http://localhost:3000/**`. Supabase silently ignores
+a requested `emailRedirectTo` that isn't on this allowlist and falls back to
+the project's Site URL instead of erroring — this is not a Next.js/env-var
+issue and won't be fixed by anything in `.env.local`, code, or the dev
+server. Confirmed added to the `leeward-staging-internal` Supabase project's
+allowlist on 2026-07-26; not yet confirmed on production's Supabase project
+(add there too if local dev ever needs to point at production and hits the
+same symptom).
+
+**Before running any command that can rewrite `.env.local`** (`vercel link`
+followed by "pull environment variables," `vercel env pull`, "overwrite
+existing file" prompts, etc.): copy it first —
+`Copy-Item .env.local .env.local.backup-<date>` — and diff the result before
+trusting it. `vercel env pull` only pulls one environment's vars (defaults
+to "development") and silently *removes* any key from the file that isn't
+defined there, even if that key has a real, correct value locally — it does
+not merge. This exact sequence (link → pull → blind "yes" to overwrite) wiped
+Supabase/Stripe/Twilio/Resend credentials from local `.env.local` on
+2026-07-26 and cost significant time to reconstruct from old backup files
+that happened to still be sitting in the repo folder — don't rely on that
+luck existing next time.
+
+If the app looks like it didn't pick up a recent code or config change after
+a restart (a tab bar, a highlighted element, an env var) despite the source
+file being correct: this repo's service worker (`public/sw.js`) aggressively
+caches the app shell. Don't spend time re-diagnosing the code — go straight
+to DevTools → Application → Storage → "Clear site data," then reload. This
+has been the actual cause of at least three separate "still broken" reports
+in a single session (2026-07-25/26) that turned out to be stale cache, not
+code.
 - Deployment flow is staging-first: `buildproof-staging.vercel.app` for iteration/validation, `leeward-staging-internal.vercel.app` (renamed from `buildproof-kappa.vercel.app` on 2026-07-15) is the real staging target — see "Staging Environment" below. Note it is NOT reliably access-protected: Vercel Authentication doesn't enforce on this team's Hobby plan regardless of the project setting. The local Vercel link (`.vercel/project.json`) normally points at staging — confirm the deploy target before running `vercel --prod`, and if output ever references the old `buildproof-kappa` name unexpectedly, stop and verify linking before proceeding.
 
 ## Notes Vault Reference
@@ -842,19 +888,53 @@ a continuation of this phase list.
 As of 2026-07-23, this is the sanctioned next exception to
 "architecture is locked" during launch operations, following the same
 pattern Team Accounts V1 did. Conceptual design, competitive research,
-and a full codebase audit are complete. Phase 1 (Navigation Restructure
-— global Projects/Account tabs, project-level Timeline/Estimate tabs,
-merged project header, relocated Send Update/Project Notes/Request
-Approval/Help/Manage Billing, new Notes/Photos/Files content filter and
-Draft/Finalized/Archived status filter on Timeline) is COMPLETE as of
-2026-07-25 on branch `estimate-nav-phase-1`, verified locally
-(`npx tsc --noEmit` + manual dev-server browser testing) but NOT yet
-deployed to `leeward-staging-internal` or production. No schema changes,
-API changes, or offline-architecture changes have been made yet — those
-begin in Phase 2 (Data Model) onward. Full plan, decisions, phase
-breakdown, and progress notes: Current Implement/Estimate, Change Order
-and Invoice System + UI Navigation Overhaul - Implementation Plan.md in
-the Brain vault.
+and a full codebase audit are complete.
+
+Phase 1 (Navigation Restructure — global Projects/Account tabs,
+project-level Timeline/Estimate tabs, merged project header, relocated
+Send Update/Project Notes/Request Approval/Help/Manage Billing, new
+Notes/Photos/Files content filter and Draft/Finalized/Archived status
+filter on Timeline) is COMPLETE and deployed to
+`leeward-staging-internal`.
+
+Phase 2 (Data Model — `line_items` jsonb + `is_baseline` boolean added
+to `approval_requests`, migration
+`20260726120000_estimate_phase2_line_items_and_baseline_flag.sql`) is
+COMPLETE. Phase 3 (approvals/create + approvals/update extended to
+validate/normalize line items and enforce at-most-one-active-baseline
+at the app layer, server-side-recomputed `line_total`) is COMPLETE.
+Phase 4 (offline approval outbox/flush extended to carry
+`lineItems`/`isBaseline` through the existing queue — no IndexedDB
+version bump needed) is COMPLETE. Phase 5 (Estimate tab UI: approval
+feed relocated from Timeline, pinned "Current Total" snapshot card,
+line-items + baseline-checkbox UI in `ApprovalComposer`, floating
+bottom-right "+ New Estimate"/"+ New Change Order" action button) is
+COMPLETE — slices 1-3 of 3 implemented and behaviorally exercised
+locally, including finding and fixing a real bug (see below).
+
+**Migration exception, 2026-07-26**: the Phase 2 migration was applied
+to production (`uzuzwhzilhakewtbtzxh`), ahead of this initiative's own
+"staging only until complete" rollout constraint stated below. Reason:
+local dev's `.env.local` intentionally points at production Supabase
+(see "Local Dev Environment" above), so local testing of Phase 5's
+line-items/baseline UI hit a real `42703 column "is_baseline" does not
+exist` error against production. The migration is additive-only
+(default values, no existing row affected) and no production app code
+reads/writes these columns yet (this feature isn't deployed to
+production), so applying it doesn't expose the feature — it only
+unblocks local testing. Applied via Supabase Studio SQL Editor and
+verified via `information_schema.columns` the same way every prior
+migration in this repo has been. Also fixed the same session: a real
+bug in the baseline-uniqueness check in both approvals routes — a
+`.not(col, "in", "(a,b)")` PostgREST filter was the original (wrong)
+cause of a 500 before the missing-column issue was found; replaced
+with a plain fetch + JS-side status filtering in both
+`app/api/approvals/create/route.ts` and
+`app/api/approvals/update/route.ts`.
+
+Full plan, decisions, phase breakdown, and progress notes: Current
+Implement/Estimate, Change Order and Invoice System + UI Navigation
+Overhaul - Implementation Plan.md in the Brain vault.
 
 Summary: adds a structured Estimate (baseline bid) and Change Order
 system on top of the existing approval lifecycle (both are approvals

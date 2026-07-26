@@ -3,6 +3,12 @@ const DB_VERSION = 6;
 
 const STORE_NAME = "offline_approvals";
 
+export type OfflineLineItem = {
+    description: string;
+    quantity: number;
+    unitCost: number;
+};
+
 export type OfflineApprovalRecord = {
     id: string;
     projectId: string;
@@ -16,6 +22,15 @@ export type OfflineApprovalRecord = {
     scheduleDelta: string | null;
     dueAt?: string | null;
     creatingUserId?: string;
+    // Estimate/Change Order Phase 4: structured line items and the baseline
+    // flag, queued alongside everything else this record already tracks.
+    // Optional so every pre-existing queued/offline record (created before
+    // this field existed) still deserializes correctly with no migration --
+    // no IndexedDB version bump needed, since new optional fields on an
+    // existing object store's records require no schema change at all (only
+    // adding a new store or index would).
+    lineItems?: OfflineLineItem[];
+    isBaseline?: boolean;
     createdAt: number;
     updatedAt: number;
     createdTimezoneId: string | null;

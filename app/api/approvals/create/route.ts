@@ -11,6 +11,61 @@ const ALLOWED_TYPES = [
   "general",
 ] as const;
 
+// Statuses that no longer count as an "active" baseline occupying a project's
+// one-baseline slot -- a declined or expired baseline shouldn't permanently
+// block a contractor from submitting a new one. See the Phase 2 migration's
+// own header for why this is an application-layer check, not a DB constraint.
+const INACTIVE_BASELINE_STATUSES = ["declined", "expired"];
+
+type RawLineItem = {
+  description?: unknown;
+  quantity?: unknown;
+  unitCost?: unknown;
+};
+
+function normalizeLineItems(
+  input: unknown
+): { items: Array<Record<string, unknown>> | null; error: string | null } {
+  if (input === undefined) return { items: null, error: null };
+  if (!Array.isArray(input)) {
+    return { items: null, error: "lineItems must be an array." };
+  }
+
+  const normalized: Array<Record<string, unknown>> = [];
+
+  for (const raw of input as RawLineItem[]) {
+    const description = String(raw?.description ?? "").trim();
+    const quantity = Number(raw?.quantity);
+    const unitCost = Number(raw?.unitCost);
+
+    if (!description) {
+      return { items: null, error: "Each line item needs a description." };
+    }
+
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      return { items: null, error: "Each line item needs a valid quantity." };
+    }
+
+    if (!Number.isFinite(unitCost) || unitCost < 0) {
+      return { items: null, error: "Each line item needs a valid unit cost." };
+    }
+
+    // line_total is computed server-side, never trusted from the client --
+    // protects the stored historical record from client-side rounding bugs
+    // or drift. See the Phase 2 migration's header.
+    const lineTotal = Math.round(quantity * unitCost * 100) / 100;
+
+    normalized.push({
+      description,
+      quantity,
+      unit_cost: unitCost,
+      line_total: lineTotal,
+    });
+  }
+
+  return { items: normalized, error: null };
+}
+
 export async function POST(req: Request) {
   try {
     const { user, errorResponse } = await requireUser(req);
@@ -52,6 +107,16 @@ export async function POST(req: Request) {
       : null;
 
     const dueAt = body?.dueAt ? String(body.dueAt) : null;
+
+    const { items: lineItems, error: lineItemsError } = normalizeLineItems(
+      body?.lineItems
+    );
+
+    if (lineItemsError) {
+      return NextResponse.json({ error: lineItemsError }, { status: 400 });
+    }
+
+    const isBaseline = body?.isBaseline === true;
 
     let creatingUserId =
       typeof body?.creatingUserId === "string" && body.creatingUserId
@@ -120,24 +185,73 @@ export async function POST(req: Request) {
         ? "project"
         : "custom";
 
+    if (isBaseline) {
+      // Fetch any is_baseline rows for this project and filter status in JS
+      // rather than pushing a `.not(col, "in", "(a,b)")` filter down to
+      // PostgREST -- at most a handful of rows per project in practice, and
+      // this sidesteps any PostgREST in-list syntax/quoting pitfalls
+      // entirely (this is what caused a 500 here previously).
+      const { data: existingBaselineRows, error: baselineCheckError } =
+        await supabaseServer
+          .from("approval_requests")
+          .select("id, status")
+          .eq("project_id", projectId)
+          .eq("is_baseline", true);
+
+      if (baselineCheckError) {
+        console.error(
+          "[approvals/create] baseline uniqueness check error",
+          baselineCheckError
+        );
+        return NextResponse.json(
+          { error: "Failed to validate baseline uniqueness." },
+          { status: 500 }
+        );
+      }
+
+      const activeExistingBaseline = (existingBaselineRows || []).find(
+        (row) => !INACTIVE_BASELINE_STATUSES.includes(row.status)
+      );
+
+      if (activeExistingBaseline) {
+        return NextResponse.json(
+          { error: "This project already has an active baseline estimate." },
+          { status: 409 }
+        );
+      }
+    }
+
+    const insertPayload: Record<string, unknown> = {
+      project_id: projectId,
+      created_by: creatingUserId,
+      title,
+      approval_type: approvalType,
+      description,
+      recipient_name: recipientName,
+      recipient_email: recipientEmail,
+      recipient_source: recipientSource,
+      cost_delta: costDelta,
+      schedule_delta: scheduleDelta,
+      due_at: dueAt,
+      status: "draft",
+      created_timezone_id: createdTimezoneId,
+      created_timezone_offset_minutes: createdTimezoneOffsetMinutes,
+    };
+
+    // Only set line_items/is_baseline when the caller actually sent them --
+    // otherwise let the column defaults ('[]'::jsonb, false) apply naturally,
+    // same conditional-inclusion pattern used in approvals/update.
+    if (lineItems !== null) {
+      insertPayload.line_items = lineItems;
+    }
+
+    if (body?.isBaseline !== undefined) {
+      insertPayload.is_baseline = isBaseline;
+    }
+
     const { data: approval, error: insertError } = await supabaseServer
       .from("approval_requests")
-      .insert({
-        project_id: projectId,
-        created_by: creatingUserId,
-        title,
-        approval_type: approvalType,
-        description,
-        recipient_name: recipientName,
-        recipient_email: recipientEmail,
-        recipient_source: recipientSource,
-        cost_delta: costDelta,
-        schedule_delta: scheduleDelta,
-        due_at: dueAt,
-        status: "draft",
-        created_timezone_id: createdTimezoneId,
-        created_timezone_offset_minutes: createdTimezoneOffsetMinutes,
-      })
+      .insert(insertPayload)
       .select("*")
       .single();
 

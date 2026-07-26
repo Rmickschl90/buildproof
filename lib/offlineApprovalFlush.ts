@@ -53,6 +53,22 @@ export async function flushOfflineApprovalOutbox(
           ? "/api/approvals/create"
           : "/api/approvals/update";
 
+        // lineItems/isBaseline are only included when the queued record
+        // actually has them set -- keeps parity with the API routes'
+        // own conditional-inclusion behavior (approvals/create and
+        // approvals/update leave the column at its default/existing value
+        // when the field is absent from the request body entirely, rather
+        // than treating "undefined" the same as "explicitly empty/false").
+        const lineItemsAndBaseline: Record<string, unknown> = {};
+
+        if (record.lineItems !== undefined) {
+          lineItemsAndBaseline.lineItems = record.lineItems;
+        }
+
+        if (record.isBaseline !== undefined) {
+          lineItemsAndBaseline.isBaseline = record.isBaseline;
+        }
+
         const body = isNewOfflineApproval
                     ? {
             projectId: record.projectId,
@@ -67,6 +83,7 @@ export async function flushOfflineApprovalOutbox(
             createdTimezoneId: record.createdTimezoneId,
             createdTimezoneOffsetMinutes: record.createdTimezoneOffsetMinutes,
             creatingUserId: record.creatingUserId,
+            ...lineItemsAndBaseline,
           }
           : {
             approvalId: record.id,
@@ -80,6 +97,7 @@ export async function flushOfflineApprovalOutbox(
             dueAt: record.dueAt,
             createdTimezoneId: record.createdTimezoneId,
             createdTimezoneOffsetMinutes: record.createdTimezoneOffsetMinutes,
+            ...lineItemsAndBaseline,
           };
 
         const res = await fetch(endpoint, {

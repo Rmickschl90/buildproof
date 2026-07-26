@@ -83,6 +83,13 @@ type Proof = {
   created_timezone_offset_minutes?: number | null;
 };
 
+type ApprovalLineItem = {
+  description: string;
+  quantity: number;
+  unit_cost: number;
+  line_total: number;
+};
+
 type Approval = {
   id: string;
   title: string;
@@ -100,6 +107,11 @@ type Approval = {
   project_id: string;
   created_timezone_id?: string | null;
   created_timezone_offset_minutes?: number | null;
+  // Estimate/Change Order system (Phase 2+): optional so every code path that
+  // builds an approval-shaped object without them (e.g. the offline-approval
+  // normalization in buildVisibleApprovals) keeps compiling unchanged.
+  is_baseline?: boolean;
+  line_items?: ApprovalLineItem[];
 };
 
 type TimelineApproval = Approval;
@@ -306,6 +318,16 @@ export default function DashboardPage() {
   const isRunningReconnectRef = useRef(false);
   const selectedProjectId = selectedProject ? selectedProject.id : null;
   const [editingApproval, setEditingApproval] = useState<any | null>(null);
+  // Set right before opening ApprovalComposer for a brand-new estimate/change
+  // order from the Estimate tab's adaptive "+" button -- decides whether that
+  // fresh composer instance defaults to "this is the baseline estimate".
+  const [approvalComposerDefaultBaseline, setApprovalComposerDefaultBaseline] =
+    useState(false);
+  // Scroll target for the Estimate tab's floating "+" button -- the composer
+  // renders below the fold when opened from a scrolled-down position, so the
+  // click needs to bring its first field into view rather than just toggling
+  // isApprovalMode and leaving the user staring at wherever they already were.
+  const approvalComposerRef = useRef<HTMLDivElement | null>(null);
 
 
   // ---------------- INPUTS ----------------
@@ -510,6 +532,17 @@ export default function DashboardPage() {
   useEffect(() => {
     setHasMounted(true);
   }, []);
+
+  // Bring the approval composer's first field into view when it opens --
+  // the Estimate tab's floating "+" button is the only trigger for this now
+  // (the old Timeline "Request Approval" button was removed once the "+"
+  // button existed to replace it), but the composer can still open while the
+  // page is scrolled well past where it renders.
+  useEffect(() => {
+    if (isApprovalMode) {
+      approvalComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [isApprovalMode]);
 
   useEffect(() => {
     return () => {
@@ -3283,6 +3316,40 @@ export default function DashboardPage() {
     );
   }, [visibleApprovals]);
 
+  // Estimate tab running-total snapshot: baseline (once approved) plus every
+  // approved change order. Pending/draft items are deliberately excluded from
+  // the total until approved, per the design doc's snapshot-model decision --
+  // a pending change order is visible in the feed but shouldn't move the
+  // number a client might be looking at.
+  function approvalValue(a: Approval): number {
+    if (Array.isArray(a.line_items) && a.line_items.length > 0) {
+      return a.line_items.reduce(
+        (sum, li) => sum + (Number(li.line_total) || 0),
+        0
+      );
+    }
+    return Number(a.cost_delta) || 0;
+  }
+
+  const estimateSummary = useMemo(() => {
+    const baseline = visibleApprovals.find((a) => a.is_baseline);
+
+    const approvedTotal = visibleApprovals.reduce((sum, a) => {
+      if (a.status !== "approved") return sum;
+      return sum + approvalValue(a);
+    }, 0);
+
+    const approvedCount = visibleApprovals.filter(
+      (a) => a.status === "approved"
+    ).length;
+
+    const pendingCount = visibleApprovals.filter(
+      (a) => a.status === "draft" || a.status === "pending"
+    ).length;
+
+    return { baseline, approvedTotal, approvedCount, pendingCount };
+  }, [visibleApprovals]);
+
   if (!hasMounted) return null;
 
   return (
@@ -3882,35 +3949,154 @@ export default function DashboardPage() {
                   >
                     Project Notes
                   </button>
-                  <button
-                    className="btn"
-                    style={{
-                      background: "rgba(37,99,235,0.10)",
-                      color: "#1d4ed8",
-                      borderColor: "rgba(37,99,235,0.25)",
-                    }}
-                    onClick={() => {
-                      window.localStorage.removeItem(`approval-draft:${selectedProject.id}`);
-                      setEditingApproval(null);
-                      setIsApprovalMode(true);
-                    }}
-                  >
-                    Request Approval
-                  </button>
                 </div>
               ) : null}
+            </div>
+          )}
+
+          {selectedProject && activeGlobalTab === "projects" && isApprovalMode && (
+            <div ref={approvalComposerRef}>
+              <ApprovalComposer
+                projectId={selectedProject.id}
+                projectClientEmail={selectedProject.client_email ?? null}
+                initialApproval={editingApproval}
+                defaultIsBaseline={approvalComposerDefaultBaseline}
+                onComplete={async () => {
+                  window.localStorage.removeItem(`approval-draft:${selectedProject.id}`);
+                  setIsApprovalMode(false);
+                  setEditingApproval(null);
+                  setApprovalComposerDefaultBaseline(false);
+                  await loadApprovals(selectedProject.id);
+                }}
+              />
             </div>
           )}
 
           {selectedProject && activeGlobalTab === "projects" && activeProjectTab === "estimate" && (
             <div className="card">
               <div style={{ fontWeight: 800, marginBottom: 6 }}>Estimate</div>
-              <p className="sub" style={{ opacity: 0.75 }}>
-                The estimate and change order system lands here in a follow-up phase. Nothing to
-                see yet — this confirms the tab switch itself works.
+
+              <div
+                style={{
+                  borderRadius: 16,
+                  padding: 16,
+                  marginBottom: 14,
+                  background: "rgba(15,23,42,0.03)",
+                  border: "1px solid rgba(15,23,42,0.08)",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                    opacity: 0.55,
+                    marginBottom: 6,
+                  }}
+                >
+                  Current Total
+                </div>
+
+                <div style={{ fontSize: 32, fontWeight: 900, color: "#111827" }}>
+                  {estimateSummary.approvedTotal.toLocaleString("en-US", {
+                    style: "currency",
+                    currency: "USD",
+                  })}
+                </div>
+
+                <div className="sub" style={{ marginTop: 6, opacity: 0.75 }}>
+                  {estimateSummary.approvedCount} approved
+                  {estimateSummary.pendingCount > 0
+                    ? ` · ${estimateSummary.pendingCount} pending (not yet included)`
+                    : ""}
+                  {!estimateSummary.baseline ? " · no baseline estimate yet" : ""}
+                </div>
+              </div>
+
+              <p className="sub" style={{ opacity: 0.75, marginBottom: 14 }}>
+                Baseline estimate and change orders for this project. A shareable client invoice
+                view lands here in a follow-up step — for now this is the same approval feed that
+                used to live on the Timeline tab, just relocated, plus the running total above.
               </p>
+
+              {draftApprovals.length > 0 ? (
+                <div className="list" style={{ marginTop: 14, display: "grid", gap: 14 }}>
+                  {draftApprovals.map((approval) => (
+                    <ApprovalCard
+                      key={approval.id}
+                      approval={approval}
+                      onUpdated={async () => {
+                        await loadApprovals(selectedProject.id);
+                      }}
+                      onEdit={(approval) => {
+                        setEditingApproval(approval);
+                        setIsApprovalMode(true);
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : null}
+
+              {approvals.filter((a) => a.status !== "draft" && a.status !== "pending").length > 0 ? (
+                <div className="list" style={{ marginTop: 14, display: "grid", gap: 14 }}>
+                  {approvals
+                    .filter((a) => a.status !== "draft" && a.status !== "pending")
+                    .map((approval) => (
+                      <ApprovalCard
+                        key={approval.id}
+                        approval={approval}
+                        onUpdated={async () => {
+                          await loadApprovals(selectedProject.id);
+                        }}
+                      />
+                    ))}
+                </div>
+              ) : null}
+
+              {draftApprovals.length === 0 &&
+              approvals.filter((a) => a.status !== "draft" && a.status !== "pending").length === 0 ? (
+                <p className="sub" style={{ opacity: 0.6, marginTop: 4 }}>
+                  No estimate or change orders yet. Tap the + button to create one.
+                </p>
+              ) : null}
             </div>
           )}
+
+          {selectedProject &&
+            activeGlobalTab === "projects" &&
+            activeProjectTab === "estimate" &&
+            !isApprovalMode && (
+              <button
+                className="btn btnPrimary"
+                aria-label={estimateSummary.baseline ? "New Change Order" : "New Estimate"}
+                title={estimateSummary.baseline ? "New Change Order" : "New Estimate"}
+                style={{
+                  position: "fixed",
+                  right: 20,
+                  bottom: 24,
+                  zIndex: 40,
+                  width: 56,
+                  height: 56,
+                  borderRadius: "50%",
+                  padding: 0,
+                  boxShadow: "0 8px 24px rgba(15,23,42,0.25)",
+                  fontSize: 28,
+                  lineHeight: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                onClick={() => {
+                  window.localStorage.removeItem(`approval-draft:${selectedProject.id}`);
+                  setEditingApproval(null);
+                  setApprovalComposerDefaultBaseline(!estimateSummary.baseline);
+                  setIsApprovalMode(true);
+                }}
+              >
+                +
+              </button>
+            )}
 
           {selectedProject && activeGlobalTab === "projects" && activeProjectTab === "timeline" && (
             <div className="card">
@@ -4118,20 +4304,6 @@ export default function DashboardPage() {
                   </>
                 )}
               </div>
-
-              {isApprovalMode && (
-                <ApprovalComposer
-                  projectId={selectedProject.id}
-                  projectClientEmail={selectedProject.client_email ?? null}
-                  initialApproval={editingApproval}
-                  onComplete={async () => {
-                    window.localStorage.removeItem(`approval-draft:${selectedProject.id}`);
-                    setIsApprovalMode(false);
-                    setEditingApproval(null);
-                    await loadApprovals(selectedProject.id);
-                  }}
-                />
-              )}
 
 
 
@@ -4454,42 +4626,6 @@ export default function DashboardPage() {
                       </div>
                     ) : null}
                   </div>
-
-                  {draftApprovals.length > 0 ? (
-                    <div className="list" style={{ marginTop: 14, display: "grid", gap: 14 }}>
-
-
-                      {draftApprovals.map((approval) => (
-                        <ApprovalCard
-                          key={approval.id}
-                          approval={approval}
-                          onUpdated={async () => {
-                            await loadApprovals(selectedProject.id);
-                          }}
-                          onEdit={(approval) => {
-                            setEditingApproval(approval);
-                            setIsApprovalMode(true);
-                          }}
-                        />
-                      ))}
-                    </div>
-                  ) : null}
-
-                  {approvals.filter((a) => a.status !== "draft" && a.status !== "pending").length > 0 ? (
-                    <div className="list" style={{ marginTop: 14, display: "grid", gap: 14 }}>
-                      {approvals
-                        .filter((a) => a.status !== "draft" && a.status !== "pending")
-                        .map((approval) => (
-                          <ApprovalCard
-                            key={approval.id}
-                            approval={approval}
-                            onUpdated={async () => {
-                              await loadApprovals(selectedProject.id);
-                            }}
-                          />
-                        ))}
-                    </div>
-                  ) : null}
 
                   <div className="list" style={{ marginTop: 14, display: "grid", gap: 14 }}>
                     {filteredProofs.map((proof) => {

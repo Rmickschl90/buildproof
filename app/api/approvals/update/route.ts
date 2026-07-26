@@ -12,6 +12,57 @@ const ALLOWED_TYPES = [
   "general",
 ] as const;
 
+// Statuses that no longer count as an "active" baseline occupying a project's
+// one-baseline slot -- see approvals/create's own comment and the Phase 2
+// migration's header for the full reasoning.
+const INACTIVE_BASELINE_STATUSES = ["declined", "expired"];
+
+type RawLineItem = {
+  description?: unknown;
+  quantity?: unknown;
+  unitCost?: unknown;
+};
+
+function normalizeLineItems(
+  input: unknown
+): { items: Array<Record<string, unknown>> | null; error: string | null } {
+  if (input === undefined) return { items: null, error: null };
+  if (!Array.isArray(input)) {
+    return { items: null, error: "lineItems must be an array." };
+  }
+
+  const normalized: Array<Record<string, unknown>> = [];
+
+  for (const raw of input as RawLineItem[]) {
+    const description = String(raw?.description ?? "").trim();
+    const quantity = Number(raw?.quantity);
+    const unitCost = Number(raw?.unitCost);
+
+    if (!description) {
+      return { items: null, error: "Each line item needs a description." };
+    }
+
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      return { items: null, error: "Each line item needs a valid quantity." };
+    }
+
+    if (!Number.isFinite(unitCost) || unitCost < 0) {
+      return { items: null, error: "Each line item needs a valid unit cost." };
+    }
+
+    const lineTotal = Math.round(quantity * unitCost * 100) / 100;
+
+    normalized.push({
+      description,
+      quantity,
+      unit_cost: unitCost,
+      line_total: lineTotal,
+    });
+  }
+
+  return { items: normalized, error: null };
+}
+
 export async function POST(req: Request) {
   try {
     const { user, errorResponse } = await requireUser(req);
@@ -42,6 +93,14 @@ export async function POST(req: Request) {
       : null;
 
     const dueAt = body?.dueAt ? String(body.dueAt) : null;
+
+    const { items: lineItems, error: lineItemsError } = normalizeLineItems(
+      body?.lineItems
+    );
+
+    if (lineItemsError) {
+      return NextResponse.json({ error: lineItemsError }, { status: 400 });
+    }
 
     if (!approvalId) {
       return NextResponse.json({ error: "Missing approvalId." }, { status: 400 });
@@ -112,20 +171,72 @@ export async function POST(req: Request) {
         ? "project"
         : "custom";
 
+    const updatePayload: Record<string, unknown> = {
+      title,
+      approval_type: approvalType,
+      description,
+      recipient_name: recipientName,
+      recipient_email: recipientEmail,
+      recipient_source: recipientSource,
+      cost_delta: costDelta,
+      schedule_delta: scheduleDelta,
+      due_at: dueAt,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Only touch line_items/is_baseline when the caller actually sent them --
+    // leaves them untouched for any edit coming from a client that doesn't
+    // know about these fields yet (e.g. the current ApprovalComposer UI,
+    // ahead of Phase 5). Never silently wipe stored line items or the
+    // baseline flag just because a request omitted them.
+    if (lineItems !== null) {
+      updatePayload.line_items = lineItems;
+    }
+
+    if (body?.isBaseline !== undefined) {
+      const isBaseline = body.isBaseline === true;
+
+      if (isBaseline) {
+        // See approvals/create's identical comment: filter status in JS
+        // rather than relying on a PostgREST `.not(col, "in", "(a,b)")`
+        // filter, which was the actual cause of a 500 here previously.
+        const { data: existingBaselineRows, error: baselineCheckError } =
+          await supabaseServer
+            .from("approval_requests")
+            .select("id, status")
+            .eq("project_id", approval.project_id)
+            .eq("is_baseline", true)
+            .neq("id", approvalId);
+
+        if (baselineCheckError) {
+          console.error(
+            "[approvals/update] baseline uniqueness check error",
+            baselineCheckError
+          );
+          return NextResponse.json(
+            { error: "Failed to validate baseline uniqueness." },
+            { status: 500 }
+          );
+        }
+
+        const activeExistingBaseline = (existingBaselineRows || []).find(
+          (row) => !INACTIVE_BASELINE_STATUSES.includes(row.status)
+        );
+
+        if (activeExistingBaseline) {
+          return NextResponse.json(
+            { error: "This project already has an active baseline estimate." },
+            { status: 409 }
+          );
+        }
+      }
+
+      updatePayload.is_baseline = isBaseline;
+    }
+
     const { data: updatedApproval, error: updateError } = await supabaseServer
       .from("approval_requests")
-      .update({
-        title,
-        approval_type: approvalType,
-        description,
-        recipient_name: recipientName,
-        recipient_email: recipientEmail,
-        recipient_source: recipientSource,
-        cost_delta: costDelta,
-        schedule_delta: scheduleDelta,
-        due_at: dueAt,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq("id", approvalId)
       .select("*")
       .single();
