@@ -3642,6 +3642,32 @@ export default function DashboardPage() {
                   Estimate
                 </button>
               </div>
+
+              {activeProjectTab === "timeline" ? (
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <button
+                    className="btn"
+                    onClick={() => setProjectNotesOpen(true)}
+                  >
+                    Project Notes
+                  </button>
+                  <button
+                    className="btn"
+                    style={{
+                      background: "rgba(37,99,235,0.10)",
+                      color: "#1d4ed8",
+                      borderColor: "rgba(37,99,235,0.25)",
+                    }}
+                    onClick={() => {
+                      window.localStorage.removeItem(`approval-draft:${selectedProject.id}`);
+                      setEditingApproval(null);
+                      setIsApprovalMode(true);
+                    }}
+                  >
+                    Request Approval
+                  </button>
+                </div>
+              ) : null}
             </div>
           )}
 
@@ -3783,35 +3809,6 @@ export default function DashboardPage() {
                                   onClick={exportDisputePackage}
                                 >
                                   Export dispute package
-                                </button>
-
-                                <button
-                                  className="btn"
-                                  style={{ width: "100%" }}
-                                  onClick={() => {
-                                    setProjectNotesOpen(true);
-                                    setProjectMenuOpen(false);
-                                  }}
-                                >
-                                  Project Notes
-                                </button>
-
-                                <button
-                                  className="btn"
-                                  style={{
-                                    width: "100%",
-                                    background: "rgba(37,99,235,0.10)",
-                                    color: "#1d4ed8",
-                                    borderColor: "rgba(37,99,235,0.25)",
-                                  }}
-                                  onClick={() => {
-                                    window.localStorage.removeItem(`approval-draft:${selectedProject.id}`);
-                                    setEditingApproval(null);
-                                    setIsApprovalMode(true);
-                                    setProjectMenuOpen(false);
-                                  }}
-                                >
-                                  Request Approval
                                 </button>
 
                                 <button
