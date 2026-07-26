@@ -18,6 +18,13 @@ type ApprovalAttachment = {
   path: string;
 };
 
+type ApprovalLineItem = {
+  description: string;
+  quantity: number;
+  unit_cost: number;
+  line_total: number;
+};
+
 type Approval = {
   id: string;
   title: string;
@@ -37,6 +44,8 @@ type Approval = {
   created_timezone_id?: string | null;
   created_timezone_offset_minutes?: number | null;
   attachments?: ApprovalAttachment[];
+  is_baseline?: boolean | null;
+  line_items?: ApprovalLineItem[] | null;
 };
 
 type Props = {
@@ -477,6 +486,23 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
                 {getStatusLabel(approval.status)}
               </div>
 
+              {approval.is_baseline ? (
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    padding: "6px 10px",
+                    borderRadius: 999,
+                    border: "1px solid rgba(22,163,74,0.35)",
+                    background: "rgba(22,163,74,0.08)",
+                    color: "#15803d",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Baseline Estimate
+                </div>
+              ) : null}
+
               {isArchived ? (
                 <div
                   style={{
@@ -590,7 +616,9 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
               {approval.description}
             </div>
 
-            {approval.cost_delta !== null || approval.schedule_delta ? (
+            {approval.cost_delta !== null ||
+            approval.schedule_delta ||
+            (approval.line_items && approval.line_items.length > 0) ? (
               <div
                 style={{
                   display: "grid",
@@ -601,7 +629,41 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
                   border: "1px solid rgba(15,23,42,0.06)",
                 }}
               >
-                {approval.cost_delta !== null ? (
+                {approval.line_items && approval.line_items.length > 0 ? (
+                  <div style={{ display: "grid", gap: 6 }}>
+                    <div className="sub" style={{ opacity: 0.85, fontWeight: 700 }}>
+                      Line items
+                    </div>
+
+                    <div style={{ display: "grid", gap: 4 }}>
+                      {approval.line_items.map((li, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: 12,
+                          }}
+                          className="sub"
+                        >
+                          <span style={{ opacity: 0.85 }}>
+                            {li.description} ({li.quantity} × ${li.unit_cost})
+                          </span>
+                          <span style={{ fontWeight: 700, opacity: 0.9 }}>
+                            ${Number(li.line_total).toFixed(2)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="sub" style={{ fontWeight: 800, opacity: 0.9 }}>
+                      Total: $
+                      {approval.line_items
+                        .reduce((sum, li) => sum + (Number(li.line_total) || 0), 0)
+                        .toFixed(2)}
+                    </div>
+                  </div>
+                ) : approval.cost_delta !== null ? (
                   <div className="sub" style={{ opacity: 0.85 }}>
                     <b>Cost impact:</b> {approval.cost_delta}
                   </div>

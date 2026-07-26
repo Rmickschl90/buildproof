@@ -9,12 +9,19 @@ export async function generateMetadata(props: {
   searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>;
 }) {
   const p = await resolveParams(props?.params);
+  const sp = await resolveParams(props?.searchParams);
   const token = p?.token;
+
+  const invoiceRaw = sp?.invoice;
+  const isInvoiceMode =
+    invoiceRaw === "1" ||
+    invoiceRaw === "true" ||
+    (Array.isArray(invoiceRaw) && (invoiceRaw.includes("1") || invoiceRaw.includes("true")));
 
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
   const logoUrl = appUrl ? `${appUrl}/buildproof-logo.png` : "/buildproof-logo.png";
 
-  let title = "Leeward Project Journal";
+  let title = isInvoiceMode ? "Leeward Invoice" : "Leeward Project Journal";
 
   if (token) {
     const { data: share } = await supabaseServer
@@ -31,7 +38,9 @@ export async function generateMetadata(props: {
         .maybeSingle();
 
       if (project?.title) {
-        title = `${project.title} | Leeward`;
+        title = isInvoiceMode
+          ? `${project.title} — Invoice | Leeward`
+          : `${project.title} | Leeward`;
       }
     }
   }
@@ -69,6 +78,13 @@ type ApprovalAttachment = {
   signed_url?: string | null;
 };
 
+type ApprovalLineItem = {
+  description: string;
+  quantity: number;
+  unit_cost: number;
+  line_total: number;
+};
+
 type Approval = {
   id: string;
   project_id: string;
@@ -88,7 +104,24 @@ type Approval = {
   created_timezone_id?: string | null;
   created_timezone_offset_minutes?: number | null;
   attachments?: ApprovalAttachment[] | null;
+  is_baseline?: boolean | null;
+  line_items?: ApprovalLineItem[] | null;
 };
+
+// Mirrors app/dashboard/page.tsx's approvalValue() exactly -- an approval's
+// dollar value is the sum of its line items' stored line_total when present,
+// falling back to the lump cost_delta otherwise. Kept in sync deliberately
+// so the client-facing running total always matches what the contractor
+// sees on their own Estimate tab.
+function approvalValue(a: Approval): number {
+  if (Array.isArray(a.line_items) && a.line_items.length > 0) {
+    return a.line_items.reduce(
+      (sum, li) => sum + (Number(li.line_total) || 0),
+      0
+    );
+  }
+  return Number(a.cost_delta) || 0;
+}
 
 type AttachmentRow = {
   id: string;
@@ -180,6 +213,16 @@ export default async function SharePage(props: {
     archivedRaw === "1" ||
     archivedRaw === "true" ||
     (Array.isArray(archivedRaw) && (archivedRaw.includes("1") || archivedRaw.includes("true")));
+
+  // Invoice mode -- same token, same access control, just a filtered render
+  // (per the design doc's Phase 6 constraint: no new route, no redesign).
+  // Triggered by the dashboard's "Share Invoice" button appending ?invoice=1
+  // to the same share URL a full project update would use.
+  const invoiceRaw = sp?.invoice;
+  const isInvoiceMode =
+    invoiceRaw === "1" ||
+    invoiceRaw === "true" ||
+    (Array.isArray(invoiceRaw) && (invoiceRaw.includes("1") || invoiceRaw.includes("true")));
 
   if (!token) {
     return (
@@ -330,7 +373,9 @@ export default async function SharePage(props: {
       responded_at,
       archived_at,
       created_timezone_id,
-      created_timezone_offset_minutes
+      created_timezone_offset_minutes,
+      is_baseline,
+      line_items
     `)
     .eq("project_id", projectId)
     .order("created_at", { ascending: false });
@@ -402,13 +447,30 @@ export default async function SharePage(props: {
   })) as Approval[];
 
   const list = (proofs ?? []) as Proof[];
+
+  // Invoice mode shows only approvals that actually carry a price -- line
+  // items or a non-null cost_delta -- regardless of approval_type. Ryan
+  // confirmed this over a strict change_order-type filter, since a cost can
+  // in principle be attached to any approval type. Regular timeline entries
+  // (photos/notes/updates) are excluded entirely in this mode -- that's the
+  // whole point, so a client can't confuse the invoice with a project update
+  // they already received.
+  const invoiceEligible = (a: Approval) =>
+    a.cost_delta != null || (Array.isArray(a.line_items) && a.line_items.length > 0);
+
+  const invoiceApprovals = isInvoiceMode
+    ? approvals.filter(invoiceEligible)
+    : approvals;
+
   const timelineItems = [
-    ...list.map((entry) => ({
-      kind: "proof" as const,
-      sortAt: entry.created_at,
-      entry,
-    })),
-    ...approvals.map((approval) => ({
+    ...(isInvoiceMode
+      ? []
+      : list.map((entry) => ({
+          kind: "proof" as const,
+          sortAt: entry.created_at,
+          entry,
+        }))),
+    ...invoiceApprovals.map((approval) => ({
       kind: "approval" as const,
       sortAt: approval.sent_at || approval.created_at,
       approval,
@@ -421,9 +483,24 @@ export default async function SharePage(props: {
   let attachmentsByProof: Record<number, AttachmentView[]> = {};
   let totalAttachments = 0;
   const finalizedCount = list.filter((x) => !!x.locked_at).length;
-  const approvalCount = approvals.length;
+  const approvalCount = isInvoiceMode ? invoiceApprovals.length : approvals.length;
 
-  if (proofIds.length > 0) {
+  // Running total: baseline (once approved) plus every approved change
+  // order -- mirrors the dashboard's Estimate tab "Current Total" snapshot
+  // card exactly (see approvalValue() above), so what a client sees here
+  // always matches what the contractor sees. Pending/draft items never
+  // reach this page at all (excluded by the query above), so no separate
+  // pending-exclusion check is needed here the way the dashboard needs one.
+  const hasBaseline = approvals.some((a) => a.is_baseline);
+  const currentTotal = approvals.reduce((sum, a) => {
+    if (a.status !== "approved") return sum;
+    return sum + approvalValue(a);
+  }, 0);
+
+  // Skip signing proof attachments entirely in invoice mode -- they're never
+  // rendered there (entries are excluded), so there's no reason to pay for
+  // Storage signed-URL calls for attachments that won't be shown.
+  if (!isInvoiceMode && proofIds.length > 0) {
     const { data: rows, error: attErr } = await supabaseServer
       .from("attachments")
       .select("id,proof_id,filename,mime_type,path,created_at")
@@ -457,8 +534,10 @@ export default async function SharePage(props: {
     }
   }
 
-  // ✅ include approval attachments in summary counts
-  for (const approval of approvals) {
+  // ✅ include approval attachments in summary counts -- scoped to
+  // invoiceApprovals so invoice mode's attachment count only reflects the
+  // approvals actually shown there, not every approval on the project.
+  for (const approval of invoiceApprovals) {
     for (const _att of approval.attachments ?? []) {
       totalAttachments += 1;
     }
@@ -474,6 +553,218 @@ export default async function SharePage(props: {
     : "";
   const lastUpdatedIso = list.length ? list[list.length - 1].created_at : project.created_at;
   const lastUpdated = lastUpdatedIso ? formatShortDate(lastUpdatedIso) : "";
+
+  // Extracted so the same approval card markup can be reused both in the
+  // regular unified timeline (untouched ordering) and in invoice mode's
+  // dedicated baseline/change-order sections below -- avoids duplicating
+  // ~150 lines of JSX between the two render paths.
+  function renderApprovalEntry(approval: Approval, opts?: { emphasize?: boolean }) {
+    return (
+      <div
+        key={`approval-${approval.id}`}
+        className="card entry"
+        style={
+          opts?.emphasize
+            ? { borderLeft: "6px solid #15803d", boxShadow: "0 10px 24px rgba(21,128,61,0.12)" }
+            : undefined
+        }
+      >
+        <div className="entryAccent" />
+        <div className="entryBody">
+          <div className="entryTop">
+            <div className="entryDate">
+              {approval.sent_at || approval.created_at
+                ? formatDate(
+                  approval.sent_at || approval.created_at,
+                  approval.created_timezone_offset_minutes
+                )
+                : ""}
+            </div>
+
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              {approval.is_baseline ? (
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 900,
+                    padding: "6px 10px",
+                    borderRadius: 999,
+                    border: "1px solid rgba(22,163,74,0.25)",
+                    background: "rgba(22,163,74,0.10)",
+                    color: "#15803d",
+                  }}
+                >
+                  Baseline Estimate
+                </div>
+              ) : null}
+
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 900,
+                  padding: "6px 10px",
+                  borderRadius: 999,
+                  border: "1px solid rgba(37,99,235,0.18)",
+                  background: "rgba(37,99,235,0.10)",
+                  color: "#1d4ed8",
+                  textTransform: "lowercase",
+                }}
+              >
+                {approval.archived_at
+                  ? `${approval.status || "approval"} • archived`
+                  : approval.status || "approval"}
+              </div>
+            </div>
+          </div>
+
+          <div className="content">
+            <div style={{ fontWeight: 900, marginBottom: 6 }}>
+              Approval Request{approval.title ? ` — ${approval.title}` : ""}
+            </div>
+
+            <div
+              style={{
+                color: "rgba(15,23,42,0.72)",
+                fontSize: 14,
+                marginBottom: 8,
+              }}
+            >
+              Type: {approval.approval_type || "Approval"}
+            </div>
+
+            {approval.description ? (
+              <div style={{ marginBottom: 8 }}>{approval.description}</div>
+            ) : null}
+
+            {Array.isArray(approval.line_items) && approval.line_items.length > 0 ? (
+              <div style={{ marginBottom: 8 }}>
+                <div
+                  style={{
+                    color: "rgba(15,23,42,0.72)",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    marginBottom: 4,
+                  }}
+                >
+                  Line items
+                </div>
+                <div style={{ display: "grid", gap: 4 }}>
+                  {approval.line_items.map((li, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        fontSize: 14,
+                        color: "rgba(15,23,42,0.72)",
+                      }}
+                    >
+                      <span>
+                        {li.description} ({li.quantity} × ${li.unit_cost})
+                      </span>
+                      <span style={{ fontWeight: 700 }}>
+                        ${Number(li.line_total).toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div
+                  style={{
+                    marginTop: 6,
+                    fontSize: 14,
+                    fontWeight: 800,
+                    color: "rgba(15,23,42,0.85)",
+                  }}
+                >
+                  Total: ${approvalValue(approval).toFixed(2)}
+                </div>
+              </div>
+            ) : (
+              <div style={{ color: "rgba(15,23,42,0.72)", fontSize: 14 }}>
+                Cost impact: {approval.cost_delta != null ? `$${approval.cost_delta}` : "None"}
+              </div>
+            )}
+
+            <div style={{ color: "rgba(15,23,42,0.72)", fontSize: 14 }}>
+              Schedule impact: {approval.schedule_delta || "None"}
+            </div>
+            {approval.attachments?.length ? (
+              <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+                <div
+                  style={{
+                    color: "rgba(15,23,42,0.72)",
+                    fontSize: 13,
+                    fontWeight: 700,
+                  }}
+                >
+                  Attachments
+                </div>
+
+                {approval.attachments.map((attachment: any) => (
+                  <a
+                    key={attachment.id}
+                    href={`/api/attachments/open?id=${attachment.id}&kind=approval`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: "block",
+                      padding: "8px 10px",
+                      borderRadius: 10,
+                      background: "rgba(37,99,235,0.06)",
+                      color: "#1d4ed8",
+                      textDecoration: "none",
+                      fontWeight: 600,
+                      fontSize: 14,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {attachment.filename || "Attachment"}
+                  </a>
+                ))}
+              </div>
+            ) : null}
+            {approval.responded_at ? (
+              <div
+                style={{
+                  color: "rgba(15,23,42,0.72)",
+                  fontSize: 14,
+                  marginTop: 6,
+                }}
+              >
+                Responded: {formatDate(
+                  approval.responded_at,
+                  approval.created_timezone_offset_minutes
+                )}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Invoice mode: baseline pinned first in its own emphasized section
+  // (regardless of date -- Ryan wanted it visually distinct as "the initial
+  // estimate"), then remaining change orders oldest-to-newest below it, so
+  // the invoice reads like a running build-up of the total over time. This
+  // ordering is deliberately scoped to invoice mode only -- the regular
+  // journal view's chronological newest-first ordering is untouched.
+  const invoiceBaseline = isInvoiceMode
+    ? invoiceApprovals.find((a) => a.is_baseline) ?? null
+    : null;
+
+  const invoiceChangeOrders = isInvoiceMode
+    ? invoiceApprovals
+      .filter((a) => a.id !== invoiceBaseline?.id)
+      .sort((a, b) => {
+        const aTime = new Date(a.sent_at || a.created_at).getTime();
+        const bTime = new Date(b.sent_at || b.created_at).getTime();
+        return aTime - bTime;
+      })
+    : [];
 
   return (
     <div
@@ -1001,6 +1292,30 @@ export default async function SharePage(props: {
         </div>
       </div>
 
+      {isInvoiceMode ? (
+        <div className="wrap" style={{ marginTop: 12 }}>
+          <div
+            style={{
+              borderRadius: 14,
+              padding: "14px 16px",
+              background: "#0f172a",
+              color: "white",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              fontWeight: 800,
+              fontSize: 15,
+            }}
+          >
+            <span style={{ fontSize: 20 }}>🧾</span>
+            <span>
+              This is an Invoice — a cost summary only. It does not include project photos, notes,
+              or update history.
+            </span>
+          </div>
+        </div>
+      ) : null}
+
       <div className="wrap">
         <div className="card hero">
           <div
@@ -1022,9 +1337,14 @@ export default async function SharePage(props: {
             >
 
               <div>
-                <div className="heroTitle">{project.title || "Shared Project"}</div>
+                <div className="heroTitle">
+                  {project.title || "Shared Project"}
+                  {isInvoiceMode ? " — Invoice" : ""}
+                </div>
                 <div className="heroText">
-                  A clean, read-only timeline of project updates, notes, photos, and attached files.
+                  {isInvoiceMode
+                    ? "A summary of the baseline estimate and change orders for this project, including a running total and itemized costs."
+                    : "A clean, read-only timeline of project updates, notes, photos, and attached files."}
                 </div>
               </div>
             </div>
@@ -1070,18 +1390,28 @@ export default async function SharePage(props: {
                   )[0]?.offset
               )}
             </div>
-            <div className="heroPill">{list.length} entries</div>
-            <div className="heroPill">{approvalCount} approvals</div>
-            <div className="heroPill">{finalizedCount} finalized</div>
+            {isInvoiceMode ? (
+              <div className="heroPill">{approvalCount} line item{approvalCount === 1 ? "" : "s"}</div>
+            ) : (
+              <>
+                <div className="heroPill">{list.length} entries</div>
+                <div className="heroPill">{approvalCount} approvals</div>
+                <div className="heroPill">{finalizedCount} finalized</div>
+              </>
+            )}
           </div>
         </div>
 
         <div className="card summary">
           <div className="summaryTop">
             <div>
-              <div className="summaryKicker">Verified project journal</div>
+              <div className="summaryKicker">
+                {isInvoiceMode ? "Invoice — cost summary" : "Verified project journal"}
+              </div>
               <div className="summaryText">
-                Shared by contractor • Updates, photos, invoices, PDFs, and receipts in chronological order.
+                {isInvoiceMode
+                  ? "Shared by contractor • Baseline estimate and change orders only."
+                  : "Shared by contractor • Updates, photos, invoices, PDFs, and receipts in chronological order."}
               </div>
             </div>
 
@@ -1091,26 +1421,77 @@ export default async function SharePage(props: {
           </div>
 
           <div className="stats">
-            <div className="stat">
-              <div className="k">Entries</div>
-              <div className="v">{list.length}</div>
-            </div>
-            <div className="stat">
-              <div className="k">Approvals</div>
-              <div className="v">{approvalCount}</div>
-            </div>
+            {isInvoiceMode ? (
+              <div className="stat">
+                <div className="k">Line Items</div>
+                <div className="v">{approvalCount}</div>
+              </div>
+            ) : (
+              <>
+                <div className="stat">
+                  <div className="k">Entries</div>
+                  <div className="v">{list.length}</div>
+                </div>
+                <div className="stat">
+                  <div className="k">Approvals</div>
+                  <div className="v">{approvalCount}</div>
+                </div>
+                <div className="stat">
+                  <div className="k">Finalized</div>
+                  <div className="v">{finalizedCount}</div>
+                </div>
+              </>
+            )}
             <div className="stat">
               <div className="k">Attachments</div>
               <div className="v">{totalAttachments}</div>
             </div>
-            <div className="stat">
-              <div className="k">Finalized</div>
-              <div className="v">{finalizedCount}</div>
-            </div>
+            {hasBaseline ? (
+              <div className="stat">
+                <div className="k">Current Total</div>
+                <div className="v">
+                  {currentTotal.toLocaleString("en-US", {
+                    style: "currency",
+                    currency: "USD",
+                  })}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
 
-        {timelineItems.length === 0 ? (
+        {isInvoiceMode ? (
+          <>
+            {invoiceBaseline ? (
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 8 }}>
+                  Original Estimate
+                </div>
+                {renderApprovalEntry(invoiceBaseline, { emphasize: true })}
+              </div>
+            ) : null}
+
+            {invoiceChangeOrders.length > 0 ? (
+              <div style={{ marginTop: 18 }}>
+                <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 8 }}>
+                  Change Orders
+                </div>
+                <div className="timeline">
+                  {invoiceChangeOrders.map((approval) => renderApprovalEntry(approval))}
+                </div>
+              </div>
+            ) : null}
+
+            {!invoiceBaseline && invoiceChangeOrders.length === 0 ? (
+              <div className="card" style={{ marginTop: 14, padding: 16 }}>
+                <div style={{ fontWeight: 900 }}>No invoice items yet</div>
+                <div style={{ marginTop: 6, color: "rgba(15,23,42,0.65)", fontSize: 13 }}>
+                  This project doesn't have a baseline estimate or change order with a cost yet.
+                </div>
+              </div>
+            ) : null}
+          </>
+        ) : timelineItems.length === 0 ? (
           <div className="card" style={{ marginTop: 14, padding: 16 }}>
             <div style={{ fontWeight: 900 }}>No updates yet</div>
             <div style={{ marginTop: 6, color: "rgba(15,23,42,0.65)", fontSize: 13 }}>
@@ -1121,121 +1502,7 @@ export default async function SharePage(props: {
           <div className="timeline">
             {timelineItems.map((item) => {
               if (item.kind === "approval") {
-                const approval = item.approval;
-
-                return (
-                  <div key={`approval-${approval.id}`} className="card entry">
-                    <div className="entryAccent" />
-                    <div className="entryBody">
-                      <div className="entryTop">
-                        <div className="entryDate">
-                          {approval.sent_at || approval.created_at
-                            ? formatDate(
-                              approval.sent_at || approval.created_at,
-                              approval.created_timezone_offset_minutes
-                            )
-                            : ""}
-                        </div>
-
-                        <div
-                          style={{
-                            fontSize: 12,
-                            fontWeight: 900,
-                            padding: "6px 10px",
-                            borderRadius: 999,
-                            border: "1px solid rgba(37,99,235,0.18)",
-                            background: "rgba(37,99,235,0.10)",
-                            color: "#1d4ed8",
-                            textTransform: "lowercase",
-                          }}
-                        >
-                          {approval.archived_at
-                            ? `${approval.status || "approval"} • archived`
-                            : approval.status || "approval"}
-                        </div>
-                      </div>
-
-                      <div className="content">
-                        <div style={{ fontWeight: 900, marginBottom: 6 }}>
-                          Approval Request{approval.title ? ` — ${approval.title}` : ""}
-                        </div>
-
-                        <div
-                          style={{
-                            color: "rgba(15,23,42,0.72)",
-                            fontSize: 14,
-                            marginBottom: 8,
-                          }}
-                        >
-                          Type: {approval.approval_type || "Approval"}
-                        </div>
-
-                        {approval.description ? (
-                          <div style={{ marginBottom: 8 }}>{approval.description}</div>
-                        ) : null}
-
-                        <div style={{ color: "rgba(15,23,42,0.72)", fontSize: 14 }}>
-                          Cost impact: {approval.cost_delta != null ? `$${approval.cost_delta}` : "None"}
-                        </div>
-
-                        <div style={{ color: "rgba(15,23,42,0.72)", fontSize: 14 }}>
-                          Schedule impact: {approval.schedule_delta || "None"}
-                        </div>
-                        {approval.attachments?.length ? (
-                          <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
-                            <div
-                              style={{
-                                color: "rgba(15,23,42,0.72)",
-                                fontSize: 13,
-                                fontWeight: 700,
-                              }}
-                            >
-                              Attachments
-                            </div>
-
-                            {approval.attachments.map((attachment: any) => (
-                              <a
-                                key={attachment.id}
-                                href={`/api/attachments/open?id=${attachment.id}&kind=approval`}
-                                target="_blank"
-                                rel="noreferrer"
-                                style={{
-                                  display: "block",
-                                  padding: "8px 10px",
-                                  borderRadius: 10,
-                                  background: "rgba(37,99,235,0.06)",
-                                  color: "#1d4ed8",
-                                  textDecoration: "none",
-                                  fontWeight: 600,
-                                  fontSize: 14,
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {attachment.filename || "Attachment"}
-                              </a>
-                            ))}
-                          </div>
-                        ) : null}
-                        {approval.responded_at ? (
-                          <div
-                            style={{
-                              color: "rgba(15,23,42,0.72)",
-                              fontSize: 14,
-                              marginTop: 6,
-                            }}
-                          >
-                            Responded: {formatDate(
-                              approval.responded_at,
-                              approval.created_timezone_offset_minutes
-                            )}
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                );
+                return renderApprovalEntry(item.approval);
               }
 
               const entry = item.entry;

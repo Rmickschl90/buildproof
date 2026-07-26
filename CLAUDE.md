@@ -932,6 +932,28 @@ with a plain fetch + JS-side status filtering in both
 `app/api/approvals/create/route.ts` and
 `app/api/approvals/update/route.ts`.
 
+Phase 6 (Client-Facing Visibility) is COMPLETE: the share page
+(`app/share/[token]/page.tsx`) now fetches `is_baseline`/`line_items`,
+shows a "Current Total" stat mirroring the dashboard's own
+`estimateSummary` math, renders a "Baseline Estimate" badge and
+itemized line items per approval, and the dashboard's Estimate tab got
+a "Share Invoice" button that reuses the existing `/api/share/create`
+route (no new endpoint) to copy a live share link. No share-page
+redesign — additive content only, per that phase's own constraint.
+
+Also added after initial testing: `ApprovalCard.tsx` (the card in the
+dashboard's own Estimate tab feed) now shows the same baseline badge
+and itemized line items in its "View" expansion, not just the share
+page — previously it only showed the raw `cost_delta` number. And the
+share page gained a genuinely filtered `?invoice=1` mode (same token,
+same access control, no new route) that excludes regular timeline
+entries entirely and shows only price-bearing approvals, with a
+high-contrast "This is an Invoice" banner so it can't be confused with
+a full project update, plus the baseline pinned in its own visually
+emphasized "Original Estimate" section above a chronological "Change
+Orders" list. `handleShareInvoice` appends `?invoice=1`; the regular
+journal view is unaffected.
+
 Full plan, decisions, phase breakdown, and progress notes: Current
 Implement/Estimate, Change Order and Invoice System + UI Navigation
 Overhaul - Implementation Plan.md in the Brain vault.

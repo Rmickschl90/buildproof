@@ -328,6 +328,7 @@ export default function DashboardPage() {
   // click needs to bring its first field into view rather than just toggling
   // isApprovalMode and leaving the user staring at wherever they already were.
   const approvalComposerRef = useRef<HTMLDivElement | null>(null);
+  const [shareInvoiceStatus, setShareInvoiceStatus] = useState("");
 
 
   // ---------------- INPUTS ----------------
@@ -387,6 +388,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setActiveProjectTab("timeline");
+    setShareInvoiceStatus("");
   }, [selectedProject?.id]);
 
   // Send mode focus
@@ -1460,6 +1462,51 @@ export default function DashboardPage() {
     if (!token) throw new Error("Not logged in");
 
     return token;
+  }
+
+  // Estimate tab's "Share Invoice" -- reuses the existing share-link
+  // mechanism (project_shares + /share/[token]) rather than building a new
+  // route. /api/share/create reuses an existing not-yet-sent share token for
+  // the project if one exists, or mints a fresh one -- either way the
+  // resulting /share/[token] page already renders the running total, line
+  // items, and baseline badge added in this same pass, so no server-side
+  // "invoice mode" flag is needed on the link itself.
+  async function handleShareInvoice(projectId: string) {
+    setShareInvoiceStatus("Getting link...");
+
+    try {
+      const token = await getAccessToken();
+
+      const res = await fetch("/api/share/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ projectId }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data?.share?.token) {
+        setShareInvoiceStatus(data?.error || "Failed to get share link.");
+        return;
+      }
+
+      // ?invoice=1 switches the share page into its filtered invoice-only
+      // render (line-item-bearing approvals, no timeline entries) -- see
+      // app/share/[token]/page.tsx's isInvoiceMode.
+      const fullUrl = `${window.location.origin}/share/${data.share.token}?invoice=1`;
+
+      try {
+        await navigator.clipboard.writeText(fullUrl);
+        setShareInvoiceStatus(`Link copied: ${fullUrl}`);
+      } catch {
+        setShareInvoiceStatus(`Share link: ${fullUrl}`);
+      }
+    } catch (err: any) {
+      setShareInvoiceStatus(err?.message || "Failed to get share link.");
+    }
   }
 
   async function testCreateApproval() {
@@ -4012,12 +4059,28 @@ export default function DashboardPage() {
                     : ""}
                   {!estimateSummary.baseline ? " · no baseline estimate yet" : ""}
                 </div>
+
+                {estimateSummary.baseline ? (
+                  <button
+                    className="btn"
+                    style={{ marginTop: 10, width: "fit-content" }}
+                    onClick={() => handleShareInvoice(selectedProject.id)}
+                  >
+                    Share Invoice
+                  </button>
+                ) : null}
+
+                {shareInvoiceStatus ? (
+                  <div className="sub" style={{ marginTop: 6, opacity: 0.75, wordBreak: "break-all" }}>
+                    {shareInvoiceStatus}
+                  </div>
+                ) : null}
               </div>
 
               <p className="sub" style={{ opacity: 0.75, marginBottom: 14 }}>
-                Baseline estimate and change orders for this project. A shareable client invoice
-                view lands here in a follow-up step — for now this is the same approval feed that
-                used to live on the Timeline tab, just relocated, plus the running total above.
+                Baseline estimate and change orders for this project. The Share Invoice button above
+                gives the client a live link showing the running total, itemized line items, and the
+                same approval feed below.
               </p>
 
               {draftApprovals.length > 0 ? (
