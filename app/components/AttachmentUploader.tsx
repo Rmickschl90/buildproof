@@ -137,6 +137,38 @@ export default function AttachmentUploader({
     [records]
   );
 
+  // Visibility fix (2026-07-27, per Ryan): a queued/uploading record used to
+  // be completely invisible -- it only bumped the generic "Retry (N)" count
+  // below, with no filename, no status, no explanation. That made a stuck
+  // upload nearly impossible to notice or make sense of (found via a real
+  // stuck-attachment report on staging). These render the same info the
+  // failedRecords cards do, just without the error framing/Dismiss action --
+  // Retry(N) already covers manually re-driving these.
+  const queuedRecords = useMemo(
+    () => records.filter((r) => r.status !== "failed"),
+    [records]
+  );
+
+  function formatQueuedSince(iso: string) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "recently";
+    return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  }
+
+  function queuedReason(record: OfflineAttachmentRecord) {
+    if (record.status === "uploading") return "Uploading now…";
+
+    if (record.uploadAttemptCount > 0) {
+      return `Attempt ${record.uploadAttemptCount} of 5 — will retry automatically.`;
+    }
+
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      return "Waiting for a connection to upload.";
+    }
+
+    return "Waiting to upload…";
+  }
+
   const [retryingFailedId, setRetryingFailedId] = useState<string | null>(null);
 
   async function retryFailedRecord(id: string) {
@@ -354,6 +386,32 @@ export default function AttachmentUploader({
       {records.length === 0 ? (
         <div className="sub" style={{ opacity: 0.7 }}>
           No files selected.
+        </div>
+      ) : null}
+
+      {queuedRecords.length > 0 ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          {queuedRecords.map((r) => (
+            <div
+              key={r.id}
+              style={{
+                display: "grid",
+                gap: 2,
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid var(--border)",
+                background: "var(--surfaceSoft)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span aria-hidden="true">{fileIcon(fileKind(r.mimeType))}</span>
+                <span style={{ fontWeight: 700, fontSize: 13 }}>{r.fileName}</span>
+              </div>
+              <div className="sub" style={{ fontSize: 12 }}>
+                Queued since {formatQueuedSince(r.createdAt)} · {queuedReason(r)}
+              </div>
+            </div>
+          ))}
         </div>
       ) : null}
 
