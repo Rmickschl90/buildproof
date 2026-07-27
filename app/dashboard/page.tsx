@@ -4178,8 +4178,58 @@ export default function DashboardPage() {
                 transition: "all 0.25s ease",
               }}
             >
-              <div className="row" style={{ alignItems: "center" }}>
+              <div
+                className="row"
+                style={{ alignItems: "center", flexWrap: "wrap", rowGap: 4 }}
+              >
                 <div style={{ fontWeight: 800 }}>Projects</div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    alignItems: "center",
+                    fontSize: 11,
+                    color: "var(--muted)",
+                  }}
+                >
+                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: "rgb(var(--warning-rgb))",
+                        flexShrink: 0,
+                      }}
+                    />
+                    Bidding
+                  </span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: "rgb(var(--success-rgb))",
+                        flexShrink: 0,
+                      }}
+                    />
+                    Won
+                  </span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: "rgb(var(--danger-rgb))",
+                        flexShrink: 0,
+                      }}
+                    />
+                    Declined
+                  </span>
+                </div>
               </div>
 
               <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
