@@ -26,6 +26,7 @@ import ApprovalComposer from "../components/ApprovalComposer";
 import ApprovalCard from "../components/ApprovalCard";
 import ThemeToggle from "../components/ThemeToggle";
 import NewProjectModal from "../components/NewProjectModal";
+import ModalShell from "../components/ModalShell";
 import {
   createOfflineProof,
   listOfflineProofsForProject,
@@ -359,20 +360,15 @@ export default function DashboardPage() {
   // fresh composer instance defaults to "this is the baseline estimate".
   const [approvalComposerDefaultBaseline, setApprovalComposerDefaultBaseline] =
     useState(false);
-  // Scroll target for the Estimate tab's floating "+" button -- the composer
-  // renders below the fold when opened from a scrolled-down position, so the
-  // click needs to bring its first field into view rather than just toggling
-  // isApprovalMode and leaving the user staring at wherever they already were.
-  const approvalComposerRef = useRef<HTMLDivElement | null>(null);
   const [shareInvoiceStatus, setShareInvoiceStatus] = useState("");
 
   // Phase 7 Timeline redesign: the "Add entry" composer (textarea + template
   // picker + Add Entry button) is now hidden behind a floating "+" FAB
   // (mirroring the Estimate tab's own FAB/isApprovalMode pattern) instead of
-  // always sitting open at the top of the timeline. addEntryRef is the same
-  // scroll-into-view target pattern as approvalComposerRef above.
+  // always sitting open at the top of the timeline. Renders as a ModalShell
+  // popup (2026-07-27) rather than inline in the page -- see isApprovalMode's
+  // ModalShell above for the same pattern.
   const [isAddEntryMode, setIsAddEntryMode] = useState(false);
-  const addEntryRef = useRef<HTMLDivElement | null>(null);
 
 
   // ---------------- INPUTS ----------------
@@ -597,23 +593,12 @@ export default function DashboardPage() {
     setHasMounted(true);
   }, []);
 
-  // Bring the approval composer's first field into view when it opens --
-  // the Estimate tab's floating "+" button is the only trigger for this now
-  // (the old Timeline "Request Approval" button was removed once the "+"
-  // button existed to replace it), but the composer can still open while the
-  // page is scrolled well past where it renders.
-  useEffect(() => {
-    if (isApprovalMode) {
-      approvalComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, [isApprovalMode]);
-
-  // Same pattern for the Timeline tab's "Add entry" FAB.
-  useEffect(() => {
-    if (isAddEntryMode) {
-      addEntryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, [isAddEntryMode]);
+  // Note (2026-07-27): the Estimate composer and Add Entry composer both used
+  // to scroll their containing div into view here, since they rendered
+  // inline in the page and could open below the fold. Both are now real
+  // popup modals (ModalShell) that always render centered on screen
+  // regardless of scroll position, so the scroll-into-view behavior is no
+  // longer needed -- removed rather than left as dead code.
 
   useEffect(() => {
     return () => {
@@ -2795,6 +2780,15 @@ export default function DashboardPage() {
     setIsSendMode(false);
     setSendCloseSignal((k) => k + 1);
 
+    // Sub-modals now self-manage their own X/Cancel exits (2026-07-27), but
+    // closing the whole project view should still reset them -- otherwise
+    // opening a different project right after could inherit stale
+    // isApprovalMode/isAddEntryMode state from the one just closed.
+    setIsApprovalMode(false);
+    setEditingApproval(null);
+    setApprovalComposerDefaultBaseline(false);
+    setIsAddEntryMode(false);
+
     setStatus("");
     setProofStatus("");
   }
@@ -4645,37 +4639,19 @@ export default function DashboardPage() {
                     justifyContent: "flex-end",
                   }}
                 >
+                  {/* Send/Approval/Add Entry all now open as their own
+                      ModalShell popups with their own X + Cancel (2026-07-27)
+                      -- this button no longer needs to dynamically relabel
+                      itself into "Exit Send"/"Exit Approval"/"Exit Add Entry"
+                      to double as their close control. It always just closes
+                      the project view; closeProjectView() also resets any
+                      sub-modal state defensively. */}
                   <button
                     className="btn"
-                    onClick={() => {
-                      if (isSendMode) {
-                        setIsSendMode(false);
-                        setSendCloseSignal((k) => k + 1);
-                      } else if (isApprovalMode) {
-                        setIsApprovalMode(false);
-                      } else if (isAddEntryMode) {
-                        setIsAddEntryMode(false);
-                      } else {
-                        closeProjectView();
-                      }
-                    }}
-                    title={
-                      isSendMode
-                        ? "Exit send mode"
-                        : isApprovalMode
-                          ? "Exit approval mode"
-                          : isAddEntryMode
-                            ? "Exit add entry mode"
-                            : "Close project view"
-                    }
+                    onClick={closeProjectView}
+                    title="Close project view"
                   >
-                    {isSendMode
-                      ? "Exit Send"
-                      : isApprovalMode
-                        ? "Exit Approval"
-                        : isAddEntryMode
-                          ? "Exit Add Entry"
-                          : "Close"}
+                    Close
                   </button>
 
                   {!isSendMode ? (
@@ -5001,8 +4977,35 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {selectedProject && activeGlobalTab === "projects" && isApprovalMode && (
-            <div ref={approvalComposerRef}>
+          {selectedProject && activeGlobalTab === "projects" && (
+            <ModalShell
+              open={isApprovalMode}
+              onClose={() => {
+                setIsApprovalMode(false);
+                setEditingApproval(null);
+                setApprovalComposerDefaultBaseline(false);
+              }}
+              title={
+                editingApproval
+                  ? "Edit Estimate"
+                  : approvalComposerDefaultBaseline
+                    ? "New Estimate"
+                    : "New Change Order"
+              }
+              maxWidth={640}
+            >
+              <button
+                className="btn"
+                onClick={() => {
+                  setIsApprovalMode(false);
+                  setEditingApproval(null);
+                  setApprovalComposerDefaultBaseline(false);
+                }}
+                style={{ justifySelf: "start" }}
+              >
+                Cancel
+              </button>
+
               <ApprovalComposer
                 projectId={selectedProject.id}
                 projectClientEmail={selectedProject.client_email ?? null}
@@ -5016,7 +5019,106 @@ export default function DashboardPage() {
                   await loadApprovals(selectedProject.id);
                 }}
               />
-            </div>
+            </ModalShell>
+          )}
+
+          {/* Add Entry composer, converted to a ModalShell popup (2026-07-27)
+              alongside the Estimate composer above -- same "Cancel + X, no
+              relabeled header Exit button" pattern Ryan asked for. Preserves
+              id="onboarding-entry-area" (highlight target) and
+              id="new-entry-textarea" (focus target) exactly, since
+              handleAddFirstEntryClick() in the onboarding wizard depends on
+              both. proofStatus is duplicated here (it's already rendered in
+              the Timeline card too) so save feedback is visible without
+              having to close the modal first. */}
+          {selectedProject && activeGlobalTab === "projects" && activeProjectTab === "timeline" && (
+            <ModalShell
+              open={isAddEntryMode}
+              onClose={() => setIsAddEntryMode(false)}
+              title="Add Entry"
+            >
+              <div
+                id="onboarding-entry-area"
+                style={{
+                  display: "grid",
+                  gap: 10,
+                  padding: highlightTarget === "onboarding-entry-area" ? 10 : 0,
+                  borderRadius: 14,
+                  boxShadow:
+                    highlightTarget === "onboarding-entry-area"
+                      ? "0 0 0 6px rgba(59,130,246,0.12)"
+                      : undefined,
+                  transition: "all 0.25s ease",
+                }}
+              >
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setShowTemplates((v) => !v)}
+                  style={{ justifySelf: "start" }}
+                >
+                  {showTemplates ? "Hide Templates" : "⚡ Templates"}
+                </button>
+
+                {showTemplates ? (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+                      gap: 8,
+                    }}
+                  >
+                    {entryTemplates.map((tpl) => (
+                      <button
+                        key={tpl.name}
+                        type="button"
+                        className="btn"
+                        onClick={() => {
+                          setNewProofContent(tpl.text);
+                          setIsTemplateText(true);
+                          setShowTemplates(false);
+                        }}
+                        style={{ fontSize: 13, textAlign: "left" }}
+                      >
+                        {tpl.name}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+
+                <textarea
+                  id="new-entry-textarea"
+                  className={`textarea ${isTemplateText ? "templateText" : ""}`}
+                  placeholder="Add a timestamped note..."
+                  value={newProofContent}
+                  onChange={(e) => {
+                    setNewProofContent(e.target.value);
+                    setIsTemplateText(false);
+                  }}
+                  rows={8}
+                />
+
+                {proofStatus ? (
+                  <div className="sub" style={{ opacity: 0.85 }}>
+                    {proofStatus}
+                  </div>
+                ) : null}
+
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="btn" onClick={() => setIsAddEntryMode(false)}>
+                    Cancel
+                  </button>
+                  <button
+                    className="btn btnPrimary"
+                    onClick={addProof}
+                    disabled={addingProof}
+                    style={{ flex: 1, fontWeight: 700 }}
+                  >
+                    {addingProof ? "Saving..." : "Add Entry"}
+                  </button>
+                </div>
+              </div>
+            </ModalShell>
           )}
 
           {selectedProject && activeGlobalTab === "projects" && activeProjectTab === "estimate" && (
@@ -5607,108 +5709,7 @@ export default function DashboardPage() {
                     >
                       Project Timeline
                     </div>
-
-                    {isAddEntryMode ? (
-                      <button
-                        type="button"
-                        className={`btn ${showTemplates ? "btnDanger" : ""}`}
-                        onClick={() => setShowTemplates((v) => !v)}
-                        style={{
-                          whiteSpace: "nowrap",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {showTemplates ? "Hide Templates" : "⚡ Templates"}
-                      </button>
-                    ) : null}
                   </div>
-
-                  {isAddEntryMode ? (
-                  <div
-                    id="onboarding-entry-area"
-                    ref={addEntryRef}
-                    style={{
-                      display: "grid",
-                      gap: 8,
-                      marginTop: 6,
-                      marginBottom: 14,
-                      padding: highlightTarget === "onboarding-entry-area" ? 10 : 0,
-                      borderRadius: 14,
-                      boxShadow:
-                        highlightTarget === "onboarding-entry-area"
-                          ? "0 0 0 6px rgba(59,130,246,0.12)"
-                          : undefined,
-                      transition: "all 0.25s ease",
-                    }}
-                  >
-                    <textarea
-                      id="new-entry-textarea"
-                      className={`textarea ${isTemplateText ? "templateText" : ""}`}
-                      placeholder="Add entry..."
-                      value={newProofContent}
-                      onChange={(e) => {
-                        setNewProofContent(e.target.value);
-                        setIsTemplateText(false);
-                      }}
-                    />
-
-                    {showTemplates ? (
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                          gap: 10,
-                        }}
-                      >
-                        {entryTemplates.map((template) => (
-                          <button
-                            key={template.name}
-                            type="button"
-                            className="btn"
-                            onClick={() => {
-                              setNewProofContent(template.text);
-                              setIsTemplateText(true);
-                              setShowTemplates(false);
-
-                              setTimeout(() => {
-                                const el = document.getElementById("new-entry-textarea") as HTMLTextAreaElement | null;
-                                el?.focus();
-                              }, 50);
-                            }}
-                            style={{
-                              width: "100%",
-                              justifyContent: "center",
-                              padding: "10px 6px",
-                              fontSize: 13,
-                              borderRadius: 10,
-                            }}
-                          >
-                            {template.name}
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button
-                        className="btn"
-                        onClick={() => setIsAddEntryMode(false)}
-                        style={{ flexShrink: 0 }}
-                      >
-                        Cancel
-                      </button>
-
-                      <button
-                        className="btn btnPrimary"
-                        onClick={addProof}
-                        disabled={addingProof}
-                        style={{ flex: 1, fontWeight: 700 }}
-                      >
-                        {addingProof ? "Saving..." : "Add Entry"}
-                      </button>
-                    </div>
-                  </div>
-                  ) : null}
 
                     <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
                       <input

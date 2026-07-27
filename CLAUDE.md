@@ -993,8 +993,47 @@ System - Implementation Plan.md and Current Implement/Estimate, Change
 Order and Invoice System + UI Navigation Overhaul - Implementation
 Plan.md (Phase 7 section) in the Brain vault. Slice 5 (share/invoice
 page) and Slice 7 (full light/dark QA pass) remain; Phase 7's Send
-Update modal also remains. This round of changes has not yet been
-committed to git as of this writing — that's the immediate next step.
+Update modal also remains. This round of changes was committed and
+pushed to `estimate-nav-phase-1` in a later session (see the offline
+stress-test and onboarding entries below).
+
+### Onboarding wizard: dark mode + highlight-tab-gating fix + Estimate step (2026-07-27)
+
+Found while auditing for the Dark Mode QA pass: `app/components/
+OnboardingWizard.tsx` (the "GETTING STARTED" card) had been missed
+entirely by the Slice 3-5 migration — every color was still a
+hardcoded light-mode hex/rgba literal. Converted to the token system
+(`--accent-rgb`, `--accentText`, `--text`, `rgba(var(--text-rgb),0.72)`,
+`--shadowSoft`); verified correct in both light and dark mode on
+`leeward-staging-internal`.
+
+Also found and fixed a real bug introduced by the Timeline/Estimate tab
+split (Phase 1 of the nav overhaul, done before this wizard's highlight
+logic was revisited): three of the wizard's steps —
+`onboarding-entry-area`, `onboarding-attachments-area`, and
+`onboarding-send-trigger` — only render while
+`activeProjectTab === "timeline"`, but their click handlers
+(`handleAddFirstEntryClick`, `handleAddFilesClick`,
+`handleSendFirstUpdateClick` in `app/dashboard/page.tsx`) never forced
+that tab before calling `pulseHighlight`. If a user was viewing the
+Estimate tab when they clicked one of those onboarding steps, the
+highlight/scroll silently did nothing (target element didn't exist in
+the DOM yet). Fixed by adding `setActiveProjectTab("timeline")` to all
+three handlers before highlighting.
+
+Added a new onboarding step, previously nonexistent: once a project has
+client info but no baseline estimate yet, the wizard now prompts
+"Create your baseline estimate" and highlights the Estimate tab's "+"
+FAB (`onboarding-estimate-fab`, wired via a new
+`handleCreateEstimateClick` that switches to the Estimate tab first).
+
+Full click-through verified on `leeward-staging-internal` with a fresh
+test project: Create Project → Open First Project → Add Client Info →
+**Create Estimate** (new step; saved a real $5,000 baseline draft,
+confirmed the step correctly cleared once `estimateSummary.baseline`
+existed) → Add First Entry → Add Photos or Files → Send First Update —
+every tab-gated highlight correctly forced the right tab before
+pulsing. Committed and pushed to `estimate-nav-phase-1` as `28eb5a43`.
 
 **Follow-up flagged by Ryan, explicitly deferred until current UI work
 is complete**: once dark mode, Team Accounts, and the Estimate/Invoice
