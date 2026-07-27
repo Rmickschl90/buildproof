@@ -1643,12 +1643,22 @@ export default function DashboardPage() {
 
     const note = logPaymentNote.trim() || null;
     const paidAt = logPaymentDate || undefined;
+    // Re-bind to a new const so its type is fixed as `number` at this point --
+    // TypeScript doesn't retain the `amount === null` narrowing for a
+    // pre-existing `const` once it's captured by a nested function
+    // declaration below (saveOfflinePayment), since that closure could in
+    // principle run at some later point. Assigning the already-narrowed
+    // value to a brand-new const sidesteps that: this build broke
+    // (2026-07-27 Vercel deploy, commit 6fc00b8) with "Type 'number | null'
+    // is not assignable to type 'number'" at the addOfflinePayment call
+    // below for exactly this reason.
+    const confirmedAmount: number = amount;
 
     async function saveOfflinePayment() {
       await addOfflinePayment({
         id: createTempPaymentId(),
         projectId,
-        amount,
+        amount: confirmedAmount,
         note,
         paidAt: paidAt || new Date().toISOString().slice(0, 10),
         creatingUserId: userId ?? undefined,
@@ -3632,6 +3642,30 @@ export default function DashboardPage() {
             created_timezone_id: a.createdTimezoneId ?? null,
             created_timezone_offset_minutes:
               a.createdTimezoneOffsetMinutes ?? null,
+            // Bug fix (2026-07-27, offline stress test): these two fields
+            // were missing entirely from this mapping, so an offline-queued
+            // draft's line items and baseline flag were silently dropped
+            // from every display/edit surface built on top of visibleApprovals
+            // (Estimate tab card, and critically, ApprovalComposer's
+            // initialApproval when reopening "Edit Draft" on an unsynced
+            // draft) until the draft actually synced to the server. Since
+            // Edit Draft re-saves whatever the composer currently holds, an
+            // unlucky edit-before-sync could have silently wiped out a
+            // contractor's real line items. The underlying offline record in
+            // IndexedDB was never corrupted -- only this read-side mapping
+            // was incomplete. line_total isn't stored on the offline record
+            // (only description/quantity/unitCost are captured at queue
+            // time), so it's computed here the same way the server does.
+            is_baseline: a.isBaseline ?? false,
+            line_items: a.lineItems?.length
+              ? a.lineItems.map((li) => ({
+                  description: li.description,
+                  quantity: li.quantity,
+                  unit_cost: li.unitCost,
+                  line_total:
+                    Math.round(li.quantity * li.unitCost * 100) / 100,
+                }))
+              : undefined,
             attachments: queuedAttachments.map((item) => ({
               id: item.id,
               filename: item.fileName ?? null,

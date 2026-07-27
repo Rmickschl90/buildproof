@@ -1041,3 +1041,55 @@ verified together, before any production exposure.
 Next actual step is a full codebase audit (dashboard component
 structure, approval schema) — not yet done beyond a partial, targeted
 audit already captured in the design doc above.
+
+### Related new initiative: Project Payments / Deposit Tracking (2026-07-27)
+
+Sanctioned follow-on, surfaced while QA-testing the Estimate/Invoice work:
+"what if the client already paid a deposit — the invoice should reflect
+that." Payment *tracking*, not payment *collection* — no Stripe charge,
+no card, no money actually moves. A contractor manually logs "client paid
+$X on this date," same as logging a timeline entry.
+
+Built and behaviorally tested locally on `estimate-nav-phase-1` as of
+2026-07-27, committed and pushed. New `project_payments` table
+(migration `20260727120000_project_payments.sql`, applied to
+PRODUCTION per Ryan's explicit choice to test locally rather than wait
+for a staging deploy — same early-migration exception the estimate
+Phase 2 migration used; NOT YET applied to leeward-staging-internal).
+Three API routes (`/api/payments/create`, `/list`, `/delete`, all
+`canUserAccessProject()`-gated, no client-side RLS policies — access is
+server-route-only by design). Offline outbox/flush pair
+(`lib/offlinePaymentOutbox.ts` / `lib/offlinePaymentFlush.ts`) wired into
+the existing single reconnect orchestrator, no new trigger.
+
+Product shape: the gross contract Total (baseline + approved change
+orders) never moves based on payments. Paid and Balance Due are
+additional stats next to it. A "Payments" section on the Estimate tab
+lists logged payments (date, amount, optional note) with a "+ Log
+Payment" button opening a modal with an explicit "$ Amount" / "% of
+Balance Due" toggle (not a magic trailing-"%" convention) plus a live
+calculator preview. Percentage is computed against the *current Balance
+Due*, not the original Total — deliberately reversed from an earlier
+design pass after Ryan pointed out that computing against a fixed Total
+stops making sense once any payment has already been logged, and this
+feature has no fixed-deposit-schedule concept at all (after-the-fact
+recording only, no milestones, by design). Corrections are delete +
+relog, no edit-in-place.
+
+Client-facing exposure is deliberately split, not uniform: the invoice
+share link (`?invoice=1`) shows Paid/Balance Due as summary figures
+only, no itemized list — informal payment notes ("Venmo," "check
+#1042") aren't written for client eyes. The Export Dispute Package PDF
+(`reportMode === "dispute"` only) shows the same summary figures *plus*
+a full itemized payment log (date, note, amount) — added after Ryan's
+first real review called the summary-only version "pretty generic" for
+a document whose whole purpose is dispute-grade evidence. Neither the
+regular Download PDF nor the Send Update email/PDF ever show any of
+this — both routes are confirmed to never set `reportMode: "dispute"`.
+
+Full design doc + test log: Current Implement/Project Payments -
+Implementation Plan.md in the Brain vault.
+
+Not yet done: staging deploy, and a real offline→online reconnect
+click-through of the payment outbox/flush path (code is written and
+wired in, not yet behaviorally exercised offline).
