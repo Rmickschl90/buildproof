@@ -413,9 +413,13 @@ a:hover {
      intrinsic width left no room beside the Upgrade/Team + Account button
      column on real narrow phone viewports, forcing the header's flex row to
      wrap (logo on top, buttons stacked below) instead of staying side-by-side.
-     Shrinking the logo here frees enough width for both to sit on one line. */
+     Shrinking the logo here frees enough width for both to sit on one line.
+     60px (not 44px, the first pass) leaves the logo filling the white chip
+     properly -- 44px left it looking small/adrift in the chip's padding --
+     while still comfortably fitting beside the button column at real phone
+     widths (~342px available content width vs. ~200px needed at this size). */
   .dashboardLogo {
-    height: 44px;
+    height: 60px;
   }
 }
 

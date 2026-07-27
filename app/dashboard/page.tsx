@@ -3939,7 +3939,7 @@ export default function DashboardPage() {
                   style={{
                     background: "#ffffff",
                     borderRadius: 12,
-                    padding: "4px 8px",
+                    padding: "3px 6px",
                     display: "flex",
                     alignItems: "center",
                     lineHeight: 0,
