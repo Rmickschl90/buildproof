@@ -99,35 +99,77 @@ export async function POST(req: Request) {
       }
     }
 
-    const { data: existingJob, error: existingJobErr } = await supabaseServer
+    // 🔴 HARD PROTECTION: never allow duplicate active jobs, and never allow
+    // a genuinely NEW job for a few minutes after the last one finished --
+    // this second half is the real fix (2026-07-27, per Ryan). The old
+    // version of this check only looked at jobs still "pending"/
+    // "processing"/"retrying", so once a job reached a terminal state
+    // (sent OR failed), the guard stopped applying entirely. That's exactly
+    // what let a confused user, retrying "Send Update" repeatedly against a
+    // client that *looked* stuck (a separate bug, since fixed), create
+    // several genuinely independent sends once the underlying blocker
+    // cleared -- each tap landed after the prior job had already gone
+    // terminal, so nothing caught it. The cooldown below closes that gap
+    // without weakening the original protection.
+    const SEND_COOLDOWN_MS = 3 * 60 * 1000;
+
+    const { data: mostRecentJob, error: mostRecentJobErr } = await supabaseServer
       .from("send_jobs")
-      .select("id, status, to_email")
+      .select("id, status, to_email, created_at, processed_at")
       .eq("project_id", projectId)
       .eq("user_id", userId)
-      .in("status", ["pending", "processing", "retrying"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (existingJobErr) {
-      return NextResponse.json({ error: existingJobErr.message }, { status: 500 });
+    if (mostRecentJobErr) {
+      return NextResponse.json({ error: mostRecentJobErr.message }, { status: 500 });
     }
 
-    if (existingJob) {
-      // 🔴 HARD PROTECTION: never allow duplicate active jobs
-      return NextResponse.json({
-        ok: true,
-        reused: true,
-        existing: true,
-        message: "Active send already exists for this project",
-        job: {
-          id: existingJob.id,
-          status: existingJob.status,
-          toEmail: existingJob.to_email,
-        },
-        jobId: existingJob.id,
-        status: existingJob.status,
-      });
+    if (mostRecentJob) {
+      const isActive = ["pending", "processing", "retrying"].includes(mostRecentJob.status);
+
+      const referenceTime = mostRecentJob.processed_at || mostRecentJob.created_at;
+      const msSinceReference = referenceTime
+        ? Date.now() - new Date(referenceTime).getTime()
+        : Infinity;
+      const isWithinCooldown = msSinceReference < SEND_COOLDOWN_MS;
+
+      if (isActive) {
+        return NextResponse.json({
+          ok: true,
+          reused: true,
+          existing: true,
+          message: "Active send already exists for this project",
+          job: {
+            id: mostRecentJob.id,
+            status: mostRecentJob.status,
+            toEmail: mostRecentJob.to_email,
+          },
+          jobId: mostRecentJob.id,
+          status: mostRecentJob.status,
+        });
+      }
+
+      if (isWithinCooldown) {
+        return NextResponse.json({
+          ok: true,
+          reused: true,
+          existing: true,
+          cooldown: true,
+          message:
+            mostRecentJob.status === "sent"
+              ? "This project update was already sent a moment ago. Refresh to see the current status before sending again."
+              : "A send attempt for this project just finished. Please wait a moment before trying again.",
+          job: {
+            id: mostRecentJob.id,
+            status: mostRecentJob.status,
+            toEmail: mostRecentJob.to_email,
+          },
+          jobId: mostRecentJob.id,
+          status: mostRecentJob.status,
+        });
+      }
     }
 
     const proofsSource = includeArchived ? "proofs" : "proofs_active";

@@ -298,6 +298,51 @@ of Stripe directly. NOT fixed as of this writing (billing webhook is a
 protected system - flagging, not touching without explicit
 confirmation).
 
+## Known Issue: Email Deliverability (Project Update emails landing in spam)
+
+Found 2026-07-27 while investigating Ryan's report of a stuck attachment on
+"212 vine st" (staging) — a real, previously-undocumented issue, distinct
+from the attachment/storage-bucket bug found in the same session (see
+Regression Ledger for that one). Project Update emails sent via Resend show
+`status: "Delivered"` in both our `message_deliveries` table and Resend's
+own dashboard, but were not landing in the recipient's visible inbox or
+spam folder when checked from an IMAP client (Outlook on desktop, connected
+to the same Gmail account) — only visible when checked directly via Gmail
+on the recipient's phone, where the emails genuinely were sitting in Junk.
+Root cause of the *visibility* confusion: Outlook over IMAP frequently does
+not sync/display Gmail's `[Gmail]/Spam` folder unless explicitly
+subscribed — a client quirk, not evidence of a deeper delivery failure.
+The real, still-open problem is that these emails ARE being classified as
+spam by Gmail in the first place.
+
+Investigated and ruled out as the cause: `buildproof.app`'s Resend domain
+DNS is correctly configured — both DKIM and SPF show `status: verified`
+directly from Resend's own domain API (SPF lives on the `send.`
+subdomain per Resend's standard setup, not the root domain — an earlier
+in-session claim that the root domain was missing an SPF record was
+wrong and has been corrected). DMARC was set to `p=none` (monitor-only);
+tightened to `p=quarantine` this session as a safe, low-risk hardening
+step, but this is **not expected to fully resolve** the spam
+classification on its own — flagging clearly so this isn't mistaken for
+a completed fix.
+
+Most likely real contributors, neither address by the DMARC change alone:
+domain/brand mismatch (mail sent as "Leeward" from `noreply@buildproof.app`,
+not a domain matching the product's actual name/URL, which is a known
+spam-scoring signal independent of valid authentication) and ordinary new
+sending-domain reputation (the domain was created in Resend 2026-03-06,
+still relatively young, low historical volume).
+
+**Deferred fix, explicitly flagged by Ryan as a future item once revenue
+allows it**: verify `getleeward.com` as a second sending domain in Resend
+and switch `RESEND_FROM` to send from that domain instead, so the sending
+domain matches the actual branded product name. Blocked today by Resend's
+plan limit — the current plan allows only 1 verified domain
+(`create-domain` for `getleeward.com` returned
+`"Your plan includes 1 domain. Upgrade to add more."`) — this requires a
+paid plan upgrade first. Not started; do not assume this is in progress
+without checking back with Ryan on the Resend plan/billing decision.
+
 ## Active Build: Team Accounts V1
 
 This is the current, deliberate, sanctioned exception to "architecture
