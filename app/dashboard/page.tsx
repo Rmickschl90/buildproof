@@ -25,6 +25,8 @@ import DeliveryHistoryPanel from "../components/DeliveryHistoryPanel";
 import ProofAttachmentsWrapper from "../components/ProofAttachmentsWrapper";
 import ApprovalComposer from "../components/ApprovalComposer";
 import ApprovalCard from "../components/ApprovalCard";
+import ThemeToggle from "../components/ThemeToggle";
+import NewProjectModal from "../components/NewProjectModal";
 import {
   createOfflineProof,
   listOfflineProofsForProject,
@@ -330,9 +332,18 @@ export default function DashboardPage() {
   const approvalComposerRef = useRef<HTMLDivElement | null>(null);
   const [shareInvoiceStatus, setShareInvoiceStatus] = useState("");
 
+  // Phase 7 Timeline redesign: the "Add entry" composer (textarea + template
+  // picker + Add Entry button) is now hidden behind a floating "+" FAB
+  // (mirroring the Estimate tab's own FAB/isApprovalMode pattern) instead of
+  // always sitting open at the top of the timeline. addEntryRef is the same
+  // scroll-into-view target pattern as approvalComposerRef above.
+  const [isAddEntryMode, setIsAddEntryMode] = useState(false);
+  const addEntryRef = useRef<HTMLDivElement | null>(null);
+
 
   // ---------------- INPUTS ----------------
   const [newProjectTitle, setNewProjectTitle] = useState("");
+  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [newProofContent, setNewProofContent] = useState("");
   const [showTemplates, setShowTemplates] = useState(false);
   const [isTemplateText, setIsTemplateText] = useState(false);
@@ -357,7 +368,12 @@ export default function DashboardPage() {
   const [entryStatusFilter, setEntryStatusFilter] = useState<
     "all" | "draft" | "finalized" | "archived"
   >("all");
-  const [statusFilterMenuOpen, setStatusFilterMenuOpen] = useState(false);
+  // Consolidated Timeline filter panel -- replaces the separate content-type
+  // chip row / status dropdown / sort+archived row with a single "Filter"
+  // button + popover (search stays visible on its own, everything else moves
+  // in here) to cut down on visual clutter above the entry list.
+  const [entryFilterMenuOpen, setEntryFilterMenuOpen] = useState(false);
+  const entryFilterMenuRef = useRef<HTMLDivElement | null>(null);
 
   function getProofContentKind(proof: TimelineProof): "notes" | "photos" | "files" {
     if (isOfflineProof(proof)) return "notes";
@@ -389,6 +405,7 @@ export default function DashboardPage() {
   useEffect(() => {
     setActiveProjectTab("timeline");
     setShareInvoiceStatus("");
+    setIsAddEntryMode(false);
   }, [selectedProject?.id]);
 
   // Send mode focus
@@ -416,12 +433,15 @@ export default function DashboardPage() {
   const projectMenuRef = useRef<HTMLDivElement | null>(null);
   const renameInputRef = useRef<HTMLInputElement | null>(null);
 
+  // ---- Account menu (header dropdown -- Theme/Help/Manage Billing, replaces
+  // the old standalone "Account" tab now that the Projects/Account pill bar
+  // has been removed) ----
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement | null>(null);
+
   // ---- Entry action menu ----
   const [proofMenuOpenId, setProofMenuOpenId] = useState<number | string | null>(null);
   const proofMenuRef = useRef<HTMLDivElement | null>(null);
-
-  // ---- Status filter menu ----
-  const statusFilterMenuRef = useRef<HTMLDivElement | null>(null);
 
   // ---- Edit entry ----
   const [editingProofId, setEditingProofId] = useState<number | string | null>(null);
@@ -545,6 +565,13 @@ export default function DashboardPage() {
       approvalComposerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, [isApprovalMode]);
+
+  // Same pattern for the Timeline tab's "Add entry" FAB.
+  useEffect(() => {
+    if (isAddEntryMode) {
+      addEntryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [isAddEntryMode]);
 
   useEffect(() => {
     return () => {
@@ -1318,13 +1345,13 @@ export default function DashboardPage() {
   }, [projectMenuOpen, selectedProject?.id]);
 
   useEffect(() => {
-    if (!statusFilterMenuOpen) return;
+    if (!accountMenuOpen) return;
 
     function onDown(e: MouseEvent | TouchEvent) {
-      const el = statusFilterMenuRef.current;
+      const el = accountMenuRef.current;
       const target = e.target as Node | null;
       if (!el || !target) return;
-      if (!el.contains(target)) setStatusFilterMenuOpen(false);
+      if (!el.contains(target)) setAccountMenuOpen(false);
     }
 
     document.addEventListener("mousedown", onDown);
@@ -1333,7 +1360,25 @@ export default function DashboardPage() {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("touchstart", onDown);
     };
-  }, [statusFilterMenuOpen]);
+  }, [accountMenuOpen]);
+
+  useEffect(() => {
+    if (!entryFilterMenuOpen) return;
+
+    function onDown(e: MouseEvent | TouchEvent) {
+      const el = entryFilterMenuRef.current;
+      const target = e.target as Node | null;
+      if (!el || !target) return;
+      if (!el.contains(target)) setEntryFilterMenuOpen(false);
+    }
+
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
+    };
+  }, [entryFilterMenuOpen]);
 
   useEffect(() => {
     if (!proofMenuOpenId) return;
@@ -2065,9 +2110,20 @@ export default function DashboardPage() {
   }
 
   // ---------------- PROJECT CRUD ----------------
-  async function addProject() {
-    const title = newProjectTitle.trim();
+  async function addProject(fields?: {
+    title?: string;
+    address?: string;
+    clientName?: string;
+    clientEmail?: string;
+    clientPhone?: string;
+  }) {
+    const title = (fields?.title ?? newProjectTitle).trim();
     if (!title) return;
+
+    const address = fields?.address?.trim() || null;
+    const clientName = fields?.clientName?.trim() || null;
+    const clientEmail = fields?.clientEmail?.trim() || null;
+    const clientPhone = fields?.clientPhone?.trim() || null;
 
     if (!navigator.onLine) {
       try {
@@ -2077,10 +2133,10 @@ export default function DashboardPage() {
         await putOfflineProject({
           id: offlineProjectId,
           name: title,
-          clientName: null,
-          clientEmail: null,
-          clientPhone: null,
-          projectAddress: null,
+          clientName,
+          clientEmail,
+          clientPhone,
+          projectAddress: address,
           privateNotes: null,
           organizationId: orgContext?.organizationId ?? null,
           creatingUserId: userId ?? undefined,
@@ -2098,10 +2154,10 @@ export default function DashboardPage() {
           id: offlineProjectId,
           title,
           user_id: userId || "offline-user",
-          client_name: null,
-          client_email: null,
-          client_phone: null,
-          project_address: null,
+          client_name: clientName,
+          client_email: clientEmail,
+          client_phone: clientPhone,
+          project_address: address,
           private_notes: null,
           archived_at: null,
           created_at: now,
@@ -2110,10 +2166,10 @@ export default function DashboardPage() {
         saveRecentProject({
           id: offlineProject.id,
           title: offlineProject.title,
-          client_name: null,
-          client_email: null,
-          client_phone: null,
-          project_address: null,
+          client_name: clientName,
+          client_email: clientEmail,
+          client_phone: clientPhone,
+          project_address: address,
         });
 
         setSelectedProjectWithTrace(offlineProject, "offline project create");
@@ -2152,6 +2208,10 @@ export default function DashboardPage() {
       title,
       user_id: userId,
       organization_id: orgContext?.organizationId ?? null,
+      project_address: address,
+      client_name: clientName,
+      client_email: clientEmail,
+      client_phone: clientPhone,
     });
 
     if (error) {
@@ -3073,11 +3133,7 @@ export default function DashboardPage() {
 
   function handleCreateProjectClick() {
     pulseHighlight("onboarding-project-area");
-
-    setTimeout(() => {
-      const el = document.getElementById("new-project-input") as HTMLInputElement | null;
-      el?.focus();
-    }, 250);
+    setIsNewProjectModalOpen(true);
   }
 
   function handleOpenFirstProject() {
@@ -3085,6 +3141,7 @@ export default function DashboardPage() {
   }
 
   function handleAddFirstEntryClick() {
+    setIsAddEntryMode(true);
     pulseHighlight("onboarding-entry-area");
 
     setTimeout(() => {
@@ -3397,6 +3454,22 @@ export default function DashboardPage() {
     return { baseline, approvedTotal, approvedCount, pendingCount };
   }, [visibleApprovals]);
 
+  // Estimate tab: the baseline is pinned in its own section above everything
+  // else (mirrors the client-facing invoice page's "Original Estimate" /
+  // "Change Orders" split), so these two lists explicitly exclude whichever
+  // approval is_baseline so it isn't rendered twice.
+  const otherDraftApprovals = useMemo(() => {
+    const baselineId = estimateSummary.baseline?.id;
+    return draftApprovals.filter((a) => a.id !== baselineId);
+  }, [draftApprovals, estimateSummary.baseline]);
+
+  const otherFinalizedApprovals = useMemo(() => {
+    const baselineId = estimateSummary.baseline?.id;
+    return approvals.filter(
+      (a) => a.status !== "draft" && a.status !== "pending" && a.id !== baselineId
+    );
+  }, [approvals, estimateSummary.baseline]);
+
   if (!hasMounted) return null;
 
   return (
@@ -3406,19 +3479,43 @@ export default function DashboardPage() {
       <div className="container">
         <div className="shell">
           <div className="card">
-            <div className="row">
+            <div className="row" style={{ flexWrap: "wrap", rowGap: 10 }}>
               <div style={{ display: "flex", alignItems: "center" }}>
-                <img
-                  src="/Leeward-Logo-Approved-Concept.png"
-                  alt="Leeward"
+                {/* The logo PNG has a baked-in white background (not
+                    transparent), so on a dark theme it reads as a stray
+                    white rectangle unless it's deliberately framed as a
+                    white "chip" -- a real transparent/dark-mode logo asset
+                    would be the better long-term fix. */}
+                <div
                   style={{
-                    height: 90,
-                    width: "auto",
-                    display: "block",
+                    background: "#ffffff",
+                    borderRadius: 12,
+                    padding: "4px 8px",
+                    display: "flex",
+                    alignItems: "center",
+                    lineHeight: 0,
                   }}
-                />
+                >
+                  <img
+                    src="/Leeward-Logo-Approved-Concept.png"
+                    alt="Leeward"
+                    style={{
+                      height: 84,
+                      width: "auto",
+                      display: "block",
+                    }}
+                  />
+                </div>
               </div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                  alignItems: "stretch",
+                  flexShrink: 0,
+                }}
+              >
                 {billingSource === "organization" ? (
                   <button className="btn" onClick={openMembersPanel}>
                     {orgContext?.role === "owner" ? "Invite Team" : "Team"}
@@ -3428,9 +3525,81 @@ export default function DashboardPage() {
                     Upgrade
                   </button>
                 )}
-                <button className="btn btnDanger" onClick={logout}>
-                  Logout
-                </button>
+
+                <div style={{ position: "relative" }} ref={accountMenuRef}>
+                  <button
+                    className="btn"
+                    onClick={() => setAccountMenuOpen((v) => !v)}
+                    title="Account"
+                    style={{ width: "100%" }}
+                  >
+                    Account
+                  </button>
+
+                  {accountMenuOpen ? (
+                    <div
+                      style={{
+                        position: "absolute",
+                        right: 0,
+                        top: 44,
+                        zIndex: 20,
+                        width: 240,
+                        maxWidth: "min(280px, calc(100vw - 24px))",
+                        border: "1px solid var(--borderStrong)",
+                        borderRadius: 14,
+                        background: "var(--card)",
+                        padding: 10,
+                        boxShadow: "var(--shadowSoft)",
+                        display: "grid",
+                        gap: 8,
+                        boxSizing: "border-box",
+                      }}
+                    >
+                      <ThemeToggle />
+
+                      <button
+                        className="btn"
+                        style={{ width: "100%" }}
+                        onClick={() => router.push("/help")}
+                      >
+                        Help
+                      </button>
+
+                      <button
+                        className="btn"
+                        style={{ width: "100%" }}
+                        onClick={async () => {
+                          try {
+                            const token = await getAccessToken();
+
+                            const res = await fetch("/api/billing/portal", {
+                              method: "POST",
+                              headers: {
+                                Authorization: `Bearer ${token}`,
+                              },
+                            });
+
+                            const data = await res.json();
+
+                            if (!res.ok || !data?.url) {
+                              throw new Error(data?.error || "Unable to open billing portal.");
+                            }
+
+                            window.location.href = data.url;
+                          } catch (e: any) {
+                            setStatus(e?.message || "Unable to open billing portal.");
+                          }
+                        }}
+                      >
+                        Manage Billing
+                      </button>
+
+                      <button className="btn btnDanger" style={{ width: "100%" }} onClick={logout}>
+                        Logout
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </div>
 
@@ -3449,9 +3618,9 @@ export default function DashboardPage() {
                 className="card"
                 style={{
                   marginTop: 10,
-                  border: "1px solid rgba(16,185,129,0.22)",
-                  background: "rgba(16,185,129,0.08)",
-                  boxShadow: "0 12px 30px rgba(16,185,129,0.10)",
+                  border: "1px solid rgba(var(--success-rgb),0.22)",
+                  background: "rgba(var(--success-rgb),0.08)",
+                  boxShadow: "0 12px 30px rgba(var(--success-rgb),0.10)",
                   padding: 12,
                 }}
               >
@@ -3462,86 +3631,6 @@ export default function DashboardPage() {
               </div>
             ) : null}
           </div>
-
-          <div
-            className="card"
-            style={{
-              display: "flex",
-              gap: 6,
-              padding: 6,
-            }}
-          >
-            <button
-              className="btn"
-              onClick={() => setActiveGlobalTab("projects")}
-              style={{
-                flex: 1,
-                background: activeGlobalTab === "projects" ? "rgba(37,99,235,0.10)" : undefined,
-                color: activeGlobalTab === "projects" ? "#1d4ed8" : undefined,
-                fontWeight: activeGlobalTab === "projects" ? 700 : undefined,
-                border: "none",
-              }}
-            >
-              Projects
-            </button>
-            <button
-              className="btn"
-              onClick={() => setActiveGlobalTab("account")}
-              style={{
-                flex: 1,
-                background: activeGlobalTab === "account" ? "rgba(37,99,235,0.10)" : undefined,
-                color: activeGlobalTab === "account" ? "#1d4ed8" : undefined,
-                fontWeight: activeGlobalTab === "account" ? 700 : undefined,
-                border: "none",
-              }}
-            >
-              Account
-            </button>
-          </div>
-
-          {activeGlobalTab === "account" ? (
-            <div className="card" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{ fontWeight: 800, marginBottom: 4 }}>Account</div>
-
-              <button className="btn" style={{ width: "100%" }} onClick={() => router.push("/help")}>
-                Help
-              </button>
-
-              <button
-                className="btn"
-                style={{ width: "100%" }}
-                onClick={async () => {
-                  try {
-                    const token = await getAccessToken();
-
-                    const res = await fetch("/api/billing/portal", {
-                      method: "POST",
-                      headers: {
-                        Authorization: `Bearer ${token}`,
-                      },
-                    });
-
-                    const data = await res.json();
-
-                    if (!res.ok || !data?.url) {
-                      throw new Error(data?.error || "Unable to open billing portal.");
-                    }
-
-                    window.location.href = data.url;
-                  } catch (e: any) {
-                    setStatus(e?.message || "Unable to open billing portal.");
-                  }
-                }}
-              >
-                Manage Billing
-              </button>
-
-              <p className="sub" style={{ opacity: 0.75, marginTop: 4 }}>
-                Team management is moving here in a follow-up step. For now, use the button in the
-                header above.
-              </p>
-            </div>
-          ) : null}
 
           {dashboardReady && activeGlobalTab === "projects" ? (
             <OnboardingWizard
@@ -3565,9 +3654,9 @@ export default function DashboardPage() {
               id="onboarding-success"
               className="card"
               style={{
-                border: "1px solid rgba(16,185,129,0.22)",
-                background: "rgba(16,185,129,0.08)",
-                boxShadow: "0 12px 30px rgba(16,185,129,0.10)",
+                border: "1px solid rgba(var(--success-rgb),0.22)",
+                background: "rgba(var(--success-rgb),0.08)",
+                boxShadow: "0 12px 30px rgba(var(--success-rgb),0.10)",
               }}
             >
               <div style={{ fontWeight: 800, marginBottom: 4 }}>You’re ready to go</div>
@@ -3577,6 +3666,15 @@ export default function DashboardPage() {
             </div>
           ) : null}
 
+          <NewProjectModal
+            open={isNewProjectModalOpen}
+            onClose={() => setIsNewProjectModalOpen(false)}
+            onCreate={async (fields) => {
+              await addProject(fields);
+              setIsNewProjectModalOpen(false);
+            }}
+          />
+
           {!isSendMode && !selectedProject && activeGlobalTab === "projects" ? (
             <div
               id="onboarding-project-area"
@@ -3584,7 +3682,7 @@ export default function DashboardPage() {
               style={{
                 border:
                   highlightTarget === "onboarding-project-area"
-                    ? "2px solid rgba(37,99,235,0.55)"
+                    ? "2px solid rgba(var(--accent-rgb),0.55)"
                     : undefined,
                 boxShadow:
                   highlightTarget === "onboarding-project-area"
@@ -3624,15 +3722,13 @@ export default function DashboardPage() {
               </div>
 
               <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                <input
-                  id="new-project-input"
-                  className="input"
-                  placeholder="New project title"
-                  value={newProjectTitle}
-                  onChange={(e) => setNewProjectTitle(e.target.value)}
-                />
-                <button className="btn btnPrimary" onClick={addProject}>
-                  Add
+                <button
+                  id="new-project-trigger"
+                  className="btn btnPrimary"
+                  style={{ width: "100%", fontWeight: 700 }}
+                  onClick={() => setIsNewProjectModalOpen(true)}
+                >
+                  + New Project
                 </button>
               </div>
 
@@ -3733,7 +3829,7 @@ export default function DashboardPage() {
                           style={{
                             fontSize: 19,
                             fontWeight: 900,
-                            color: "#0f172a",
+                            color: "var(--text)",
                             lineHeight: 1.15,
                           }}
                         >
@@ -3789,8 +3885,33 @@ export default function DashboardPage() {
                   gap: 8,
                 }}
               >
-                <div style={{ fontWeight: 800, fontSize: 15 }}>
-                  {selectedProject.title || "Project"}
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 800,
+                      letterSpacing: 1,
+                      textTransform: "uppercase",
+                      color: "var(--accentText)",
+                      marginBottom: 4,
+                    }}
+                  >
+                    Project
+                  </div>
+
+                  <div
+                    style={{
+                      fontWeight: 900,
+                      fontSize: 30,
+                      letterSpacing: -0.4,
+                      lineHeight: 1.1,
+                      color: "var(--text)",
+                      overflowWrap: "anywhere",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {selectedProject.title || "Project"}
+                  </div>
                 </div>
 
                 <div
@@ -3809,6 +3930,8 @@ export default function DashboardPage() {
                         setSendCloseSignal((k) => k + 1);
                       } else if (isApprovalMode) {
                         setIsApprovalMode(false);
+                      } else if (isAddEntryMode) {
+                        setIsAddEntryMode(false);
                       } else {
                         closeProjectView();
                       }
@@ -3818,10 +3941,18 @@ export default function DashboardPage() {
                         ? "Exit send mode"
                         : isApprovalMode
                           ? "Exit approval mode"
-                          : "Close project view"
+                          : isAddEntryMode
+                            ? "Exit add entry mode"
+                            : "Close project view"
                     }
                   >
-                    {isSendMode ? "Exit Send" : isApprovalMode ? "Exit Approval" : "Close"}
+                    {isSendMode
+                      ? "Exit Send"
+                      : isApprovalMode
+                        ? "Exit Approval"
+                        : isAddEntryMode
+                          ? "Exit Add Entry"
+                          : "Close"}
                   </button>
 
                   {!isSendMode ? (
@@ -3851,11 +3982,11 @@ export default function DashboardPage() {
                             zIndex: 20,
                             width: 260,
                             maxWidth: "min(320px, calc(100vw - 24px))",
-                            border: "1px solid rgba(15,23,42,0.12)",
+                            border: "1px solid var(--borderStrong)",
                             borderRadius: 14,
-                            background: "white",
+                            background: "var(--card)",
                             padding: 10,
-                            boxShadow: "0 12px 30px rgba(15,23,42,0.10)",
+                            boxShadow: "var(--shadowSoft)",
                             display: "grid",
                             gap: 8,
                             boxSizing: "border-box",
@@ -3864,6 +3995,17 @@ export default function DashboardPage() {
                         >
                           {!renaming ? (
                             <>
+                              <button
+                                className="btn"
+                                style={{ width: "100%" }}
+                                onClick={() => {
+                                  setProjectMenuOpen(false);
+                                  setProjectNotesOpen(true);
+                                }}
+                              >
+                                Project Notes
+                              </button>
+
                               <button
                                 className="btn"
                                 style={{ width: "100%" }}
@@ -3915,7 +4057,9 @@ export default function DashboardPage() {
                                   fontSize: 16,
                                   padding: "8px 12px",
                                   borderRadius: 10,
-                                  border: "1px solid rgba(15,23,42,0.15)",
+                                  border: "1px solid var(--borderStrong)",
+                                  background: "var(--card)",
+                                  color: "var(--text)",
                                 }}
                               />
 
@@ -3936,16 +4080,33 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: 6 }}>
+              <div
+                style={{
+                  height: 1,
+                  background: "var(--borderSoft)",
+                  margin: "14px 0",
+                }}
+              />
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 4,
+                  padding: 4,
+                  borderRadius: 12,
+                  background: "var(--surfaceSoft)",
+                }}
+              >
                 <button
                   className="btn"
                   onClick={() => setActiveProjectTab("timeline")}
                   style={{
                     flex: 1,
-                    background: activeProjectTab === "timeline" ? "rgba(37,99,235,0.10)" : undefined,
-                    color: activeProjectTab === "timeline" ? "#1d4ed8" : undefined,
-                    fontWeight: activeProjectTab === "timeline" ? 700 : undefined,
+                    background: activeProjectTab === "timeline" ? "var(--card)" : "transparent",
+                    color: activeProjectTab === "timeline" ? "var(--text)" : "var(--muted)",
+                    fontWeight: activeProjectTab === "timeline" ? 700 : 500,
                     border: "none",
+                    boxShadow: activeProjectTab === "timeline" ? "var(--shadow)" : "none",
                   }}
                 >
                   Timeline
@@ -3955,47 +4116,155 @@ export default function DashboardPage() {
                   onClick={() => setActiveProjectTab("estimate")}
                   style={{
                     flex: 1,
-                    background: activeProjectTab === "estimate" ? "rgba(37,99,235,0.10)" : undefined,
-                    color: activeProjectTab === "estimate" ? "#1d4ed8" : undefined,
-                    fontWeight: activeProjectTab === "estimate" ? 700 : undefined,
+                    background: activeProjectTab === "estimate" ? "var(--card)" : "transparent",
+                    color: activeProjectTab === "estimate" ? "var(--text)" : "var(--muted)",
+                    fontWeight: activeProjectTab === "estimate" ? 700 : 500,
                     border: "none",
+                    boxShadow: activeProjectTab === "estimate" ? "var(--shadow)" : "none",
                   }}
                 >
                   Estimate
                 </button>
               </div>
 
-              {activeProjectTab === "timeline" ? (
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {!isSendMode ? (
+              {activeProjectTab === "timeline" && !isSendMode ? (
+                <button
+                  id="onboarding-send-trigger"
+                  className="btn btnPrimary"
+                  onClick={() => {
+                    setIsApprovalMode(false);
+                    setIsSendMode(true);
+                  }}
+                  style={{
+                    width: "100%",
+                    marginTop: 14,
+                    fontWeight: 700,
+                    boxShadow:
+                      highlightTarget === "onboarding-send-trigger"
+                        ? "0 0 0 6px rgba(59,130,246,0.35)"
+                        : undefined,
+                    transition: "all 0.25s ease",
+                  }}
+                >
+                  Send Update
+                </button>
+              ) : null}
+            </div>
+          )}
+
+          {selectedProject && activeGlobalTab === "projects" && !isSendMode && (
+            <div
+              id="client-info-section"
+              className="card"
+              style={{
+                boxShadow:
+                  highlightTarget === "client-info-section"
+                    ? "0 0 0 6px rgba(59,130,246,0.12)"
+                    : undefined,
+                transition: "all 0.25s ease",
+              }}
+            >
+              <div className="row" style={{ alignItems: "center" }}>
+                <div>
+                  <div
+                    style={{
+                      display: "inline-block",
+                      fontSize: 14,
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.5,
+                      color: "var(--accentText)",
+                      paddingBottom: 6,
+                      borderBottom: "1px solid rgba(var(--accent-rgb),0.35)",
+                      marginBottom: 8,
+                    }}
+                  >
+                    Client
+                  </div>
+
+                  <div
+                    style={{
+                      fontSize: 16,
+                      fontWeight: 500,
+                      opacity: 0.82,
+                    }}
+                  >
+                    {clientSummary}
+                  </div>
+                </div>
+
+                {!clientEditing ? (
+                  <button className="btn" onClick={() => setClientEditing(true)}>
+                    Edit
+                  </button>
+                ) : null}
+              </div>
+
+              {!clientEditing && !selectedProject.client_email ? (
+                <div
+                  className="sub"
+                  style={{
+                    opacity: 0.8,
+                    marginTop: -4,
+                  }}
+                >
+                  Add client email to auto-fill send updates.
+                </div>
+              ) : null}
+
+              {clientEditing ? (
+                <div style={{ display: "grid", gap: 8, minWidth: 0, marginTop: 10 }}>
+                  <input
+                    className="input"
+                    placeholder="Client name..."
+                    value={clientNameDraft}
+                    onChange={(e) => setClientNameDraft(e.target.value)}
+                  />
+
+                  <input
+                    id="client-email-input"
+                    className="input"
+                    placeholder="Client email..."
+                    value={clientEmailDraft}
+                    onChange={(e) => setClientEmailDraft(e.target.value)}
+                  />
+
+                  <input
+                    className="input"
+                    type="tel"
+                    placeholder="Client phone..."
+                    value={clientPhoneDraft}
+                    onChange={(e) => setClientPhoneDraft(e.target.value)}
+                  />
+
+                  <input
+                    className="input"
+                    placeholder="Project address..."
+                    value={projectAddressDraft}
+                    onChange={(e) => setProjectAddressDraft(e.target.value)}
+                  />
+
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button className="btn btnPrimary" onClick={saveClient}>
+                      Save client
+                    </button>
                     <button
-                      id="onboarding-send-trigger"
-                      className="btn"
+                      className="btn btnDanger"
                       onClick={() => {
-                        setIsApprovalMode(false);
-                        setIsSendMode(true);
-                      }}
-                      style={{
-                        background: "#16a34a",
-                        color: "white",
-                        borderColor: "#16a34a",
-                        fontWeight: 800,
-                        boxShadow:
-                          highlightTarget === "onboarding-send-trigger"
-                            ? "0 0 0 6px rgba(59,130,246,0.35)"
-                            : undefined,
-                        transition: "all 0.25s ease",
+                        setClientNameDraft(selectedProject.client_name ?? "");
+                        setClientEmailDraft(selectedProject.client_email ?? "");
+                        setClientPhoneDraft(selectedProject.client_phone ?? "");
+                        setProjectAddressDraft(selectedProject.project_address ?? "");
+                        setClientEditing(false);
                       }}
                     >
-                      Send Update
+                      Cancel
                     </button>
-                  ) : null}
-                  <button
-                    className="btn"
-                    onClick={() => setProjectNotesOpen(true)}
-                  >
-                    Project Notes
-                  </button>
+                  </div>
+
+                  <div className="sub" style={{ opacity: 0.65 }}>
+                    Auto-fills send updates.
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -4028,8 +4297,8 @@ export default function DashboardPage() {
                   borderRadius: 16,
                   padding: 16,
                   marginBottom: 14,
-                  background: "rgba(15,23,42,0.03)",
-                  border: "1px solid rgba(15,23,42,0.08)",
+                  background: "var(--surfaceSoft)",
+                  border: "1px solid var(--borderSoft)",
                 }}
               >
                 <div
@@ -4045,7 +4314,7 @@ export default function DashboardPage() {
                   Current Total
                 </div>
 
-                <div style={{ fontSize: 32, fontWeight: 900, color: "#111827" }}>
+                <div style={{ fontSize: 32, fontWeight: 900, color: "var(--text)" }}>
                   {estimateSummary.approvedTotal.toLocaleString("en-US", {
                     style: "currency",
                     currency: "USD",
@@ -4083,9 +4352,58 @@ export default function DashboardPage() {
                 same approval feed below.
               </p>
 
-              {draftApprovals.length > 0 ? (
-                <div className="list" style={{ marginTop: 14, display: "grid", gap: 14 }}>
-                  {draftApprovals.map((approval) => (
+              {estimateSummary.baseline ? (
+                <div style={{ marginBottom: 18 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.5,
+                      opacity: 0.6,
+                      marginBottom: 8,
+                    }}
+                  >
+                    Baseline Estimate
+                  </div>
+
+                  <ApprovalCard
+                    key={estimateSummary.baseline.id}
+                    approval={estimateSummary.baseline}
+                    onUpdated={async () => {
+                      await loadApprovals(selectedProject.id);
+                    }}
+                    onEdit={
+                      estimateSummary.baseline.status === "draft" ||
+                      estimateSummary.baseline.status === "pending"
+                        ? (approval) => {
+                          setEditingApproval(approval);
+                          setIsApprovalMode(true);
+                        }
+                        : undefined
+                    }
+                  />
+                </div>
+              ) : null}
+
+              {otherDraftApprovals.length > 0 || otherFinalizedApprovals.length > 0 ? (
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                    opacity: 0.6,
+                    marginBottom: 8,
+                  }}
+                >
+                  Change Orders
+                </div>
+              ) : null}
+
+              {otherDraftApprovals.length > 0 ? (
+                <div className="list" style={{ marginTop: 0, marginBottom: 14, display: "grid", gap: 14 }}>
+                  {otherDraftApprovals.map((approval) => (
                     <ApprovalCard
                       key={approval.id}
                       approval={approval}
@@ -4101,24 +4419,23 @@ export default function DashboardPage() {
                 </div>
               ) : null}
 
-              {approvals.filter((a) => a.status !== "draft" && a.status !== "pending").length > 0 ? (
-                <div className="list" style={{ marginTop: 14, display: "grid", gap: 14 }}>
-                  {approvals
-                    .filter((a) => a.status !== "draft" && a.status !== "pending")
-                    .map((approval) => (
-                      <ApprovalCard
-                        key={approval.id}
-                        approval={approval}
-                        onUpdated={async () => {
-                          await loadApprovals(selectedProject.id);
-                        }}
-                      />
-                    ))}
+              {otherFinalizedApprovals.length > 0 ? (
+                <div className="list" style={{ marginTop: 0, display: "grid", gap: 14 }}>
+                  {otherFinalizedApprovals.map((approval) => (
+                    <ApprovalCard
+                      key={approval.id}
+                      approval={approval}
+                      onUpdated={async () => {
+                        await loadApprovals(selectedProject.id);
+                      }}
+                    />
+                  ))}
                 </div>
               ) : null}
 
-              {draftApprovals.length === 0 &&
-              approvals.filter((a) => a.status !== "draft" && a.status !== "pending").length === 0 ? (
+              {!estimateSummary.baseline &&
+              otherDraftApprovals.length === 0 &&
+              otherFinalizedApprovals.length === 0 ? (
                 <p className="sub" style={{ opacity: 0.6, marginTop: 4 }}>
                   No estimate or change orders yet. Tap the + button to create one.
                 </p>
@@ -4143,7 +4460,7 @@ export default function DashboardPage() {
                   height: 56,
                   borderRadius: "50%",
                   padding: 0,
-                  boxShadow: "0 8px 24px rgba(15,23,42,0.25)",
+                  boxShadow: "0 8px 24px rgba(var(--text-rgb),0.25)",
                   fontSize: 28,
                   lineHeight: 1,
                   display: "flex",
@@ -4161,138 +4478,39 @@ export default function DashboardPage() {
               </button>
             )}
 
+          {selectedProject &&
+            activeGlobalTab === "projects" &&
+            activeProjectTab === "timeline" &&
+            !isSendMode &&
+            !isAddEntryMode && (
+              <button
+                className="btn btnPrimary"
+                aria-label="Add entry"
+                title="Add entry"
+                style={{
+                  position: "fixed",
+                  right: 20,
+                  bottom: 24,
+                  zIndex: 40,
+                  width: 56,
+                  height: 56,
+                  borderRadius: "50%",
+                  padding: 0,
+                  boxShadow: "0 8px 24px rgba(var(--text-rgb),0.25)",
+                  fontSize: 28,
+                  lineHeight: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                onClick={() => setIsAddEntryMode(true)}
+              >
+                +
+              </button>
+            )}
+
           {selectedProject && activeGlobalTab === "projects" && activeProjectTab === "timeline" && (
             <div className="card">
-
-              {!isSendMode ? (
-                <div
-                  id="client-info-section"
-                  style={{
-                    display: "grid",
-                    gap: 10,
-                    marginBottom: 12,
-                    padding: highlightTarget === "client-info-section" ? 10 : 0,
-                    borderRadius: 14,
-                    boxShadow:
-                      highlightTarget === "client-info-section"
-                        ? "0 0 0 6px rgba(59,130,246,0.12)"
-                        : undefined,
-                    transition: "all 0.25s ease",
-                  }}
-                >
-                  <div className="row" style={{ alignItems: "center" }}>
-                    <div>
-                      <div
-                        style={{
-                          display: "inline-block",
-                          fontSize: 14,
-                          fontWeight: 800,
-                          textTransform: "uppercase",
-                          letterSpacing: 0.5,
-                          opacity: 0.58,
-                          paddingBottom: 6,
-                          borderBottom: "1px solid rgba(15,23,42,0.32)",
-                          marginBottom: 8,
-                        }}
-                      >
-                        Client
-                      </div>
-
-                      <div
-                        style={{
-                          fontSize: 16,
-                          fontWeight: 500,
-                          opacity: 0.82,
-                        }}
-                      >
-                        {clientSummary}
-                      </div>
-                    </div>
-
-                    {!clientEditing ? (
-                      <button className="btn" onClick={() => setClientEditing(true)}>
-                        Edit
-                      </button>
-                    ) : null}
-                  </div>
-
-                  {!clientEditing && !selectedProject.client_email ? (
-                    <div
-                      className="sub"
-                      style={{
-                        opacity: 0.8,
-                        marginTop: -4,
-                      }}
-                    >
-                      Add client email to auto-fill send updates.
-                    </div>
-                  ) : null}
-
-                  {clientEditing ? (
-                    <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
-                      <input
-                        className="input"
-                        placeholder="Client name..."
-                        value={clientNameDraft}
-                        onChange={(e) => setClientNameDraft(e.target.value)}
-                      />
-
-                      <input
-                        id="client-email-input"
-                        className="input"
-                        placeholder="Client email..."
-                        value={clientEmailDraft}
-                        onChange={(e) => setClientEmailDraft(e.target.value)}
-                      />
-
-                      <input
-                        className="input"
-                        type="tel"
-                        placeholder="Client phone..."
-                        value={clientPhoneDraft}
-                        onChange={(e) => setClientPhoneDraft(e.target.value)}
-                      />
-
-                      <input
-                        className="input"
-                        placeholder="Project address..."
-                        value={projectAddressDraft}
-                        onChange={(e) => setProjectAddressDraft(e.target.value)}
-                      />
-
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <button className="btn btnPrimary" onClick={saveClient}>
-                          Save client
-                        </button>
-                        <button
-                          className="btn btnDanger"
-                          onClick={() => {
-                            setClientNameDraft(selectedProject.client_name ?? "");
-                            setClientEmailDraft(selectedProject.client_email ?? "");
-                            setClientPhoneDraft(selectedProject.client_phone ?? "");
-                            setProjectAddressDraft(selectedProject.project_address ?? "");
-                            setClientEditing(false);
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-
-                      <div className="sub" style={{ opacity: 0.65 }}>
-                        Auto-fills send updates.
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-
-              <div
-                style={{
-                  height: 1,
-                  background: "rgba(15,23,42,0.08)",
-                  margin: "16px 0",
-                }}
-              />
 
               <div
                 id="onboarding-send-area"
@@ -4376,14 +4594,6 @@ export default function DashboardPage() {
                 <>
                   <div
                     style={{
-                      height: 1,
-                      background: "rgba(15,23,42,0.08)",
-                      margin: "18px 0 12px",
-                    }}
-                  />
-
-                  <div
-                    style={{
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
@@ -4397,34 +4607,39 @@ export default function DashboardPage() {
                         fontWeight: 800,
                         textTransform: "uppercase",
                         letterSpacing: 0.5,
-                        opacity: 0.58,
+                        color: "var(--accentText)",
                         paddingBottom: 6,
-                        borderBottom: "1px solid rgba(15,23,42,0.32)",
+                        borderBottom: "1px solid rgba(var(--accent-rgb),0.35)",
                         display: "inline-block",
                       }}
                     >
                       Project Timeline
                     </div>
 
-                    <button
-                      type="button"
-                      className={`btn ${showTemplates ? "btnDanger" : ""}`}
-                      onClick={() => setShowTemplates((v) => !v)}
-                      style={{
-                        whiteSpace: "nowrap",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {showTemplates ? "Hide Templates" : "⚡ Templates"}
-                    </button>
+                    {isAddEntryMode ? (
+                      <button
+                        type="button"
+                        className={`btn ${showTemplates ? "btnDanger" : ""}`}
+                        onClick={() => setShowTemplates((v) => !v)}
+                        style={{
+                          whiteSpace: "nowrap",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {showTemplates ? "Hide Templates" : "⚡ Templates"}
+                      </button>
+                    ) : null}
                   </div>
 
+                  {isAddEntryMode ? (
                   <div
                     id="onboarding-entry-area"
+                    ref={addEntryRef}
                     style={{
                       display: "grid",
                       gap: 8,
                       marginTop: 6,
+                      marginBottom: 14,
                       padding: highlightTarget === "onboarding-entry-area" ? 10 : 0,
                       borderRadius: 14,
                       boxShadow:
@@ -4482,204 +4697,257 @@ export default function DashboardPage() {
                       </div>
                     ) : null}
 
-                    <button
-                      className="btn"
-                      onClick={addProof}
-                      disabled={addingProof}
-                      style={{
-                        background: "#0f172a",
-                        color: "white",
-                        borderColor: "#0f172a",
-                        fontWeight: 700,
-                      }}
-                    >
-                      {addingProof ? "Saving..." : "Add Entry"}
-                    </button>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        className="btn"
+                        onClick={() => setIsAddEntryMode(false)}
+                        style={{ flexShrink: 0 }}
+                      >
+                        Cancel
+                      </button>
 
-                    <div style={{ display: "grid", gap: 4, marginTop: 4 }}>
+                      <button
+                        className="btn btnPrimary"
+                        onClick={addProof}
+                        disabled={addingProof}
+                        style={{ flex: 1, fontWeight: 700 }}
+                      >
+                        {addingProof ? "Saving..." : "Add Entry"}
+                      </button>
+                    </div>
+                  </div>
+                  ) : null}
+
+                    <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
                       <input
                         className="input"
                         placeholder="Search timeline..."
                         value={entrySearch}
                         onChange={(e) => setEntrySearch(e.target.value)}
                         style={{
-                          width: "100%",
+                          flex: 1,
+                          minWidth: 0,
                           height: 38,
                           fontSize: 14,
                         }}
                       />
 
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: 6,
-                          alignItems: "center",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        {(
-                          [
-                            { key: "all", label: "All" },
-                            { key: "notes", label: "Notes" },
-                            { key: "photos", label: "Photos" },
-                            { key: "files", label: "Files" },
-                          ] as const
-                        ).map((opt) => (
-                          <button
-                            key={opt.key}
-                            className="btn"
-                            onClick={() => setEntryContentFilter(opt.key)}
-                            style={{
-                              height: 30,
-                              fontSize: 12,
-                              padding: "2px 10px",
-                              borderRadius: 999,
-                              whiteSpace: "nowrap",
-                              background:
-                                entryContentFilter === opt.key
-                                  ? "rgba(37,99,235,0.10)"
-                                  : undefined,
-                              color: entryContentFilter === opt.key ? "#1d4ed8" : undefined,
-                              fontWeight: entryContentFilter === opt.key ? 700 : undefined,
-                              border:
-                                entryContentFilter === opt.key
-                                  ? "1px solid rgba(37,99,235,0.25)"
-                                  : undefined,
-                            }}
-                          >
-                            {opt.label}
-                          </button>
-                        ))}
+                      <div style={{ position: "relative" }} ref={entryFilterMenuRef}>
+                        {(() => {
+                          const hasActiveFilters =
+                            entryContentFilter !== "all" ||
+                            entryStatusFilter !== "all" ||
+                            showArchivedEntries;
 
-                        <div
-                          style={{ position: "relative", marginLeft: "auto" }}
-                          ref={statusFilterMenuRef}
-                        >
-                          <button
-                            className="btn"
-                            onClick={() => setStatusFilterMenuOpen((v) => !v)}
-                            title="Filter by status"
-                            style={{
-                              height: 30,
-                              fontSize: 12,
-                              padding: "2px 10px",
-                              borderRadius: 999,
-                              whiteSpace: "nowrap",
-                              background:
-                                entryStatusFilter !== "all" ? "rgba(37,99,235,0.10)" : undefined,
-                              color: entryStatusFilter !== "all" ? "#1d4ed8" : undefined,
-                            }}
-                          >
-                            {entryStatusFilter === "all"
-                              ? "Status ▾"
-                              : entryStatusFilter === "draft"
-                                ? "Draft ▾"
-                                : entryStatusFilter === "finalized"
-                                  ? "Finalized ▾"
-                                  : "Archived ▾"}
-                          </button>
-
-                          {statusFilterMenuOpen ? (
-                            <div
+                          return (
+                            <button
+                              className="btn"
+                              onClick={() => setEntryFilterMenuOpen((v) => !v)}
+                              title="Filter & sort entries"
+                              aria-label="Filter & sort entries"
                               style={{
-                                position: "absolute",
-                                right: 0,
-                                top: 36,
-                                zIndex: 20,
-                                width: 160,
-                                border: "1px solid rgba(15,23,42,0.12)",
-                                borderRadius: 12,
-                                background: "white",
-                                padding: 8,
-                                boxShadow: "0 12px 30px rgba(15,23,42,0.10)",
-                                display: "grid",
-                                gap: 4,
+                                height: 38,
+                                width: 38,
+                                padding: 0,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                flexShrink: 0,
+                                position: "relative",
+                                background: hasActiveFilters
+                                  ? "rgba(var(--accent-rgb),0.10)"
+                                  : undefined,
+                                color: hasActiveFilters ? "var(--accentText)" : undefined,
+                                border: hasActiveFilters
+                                  ? "1px solid rgba(var(--accent-rgb),0.25)"
+                                  : undefined,
                               }}
                             >
-                              {(
-                                [
-                                  { key: "all", label: "All statuses" },
-                                  { key: "draft", label: "Draft" },
-                                  { key: "finalized", label: "Finalized" },
-                                  { key: "archived", label: "Archived" },
-                                ] as const
-                              ).map((opt) => (
-                                <button
-                                  key={opt.key}
-                                  className="btn"
+                              <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <polygon points="3 4 21 4 14 12.5 14 19 10 21 10 12.5 3 4" />
+                              </svg>
+
+                              {hasActiveFilters ? (
+                                <span
                                   style={{
-                                    width: "100%",
-                                    justifyContent: "flex-start",
-                                    background:
-                                      entryStatusFilter === opt.key
-                                        ? "rgba(37,99,235,0.10)"
-                                        : undefined,
-                                    color: entryStatusFilter === opt.key ? "#1d4ed8" : undefined,
+                                    position: "absolute",
+                                    top: 3,
+                                    right: 3,
+                                    width: 7,
+                                    height: 7,
+                                    borderRadius: "50%",
+                                    background: "var(--accentText)",
                                   }}
-                                  onClick={() => {
-                                    setEntryStatusFilter(opt.key);
-                                    setStatusFilterMenuOpen(false);
+                                />
+                              ) : null}
+                            </button>
+                          );
+                        })()}
 
-                                    if (opt.key === "archived" && !showArchivedEntries) {
-                                      setShowArchivedEntries(true);
-                                      loadProofs(selectedProject.id, true);
-                                      loadApprovals(selectedProject.id, true);
-                                    }
-                                  }}
-                                >
-                                  {opt.label}
-                                </button>
-                              ))}
+                        {entryFilterMenuOpen ? (
+                          <div
+                            style={{
+                              position: "absolute",
+                              right: 0,
+                              top: 44,
+                              zIndex: 20,
+                              width: 230,
+                              maxWidth: "min(260px, calc(100vw - 24px))",
+                              border: "1px solid var(--borderStrong)",
+                              borderRadius: 14,
+                              background: "var(--card)",
+                              padding: 12,
+                              boxShadow: "var(--shadowSoft)",
+                              display: "grid",
+                              gap: 12,
+                              boxSizing: "border-box",
+                            }}
+                          >
+                            <div>
+                              <div
+                                className="sub"
+                                style={{ fontWeight: 700, opacity: 0.75, marginBottom: 6 }}
+                              >
+                                Content
+                              </div>
+                              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                {(
+                                  [
+                                    { key: "all", label: "All" },
+                                    { key: "notes", label: "Notes" },
+                                    { key: "photos", label: "Photos" },
+                                    { key: "files", label: "Files" },
+                                  ] as const
+                                ).map((opt) => (
+                                  <button
+                                    key={opt.key}
+                                    className="btn"
+                                    onClick={() => setEntryContentFilter(opt.key)}
+                                    style={{
+                                      height: 30,
+                                      fontSize: 12,
+                                      padding: "2px 10px",
+                                      borderRadius: 999,
+                                      whiteSpace: "nowrap",
+                                      background:
+                                        entryContentFilter === opt.key
+                                          ? "rgba(var(--accent-rgb),0.10)"
+                                          : undefined,
+                                      color:
+                                        entryContentFilter === opt.key
+                                          ? "var(--accentText)"
+                                          : undefined,
+                                      fontWeight: entryContentFilter === opt.key ? 700 : undefined,
+                                      border:
+                                        entryContentFilter === opt.key
+                                          ? "1px solid rgba(var(--accent-rgb),0.25)"
+                                          : undefined,
+                                    }}
+                                  >
+                                    {opt.label}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
-                          ) : null}
-                        </div>
-                      </div>
 
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: 6,
-                          alignItems: "center",
-                        }}
-                      >
-                        <button
-                          className="btn"
-                          onClick={() =>
-                            setEntrySortMode((current) =>
-                              current === "newest" ? "oldest" : "newest"
-                            )
-                          }
-                          style={{
-                            height: 34,
-                            fontSize: 12,
-                            padding: "2px 10px",
-                            borderRadius: 999,
-                            whiteSpace: "nowrap",
-                            flex: 1,
-                          }}
-                        >
-                          {entrySortMode === "newest" ? "Newest" : "Oldest"}
-                        </button>
+                            <div>
+                              <div
+                                className="sub"
+                                style={{ fontWeight: 700, opacity: 0.75, marginBottom: 6 }}
+                              >
+                                Status
+                              </div>
+                              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                {(
+                                  [
+                                    { key: "all", label: "All" },
+                                    { key: "draft", label: "Draft" },
+                                    { key: "finalized", label: "Finalized" },
+                                    { key: "archived", label: "Archived" },
+                                  ] as const
+                                ).map((opt) => (
+                                  <button
+                                    key={opt.key}
+                                    className="btn"
+                                    style={{
+                                      height: 30,
+                                      fontSize: 12,
+                                      padding: "2px 10px",
+                                      borderRadius: 999,
+                                      whiteSpace: "nowrap",
+                                      background:
+                                        entryStatusFilter === opt.key
+                                          ? "rgba(var(--accent-rgb),0.10)"
+                                          : undefined,
+                                      color:
+                                        entryStatusFilter === opt.key
+                                          ? "var(--accentText)"
+                                          : undefined,
+                                      fontWeight: entryStatusFilter === opt.key ? 700 : undefined,
+                                      border:
+                                        entryStatusFilter === opt.key
+                                          ? "1px solid rgba(var(--accent-rgb),0.25)"
+                                          : undefined,
+                                    }}
+                                    onClick={() => {
+                                      setEntryStatusFilter(opt.key);
 
-                        <button
-                          className="btn"
-                          onClick={() => {
-                            const next = !showArchivedEntries;
-                            setShowArchivedEntries(next);
-                            loadProofs(selectedProject.id, next);
-                            loadApprovals(selectedProject.id, next);
-                          }}
-                          style={{
-                            height: 34,
-                            fontSize: 12,
-                            padding: "2px 10px",
-                            borderRadius: 999,
-                            whiteSpace: "nowrap",
-                            flex: 1,
-                          }}
-                        >
-                          {showArchivedEntries ? "Hide Archived" : "Show Archived"}
-                        </button>
+                                      if (opt.key === "archived" && !showArchivedEntries) {
+                                        setShowArchivedEntries(true);
+                                        loadProofs(selectedProject.id, true);
+                                        loadApprovals(selectedProject.id, true);
+                                      }
+                                    }}
+                                  >
+                                    {opt.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <div
+                                className="sub"
+                                style={{ fontWeight: 700, opacity: 0.75, marginBottom: 6 }}
+                              >
+                                Sort
+                              </div>
+                              <button
+                                className="btn"
+                                onClick={() =>
+                                  setEntrySortMode((current) =>
+                                    current === "newest" ? "oldest" : "newest"
+                                  )
+                                }
+                                style={{ width: "100%" }}
+                              >
+                                {entrySortMode === "newest" ? "Newest first" : "Oldest first"}
+                              </button>
+                            </div>
+
+                            <button
+                              className="btn"
+                              onClick={() => {
+                                const next = !showArchivedEntries;
+                                setShowArchivedEntries(next);
+                                loadProofs(selectedProject.id, next);
+                                loadApprovals(selectedProject.id, next);
+                              }}
+                              style={{ width: "100%" }}
+                            >
+                              {showArchivedEntries ? "Hide Archived" : "Show Archived"}
+                            </button>
+                          </div>
+                        ) : null}
                       </div>
                     </div>
 
@@ -4688,7 +4956,6 @@ export default function DashboardPage() {
                         {proofStatus}
                       </div>
                     ) : null}
-                  </div>
 
                   <div className="list" style={{ marginTop: 14, display: "grid", gap: 14 }}>
                     {filteredProofs.map((proof) => {
@@ -4706,21 +4973,20 @@ export default function DashboardPage() {
                           className="proofItem"
                           style={{
                             border: isArchived
-                              ? "1px solid rgba(239,68,68,0.18)"
+                              ? "1px solid rgba(var(--danger-rgb),0.18)"
                               : isLocked
-                                ? "1px solid rgba(16,185,129,0.18)"
-                                : "1px solid rgba(15,23,42,0.12)",
+                                ? "1px solid rgba(var(--success-rgb),0.18)"
+                                : "1px solid var(--borderSoft)",
                             borderLeft: isArchived
-                              ? "6px solid #f87171"
+                              ? "6px solid rgb(var(--danger-rgb))"
                               : isLocked
-                                ? "6px solid #10b981"
-                                : "6px solid #f59e0b",
+                                ? "6px solid rgb(var(--success-rgb))"
+                                : "6px solid rgb(var(--warning-rgb))",
                             borderRadius: 18,
                             padding: 18,
-                            background: isArchived
-                              ? "rgba(248,250,252,0.9)"
-                              : "rgba(255,255,255,0.98)",
-                            boxShadow: "0 10px 24px rgba(15,23,42,0.06)",
+                            background: isArchived ? "var(--surfaceSoft)" : "var(--card)",
+                            color: "var(--text)",
+                            boxShadow: "var(--shadow)",
                             opacity: isArchived ? 0.9 : 1,
                             position: "relative",
                             zIndex: proofMenuOpenId === proof.id ? 10000 : 1,
@@ -4752,7 +5018,7 @@ export default function DashboardPage() {
                                 <div
                                   style={{
                                     whiteSpace: "pre-wrap",
-                                    fontSize: 15,
+                                    fontSize: 16,
                                     lineHeight: 1.4,
                                     overflowWrap: "anywhere",
                                     wordBreak: "break-word",
@@ -4765,7 +5031,8 @@ export default function DashboardPage() {
                                       <div
                                         key={index}
                                         style={{
-                                          fontWeight: index === 0 ? 700 : 400,
+                                          fontSize: index === 0 ? 20 : undefined,
+                                          fontWeight: index === 0 ? 900 : 400,
                                           marginBottom: index === 0 ? 6 : 0,
                                           overflowWrap: "anywhere",
                                           wordBreak: "break-word",
@@ -4779,7 +5046,8 @@ export default function DashboardPage() {
                                   ) : (
                                     <div
                                       style={{
-                                        fontWeight: 700,
+                                        fontSize: 20,
+                                        fontWeight: 900,
                                         overflowWrap: "anywhere",
                                         wordBreak: "break-word",
                                         minWidth: 0,
@@ -4799,7 +5067,7 @@ export default function DashboardPage() {
                                   alignItems: "center",
                                   marginTop: 14,
                                   paddingTop: 12,
-                                  borderTop: "1px solid rgba(15,23,42,0.08)",
+                                  borderTop: "1px solid var(--borderSoft)",
                                   flexWrap: "wrap",
                                   gap: 8,
                                 }}
@@ -4820,16 +5088,20 @@ export default function DashboardPage() {
                                     padding: "6px 10px",
                                     borderRadius: 999,
                                     border: isArchived
-                                      ? "1px solid rgba(239,68,68,0.35)"
+                                      ? "1px solid rgba(var(--danger-rgb),0.35)"
                                       : isLocked
-                                        ? "1px solid rgba(16,185,129,0.35)"
-                                        : "1px solid rgba(245,158,11,0.35)",
+                                        ? "1px solid rgba(var(--success-rgb),0.35)"
+                                        : "1px solid rgba(var(--warning-rgb),0.35)",
                                     background: isArchived
-                                      ? "rgba(239,68,68,0.08)"
+                                      ? "rgba(var(--danger-rgb),0.08)"
                                       : isLocked
-                                        ? "rgba(16,185,129,0.08)"
-                                        : "rgba(245,158,11,0.08)",
-                                    color: isArchived ? "#991b1b" : isLocked ? "#065f46" : "#92400e",
+                                        ? "rgba(var(--success-rgb),0.08)"
+                                        : "rgba(var(--warning-rgb),0.08)",
+                                    color: isArchived
+                                      ? "var(--dangerTextAlt)"
+                                      : isLocked
+                                        ? "var(--successTextAlt)"
+                                        : "var(--warningText)",
                                     whiteSpace: "nowrap",
                                   }}
                                 >
@@ -4885,11 +5157,11 @@ export default function DashboardPage() {
                                     zIndex: 9999,
                                     width: 220,
                                     maxWidth: "min(220px, 88vw)",
-                                    border: "1px solid rgba(15,23,42,0.12)",
+                                    border: "1px solid var(--borderStrong)",
                                     borderRadius: 14,
-                                    background: "white",
+                                    background: "var(--card)",
                                     padding: 10,
-                                    boxShadow: "0 12px 30px rgba(15,23,42,0.10)",
+                                    boxShadow: "var(--shadowSoft)",
                                     display: "grid",
                                     gap: 8,
                                   }}
@@ -4963,8 +5235,8 @@ export default function DashboardPage() {
                                 marginTop: 14,
                                 padding: 14,
                                 borderRadius: 14,
-                                border: "1px dashed rgba(15,23,42,0.12)",
-                                background: "rgba(15,23,42,0.02)",
+                                border: "1px dashed var(--borderStrong)",
+                                background: "var(--surfaceSoft)",
                                 boxShadow:
                                   highlightTarget === "onboarding-attachments-area"
                                     ? "0 0 0 6px rgba(59,130,246,0.12)"
@@ -5006,7 +5278,7 @@ export default function DashboardPage() {
 
                   {filteredProofs.length === 0 ? (
                     <div className="sub" style={{ marginTop: 14, opacity: 0.75 }}>
-                      No entries yet. Add your first update above to start the project timeline.
+                      No entries yet. Tap the + button to add your first update.
                     </div>
                   ) : null}
 
@@ -5037,7 +5309,7 @@ export default function DashboardPage() {
             style={{
               width: "100%",
               maxWidth: 720,
-              background: "white",
+              background: "var(--card)",
               borderRadius: 16,
               padding: 16,
               boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
@@ -5060,17 +5332,13 @@ export default function DashboardPage() {
             </div>
 
             <textarea
+              className="textarea"
               value={projectNotesDraft}
               onChange={(e) => scheduleProjectNotesSave(e.target.value)}
               placeholder="Write notes for this project..."
               style={{
-                width: "100%",
                 minHeight: 220,
-                borderRadius: 12,
-                border: "1px solid rgba(15,23,42,0.15)",
-                padding: 12,
                 fontSize: 14,
-                resize: "vertical",
               }}
             />
 
@@ -5105,7 +5373,7 @@ export default function DashboardPage() {
               maxWidth: 520,
               maxHeight: "85vh",
               overflowY: "auto",
-              background: "white",
+              background: "var(--card)",
               borderRadius: 16,
               padding: 16,
               boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
@@ -5119,7 +5387,7 @@ export default function DashboardPage() {
             </div>
 
             {membersError && (
-              <div style={{ fontSize: 13, color: "#b91c1c" }}>{membersError}</div>
+              <div style={{ fontSize: 13, color: "var(--dangerTextAlt)" }}>{membersError}</div>
             )}
 
             {orgContext?.role === "owner" && (
@@ -5134,7 +5402,7 @@ export default function DashboardPage() {
                     style={{
                       flex: 1,
                       borderRadius: 10,
-                      border: "1px solid rgba(15,23,42,0.15)",
+                      border: "1px solid var(--borderStrong)",
                       padding: "8px 10px",
                       fontSize: 14,
                     }}
@@ -5148,7 +5416,7 @@ export default function DashboardPage() {
                   </button>
                 </div>
                 {inviteError && (
-                  <div style={{ fontSize: 13, color: "#b91c1c" }}>{inviteError}</div>
+                  <div style={{ fontSize: 13, color: "var(--dangerTextAlt)" }}>{inviteError}</div>
                 )}
               </div>
             )}
@@ -5166,7 +5434,7 @@ export default function DashboardPage() {
                     alignItems: "center",
                     fontSize: 14,
                     padding: "6px 0",
-                    borderBottom: "1px solid rgba(15,23,42,0.08)",
+                    borderBottom: "1px solid var(--borderSoft)",
                   }}
                 >
                   <div>
@@ -5201,7 +5469,7 @@ export default function DashboardPage() {
                       alignItems: "center",
                       fontSize: 14,
                       padding: "6px 0",
-                      borderBottom: "1px solid rgba(15,23,42,0.08)",
+                      borderBottom: "1px solid var(--borderSoft)",
                     }}
                   >
                     <div>{inv.email}</div>
@@ -5223,7 +5491,7 @@ export default function DashboardPage() {
             {orgContext?.role === "owner" && (
               <div
                 style={{
-                  borderTop: "1px solid rgba(15,23,42,0.1)",
+                  borderTop: "1px solid var(--borderSoft)",
                   paddingTop: 12,
                   display: "grid",
                   gap: 8,
@@ -5250,13 +5518,13 @@ export default function DashboardPage() {
                       placeholder={orgContext?.organizationName || ""}
                       style={{
                         borderRadius: 10,
-                        border: "1px solid rgba(15,23,42,0.15)",
+                        border: "1px solid var(--borderStrong)",
                         padding: "8px 10px",
                         fontSize: 14,
                       }}
                     />
                     {dissolveError && (
-                      <div style={{ fontSize: 13, color: "#b91c1c" }}>
+                      <div style={{ fontSize: 13, color: "var(--dangerTextAlt)" }}>
                         {dissolveError}
                       </div>
                     )}
@@ -5313,7 +5581,7 @@ export default function DashboardPage() {
             style={{
               width: "100%",
               maxWidth: 480,
-              background: "white",
+              background: "var(--card)",
               borderRadius: 16,
               padding: 16,
               boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
@@ -5335,7 +5603,7 @@ export default function DashboardPage() {
                 placeholder="What's your team called?"
                 style={{
                   borderRadius: 10,
-                  border: "1px solid rgba(15,23,42,0.15)",
+                  border: "1px solid var(--borderStrong)",
                   padding: "8px 10px",
                   fontSize: 14,
                 }}
@@ -5343,7 +5611,7 @@ export default function DashboardPage() {
             )}
 
             {upgradeError && (
-              <div style={{ fontSize: 13, color: "#b91c1c" }}>{upgradeError}</div>
+              <div style={{ fontSize: 13, color: "var(--dangerTextAlt)" }}>{upgradeError}</div>
             )}
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>

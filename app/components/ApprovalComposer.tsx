@@ -1342,8 +1342,8 @@ export default function ApprovalComposer({
       className="card"
       style={{
         marginTop: 12,
-        border: "1px solid rgba(37,99,235,0.18)",
-        boxShadow: "0 10px 24px rgba(37,99,235,0.08)",
+        border: "1px solid rgba(var(--accent-rgb),0.18)",
+        boxShadow: "0 10px 24px rgba(var(--accent-rgb),0.08)",
         width: "100%",
         maxWidth: "100%",
         minWidth: 0,
@@ -1416,7 +1416,7 @@ export default function ApprovalComposer({
             <div
               style={{
                 fontSize: 12,
-                color: "#b91c1c",
+                color: "var(--dangerTextAlt)",
                 marginTop: 6,
               }}
             >
@@ -1446,7 +1446,7 @@ export default function ApprovalComposer({
         {approvalType === "change_order" ? (
           <div
             style={{
-              border: "1px solid rgba(15,23,42,0.08)",
+              border: "1px solid var(--borderSoft)",
               borderRadius: 12,
               padding: 10,
               display: "grid",
@@ -1567,7 +1567,7 @@ export default function ApprovalComposer({
 
         <div
           style={{
-            border: "1px solid rgba(15,23,42,0.08)",
+            border: "1px solid var(--borderSoft)",
             borderRadius: 12,
             padding: 10,
           }}
@@ -1635,7 +1635,7 @@ export default function ApprovalComposer({
                       display: "flex",
                       gap: 10,
                       alignItems: "center",
-                      border: "1px solid rgba(15,23,42,0.08)",
+                      border: "1px solid var(--borderSoft)",
                       borderRadius: 10,
                       padding: 8,
                       minWidth: 0,
@@ -1647,7 +1647,7 @@ export default function ApprovalComposer({
                         height: 56,
                         borderRadius: 8,
                         overflow: "hidden",
-                        background: "#f1f5f9",
+                        background: "var(--surfaceAlt)",
                         flex: "0 0 56px",
                       }}
                     >

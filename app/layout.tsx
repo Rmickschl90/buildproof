@@ -4,6 +4,7 @@ import OfflineAttachmentBootstrap from "@/app/components/OfflineAttachmentBootst
 import OfflineSendIndicator from "@/app/components/OfflineSendIndicator";
 import OfflineAppShellBootstrap from "@/app/components/OfflineAppShellBootstrap";
 import OfflineReconnectBootstrap from "@/app/components/OfflineReconnectBootstrap";
+import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme";
 
 export const metadata = {
   title: "Leeward",
@@ -28,6 +29,10 @@ export default function RootLayout({
           name="viewport"
           content="width=device-width, initial-scale=1, viewport-fit=cover"
         />
+        {/* Applies the stored (or system) theme before first paint, so
+            there's no flash of the wrong theme on load -- must run as a raw
+            script before any JS bundle, including lib/theme.ts itself. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
       </head>
       <body>
         <OfflineAppShellBootstrap />

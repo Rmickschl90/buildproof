@@ -958,6 +958,71 @@ Full plan, decisions, phase breakdown, and progress notes: Current
 Implement/Estimate, Change Order and Invoice System + UI Navigation
 Overhaul - Implementation Plan.md in the Brain vault.
 
+### Dark Mode / Theme System — Slices 3-4 progress (2026-07-26)
+
+Following on from Slice 1 (token infrastructure) and Slice 2 (toggle +
+persistence, both complete), a long live-testing pass with Ryan fixed
+a large number of dark-mode contrast bugs across the dashboard and
+approval components: `ApprovalCard.tsx` and `ApprovalComposer.tsx` are
+now fully tokenized (zero hardcoded hex/rgba literals remaining,
+verified via grep); `AttachmentList.tsx` and
+`ProofAttachmentsWrapper.tsx` (file/attachment cards, delete buttons,
+image preview thumbnails) likewise; the Timeline entry card, the
+Draft/Finalized/Archived status badge (was hardcoded `#92400e`, now
+follows the yellow token), and the Projects list' invisible project
+title (`#0f172a` on a dark card) were all fixed in
+`app/dashboard/page.tsx`. Several layout changes were bundled into the
+same pass: the Timeline "Add Entry" textarea/button became a floating
+"+" FAB matching the Estimate tab's FAB (this also fixed a
+self-introduced JSX-fragment build error — an extra closing
+`</>`/`) : null}` pair had been inserted assuming a fragment closed
+earlier than it actually did); the Projects/Account pill tab bar was
+removed (Account folded into the header dropdown, Logout moved into
+that dropdown); the project mini-header title was enlarged with a new
+"PROJECT" eyebrow label, and "CLIENT"/"PROJECT TIMELINE" labels were
+recolored to match; the Client info section was extracted out of the
+Timeline card into its own standalone top-level card; the divider
+above "PROJECT TIMELINE" was removed; Timeline's several separate
+filter controls (content-type chips, status dropdown, sort toggle,
+archived toggle) were consolidated into a single icon-only filter
+button + popover with an active-filter indicator dot; and the Project
+Notes modal's textarea (previously unstyled, defaulting to browser
+white/black regardless of theme) was fixed to use the shared
+`.textarea` class. Full detail: Current Implement/Dark Mode Theme
+System - Implementation Plan.md and Current Implement/Estimate, Change
+Order and Invoice System + UI Navigation Overhaul - Implementation
+Plan.md (Phase 7 section) in the Brain vault. Slice 5 (share/invoice
+page) and Slice 7 (full light/dark QA pass) remain; Phase 7's Send
+Update modal also remains. This round of changes has not yet been
+committed to git as of this writing — that's the immediate next step.
+
+**Follow-up flagged by Ryan, explicitly deferred until current UI work
+is complete**: once dark mode, Team Accounts, and the Estimate/Invoice
+UI are all finished, the in-app Help section needs a content
+review/update pass to cover Team Accounts and Estimate/Invoice
+features it doesn't currently mention. Separately, and later still,
+the marketing website will need a similar review/update pass. Neither
+should be started now — both are "later, once this work is complete."
+
+### Related new initiative: Dark Mode / Theme System (planning, 2026-07-26)
+
+Surfaced while starting Phase 7: the New Project form and Send Update
+mockups are dark-mode, and Ryan confirmed this is a real ask for a
+genuine light/dark theme system across the *whole* app, not a
+cosmetic pass on 3 new screens. Tracked as its own initiative — bigger
+than "Phase 7 supporting screens" since it touches every existing
+screen already built (dashboard, Estimate tab, ApprovalComposer,
+ApprovalCard, the public share/invoice page). `app/globals.css`
+already uses CSS custom properties for shared classes (`.card`,
+`.btn`, `.input`, etc.) — the real cost is that most of the detailed
+styling added during the Estimate/Invoice work uses raw hardcoded
+inline `style={{ color: "#...", background: "rgba(...)" }}` rather
+than those variables, which won't respond to a theme switch until
+migrated. Proposed as a token-system-plus-incremental-migration
+project (7 slices), not a single refactor. NOT YET STARTED — awaiting
+Ryan's go-ahead on slice order. Full plan: Current Implement/Dark Mode
+Theme System - Implementation Plan.md in the Brain vault.
+
 Summary: adds a structured Estimate (baseline bid) and Change Order
 system on top of the existing approval lifecycle (both are approvals
 under the hood — line items and a baseline flag are the real additions,

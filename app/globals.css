@@ -1,3 +1,25 @@
+/*
+ * Theme tokens
+ * ------------
+ * `--text-rgb` / `--accent-rgb` / etc. are RGB triples (no rgba() wrapper) so
+ * that inline styles using arbitrary opacities -- e.g. the app's very common
+ * `rgba(15,23,42,0.72)` for secondary text, or `rgba(37,99,235,0.10)` for a
+ * soft badge background -- can be rewritten as `rgba(var(--text-rgb),0.72)`
+ * / `rgba(var(--accent-rgb),0.10)` and automatically follow the theme when
+ * these base triples are swapped in the [data-theme="dark"] block below.
+ * This is deliberately a smaller migration burden than defining a discrete
+ * token per exact opacity value used across the app (there are dozens).
+ *
+ * Solid hex tokens (--accentText, --successText, etc.) cover the cases that
+ * are always full-opacity today (badge text colors, button text) and don't
+ * need the rgba(var(...)) pattern.
+ *
+ * See Current Implement/Dark Mode Theme System - Implementation Plan.md in
+ * the Brain vault for the full rollout plan -- this block is Slice 1
+ * (infrastructure only). Light values below match the app's existing
+ * hardcoded colors exactly, so nothing should look different yet with
+ * [data-theme] unset or "light". The toggle itself is Slice 2.
+ */
 :root {
   --bg: #f6f7fb;
   --card: #ffffff;
@@ -6,6 +28,7 @@
 
   --border: #e2e8f0;
   --borderSoft: rgba(15, 23, 42, 0.08);
+  --surfaceSoft: rgba(15, 23, 42, 0.03);
 
   --shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
   --shadowSoft: 0 10px 30px rgba(15, 23, 42, 0.08);
@@ -21,6 +44,75 @@
   --ring: 0 0 0 4px rgba(15, 23, 42, 0.08);
 
   --t: 140ms ease;
+
+  /* Base RGB triples for rgba(var(--x-rgb), alpha) usage */
+  --text-rgb: 15, 23, 42;       /* slate-900 -- primary text/border family */
+  --muted-rgb: 100, 116, 139;   /* slate-500 -- secondary text */
+  --accent-rgb: 37, 99, 235;    /* blue-600 -- links, primary badges */
+  --success-rgb: 22, 163, 74;   /* green-600 -- approved/baseline */
+  --warning-rgb: 245, 158, 11;  /* amber-500 -- drafts/warnings */
+  --danger-rgb: 239, 68, 68;    /* red-500 -- errors/destructive */
+
+  /* Solid text/accent tones (always full-opacity in current usage) */
+  --accentText: #1d4ed8;
+  --successText: #15803d;
+  --successTextAlt: #065f46;   /* used by the approved-status pill specifically */
+  --warningText: #92400e;
+  --warningTextAlt: #b45309;   /* used by a couple of amber badges specifically */
+  --dangerText: #b91c1c;
+  --dangerTextAlt: #991b1b;    /* used by the declined-status pill specifically */
+
+  /* Alternate light surfaces used for hover/active states, secondary chrome */
+  --surfaceAlt: #f1f5f9;
+  --surfaceAlt2: #f8fafc;
+
+  --borderStrong: #cbd5e1;
+  --dangerBorder: #fecaca;
+}
+
+[data-theme="dark"] {
+  --bg: #0b0f17;
+  --card: #161b26;
+  --text: #e5e9f0;
+  --muted: #94a3b8;
+
+  --border: #232a38;
+  --borderSoft: rgba(255, 255, 255, 0.08);
+  --surfaceSoft: rgba(255, 255, 255, 0.04);
+
+  --shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  --shadowSoft: 0 10px 30px rgba(0, 0, 0, 0.4);
+
+  /* A near-black button reads as invisible on a near-black background, so
+     dark mode's primary CTA switches to the accent blue -- matches the
+     mockups' blue "Create project" button. */
+  --primary: #3b82f6;
+  --primaryText: #ffffff;
+
+  --danger: #f87171;
+
+  --ring: 0 0 0 4px rgba(59, 130, 246, 0.25);
+
+  --text-rgb: 226, 232, 240;    /* slate-200 */
+  --muted-rgb: 148, 163, 184;   /* slate-400 */
+  --accent-rgb: 96, 165, 250;   /* blue-400 -- brighter for contrast on dark */
+  --success-rgb: 74, 222, 128;  /* green-400 */
+  --warning-rgb: 251, 191, 36;  /* amber-400 */
+  --danger-rgb: 248, 113, 113;  /* red-400 */
+
+  --accentText: #60a5fa;
+  --successText: #4ade80;
+  --successTextAlt: #4ade80;
+  --warningText: #fbbf24;
+  --warningTextAlt: #fbbf24;
+  --dangerText: #f87171;
+  --dangerTextAlt: #f87171;
+
+  --surfaceAlt: #1e2532;
+  --surfaceAlt2: #1a202c;
+
+  --borderStrong: #384252;
+  --dangerBorder: rgba(248, 113, 113, 0.35);
 }
 
 * {
@@ -107,7 +199,8 @@ a:hover {
 /* --- Buttons --- */
 .btn {
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--card);
+  color: var(--text);
   padding: 10px 12px;
   border-radius: var(--radiusSm);
   font-weight: 650;
@@ -118,8 +211,8 @@ a:hover {
 }
 
 .btn:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+  border-color: var(--borderStrong);
+  box-shadow: 0 6px 16px rgba(var(--text-rgb), 0.06);
   transform: translateY(-1px);
 }
 
@@ -142,19 +235,19 @@ a:hover {
 }
 
 .btnPrimary:hover {
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.18);
+  box-shadow: 0 10px 22px rgba(var(--text-rgb), 0.18);
   transform: translateY(-1px);
 }
 
 .btnDanger {
-  background: #fff;
+  background: var(--card);
   color: var(--danger);
-  border-color: #fecaca;
+  border-color: var(--dangerBorder);
 }
 
 .btnDanger:hover {
-  border-color: #fca5a5;
-  box-shadow: 0 8px 18px rgba(220, 38, 38, 0.10);
+  border-color: var(--danger);
+  box-shadow: 0 8px 18px rgba(var(--danger-rgb), 0.10);
 }
 
 /* --- Inputs --- */
@@ -167,7 +260,8 @@ select.input {
   border-radius: var(--radiusSm);
   outline: none;
   font-size: 16px;
-  background: #fff;
+  background: var(--card);
+  color: var(--text);
   transition: box-shadow var(--t), border-color var(--t), transform var(--t);
   -webkit-appearance: none;
   appearance: none;
@@ -175,12 +269,12 @@ select.input {
 
 .input::placeholder,
 .textarea::placeholder {
-  color: rgba(100, 116, 139, 0.85);
+  color: rgba(var(--muted-rgb), 0.85);
 }
 
 .input:focus,
 .textarea:focus {
-  border-color: #cbd5e1;
+  border-color: var(--borderStrong);
   box-shadow: var(--ring);
 }
 
@@ -204,7 +298,8 @@ select.input {
   padding: 12px;
   border-radius: 14px;
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--card);
+  color: var(--text);
   cursor: pointer;
   font-weight: 700;
   transition: transform var(--t), box-shadow var(--t), border-color var(--t), background var(--t);
@@ -212,8 +307,8 @@ select.input {
 }
 
 .projectBtn:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);
+  border-color: var(--borderStrong);
+  box-shadow: 0 10px 22px rgba(var(--text-rgb), 0.06);
   transform: translateY(-1px);
 }
 
@@ -223,8 +318,8 @@ select.input {
 }
 
 .projectBtnActive {
-  border-color: #cbd5e1;
-  background: #f1f5f9;
+  border-color: var(--borderStrong);
+  background: var(--surfaceAlt);
 }
 
 /* Entries */
@@ -232,13 +327,14 @@ select.input {
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 12px;
-  background: #fff;
+  background: var(--card);
+  color: var(--text);
   transition: transform var(--t), box-shadow var(--t), border-color var(--t);
 }
 
 .proofItem:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.06);
+  border-color: var(--borderStrong);
+  box-shadow: 0 12px 26px rgba(var(--text-rgb), 0.06);
   transform: translateY(-1px);
 }
 
@@ -266,9 +362,9 @@ select.input {
 .notice {
   padding: 10px 12px;
   border-radius: 12px;
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  color: #9a3412;
+  background: rgba(var(--warning-rgb), 0.12);
+  border: 1px solid rgba(var(--warning-rgb), 0.35);
+  color: var(--warningText);
   font-size: 13px;
   line-height: 1.35;
 }
@@ -315,7 +411,6 @@ a:hover {
 }
 
 .btnDelete:hover {
-  background: #b91c1c;
-  border-color: #b91c1c;
+  filter: brightness(0.88);
   color: #fff;
 }

@@ -104,43 +104,43 @@ function formatWhen(
 
 function getStatusColors(status: ApprovalStatus) {
   const base = {
-    border: "1px solid rgba(37,99,235,0.18)",
-    left: "6px solid #2563eb",
-    bg: "rgba(255,255,255,0.98)",
+    border: "1px solid rgba(var(--accent-rgb),0.18)",
+    left: "6px solid rgb(var(--accent-rgb))",
+    bg: "var(--card)",
   };
 
   if (status === "approved") {
     return {
       ...base,
-      pillBorder: "1px solid rgba(16,185,129,0.35)",
-      pillBg: "rgba(16,185,129,0.08)",
-      pillColor: "#065f46",
+      pillBorder: "1px solid rgba(var(--success-rgb),0.35)",
+      pillBg: "rgba(var(--success-rgb),0.08)",
+      pillColor: "var(--successTextAlt)",
     };
   }
 
   if (status === "declined") {
     return {
       ...base,
-      pillBorder: "1px solid rgba(239,68,68,0.35)",
-      pillBg: "rgba(239,68,68,0.08)",
-      pillColor: "#991b1b",
+      pillBorder: "1px solid rgba(var(--danger-rgb),0.35)",
+      pillBg: "rgba(var(--danger-rgb),0.08)",
+      pillColor: "var(--dangerTextAlt)",
     };
   }
 
   if (status === "expired") {
     return {
       ...base,
-      pillBorder: "1px solid rgba(100,116,139,0.35)",
-      pillBg: "rgba(100,116,139,0.08)",
-      pillColor: "#334155",
+      pillBorder: "1px solid rgba(var(--muted-rgb),0.35)",
+      pillBg: "rgba(var(--muted-rgb),0.08)",
+      pillColor: "var(--text)",
     };
   }
 
   return {
     ...base,
-    pillBorder: "1px solid rgba(37,99,235,0.35)",
-    pillBg: "rgba(37,99,235,0.08)",
-    pillColor: "#1d4ed8",
+    pillBorder: "1px solid rgba(var(--accent-rgb),0.35)",
+    pillBg: "rgba(var(--accent-rgb),0.08)",
+    pillColor: "var(--accentText)",
   };
 }
 
@@ -414,7 +414,8 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
         borderRadius: 18,
         padding: 18,
         background: colors.bg,
-        boxShadow: "0 10px 24px rgba(15,23,42,0.06)",
+        color: "var(--text)",
+        boxShadow: "var(--shadow)",
       }}
     >
       <div style={{ display: "grid", gap: 12 }}>
@@ -439,7 +440,7 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
                 fontWeight: 800,
                 letterSpacing: 0.5,
                 textTransform: "uppercase",
-                color: "#2563eb",
+                color: "var(--accentText)",
                 marginBottom: 6,
               }}
             >
@@ -450,7 +451,7 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
               style={{
                 fontSize: 20,
                 fontWeight: 900,
-                color: "#0f172a",
+                color: "var(--text)",
                 overflowWrap: "anywhere",
                 wordBreak: "break-word",
               }}
@@ -493,9 +494,9 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
                     fontWeight: 700,
                     padding: "6px 10px",
                     borderRadius: 999,
-                    border: "1px solid rgba(22,163,74,0.35)",
-                    background: "rgba(22,163,74,0.08)",
-                    color: "#15803d",
+                    border: "1px solid rgba(var(--success-rgb),0.35)",
+                    background: "rgba(var(--success-rgb),0.08)",
+                    color: "var(--successText)",
                     whiteSpace: "nowrap",
                   }}
                 >
@@ -510,9 +511,9 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
                     fontWeight: 700,
                     padding: "6px 10px",
                     borderRadius: 999,
-                    border: "1px solid rgba(100,116,139,0.35)",
-                    background: "rgba(100,116,139,0.08)",
-                    color: "#334155",
+                    border: "1px solid rgba(var(--muted-rgb),0.35)",
+                    background: "rgba(var(--muted-rgb),0.08)",
+                    color: "var(--text)",
                     whiteSpace: "nowrap",
                   }}
                 >
@@ -558,11 +559,11 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
                     zIndex: 999,
                     width: 220,
                     maxWidth: "min(220px, 88vw)",
-                    border: "1px solid rgba(15,23,42,0.12)",
+                    border: "1px solid var(--borderStrong)",
                     borderRadius: 14,
-                    background: "white",
+                    background: "var(--card)",
                     padding: 10,
-                    boxShadow: "0 12px 30px rgba(15,23,42,0.10)",
+                    boxShadow: "var(--shadowSoft)",
                     display: "grid",
                     gap: 8,
                   }}
@@ -608,7 +609,7 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
               style={{
                 whiteSpace: "pre-wrap",
                 lineHeight: 1.5,
-                color: "#334155",
+                color: "var(--text)",
                 overflowWrap: "anywhere",
                 wordBreak: "break-word",
               }}
@@ -625,8 +626,8 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
                   gap: 6,
                   padding: 12,
                   borderRadius: 12,
-                  background: "rgba(15,23,42,0.03)",
-                  border: "1px solid rgba(15,23,42,0.06)",
+                  background: "var(--surfaceSoft)",
+                  border: "1px solid var(--borderSoft)",
                 }}
               >
                 {approval.line_items && approval.line_items.length > 0 ? (
@@ -684,11 +685,11 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
                   gap: 6,
                   padding: 10,
                   borderRadius: 10,
-                  background: "rgba(15,23,42,0.03)",
-                  border: "1px solid rgba(15,23,42,0.06)",
+                  background: "var(--surfaceSoft)",
+                  border: "1px solid var(--borderSoft)",
                 }}
               >
-                <div style={{ fontSize: 12, fontWeight: 800, color: "#0f172a" }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "var(--text)" }}>
                   Attachments
                 </div>
 
@@ -703,10 +704,10 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
                       padding: "6px 8px",
                       borderRadius: 8,
                       textDecoration: "none",
-                      color: "#1d4ed8",
+                      color: "var(--accentText)",
                       fontWeight: 600,
                       fontSize: 13,
-                      background: "rgba(37,99,235,0.06)",
+                      background: "rgba(var(--accent-rgb),0.06)",
                       overflowWrap: "anywhere",
                       wordBreak: "break-word",
                       whiteSpace: "normal",
@@ -730,7 +731,7 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
             flexWrap: "wrap",
             gap: 8,
             paddingTop: 12,
-            borderTop: "1px solid rgba(15,23,42,0.08)",
+            borderTop: "1px solid var(--borderSoft)",
           }}
         >
           <div className="sub" style={{ opacity: 0.75 }}>

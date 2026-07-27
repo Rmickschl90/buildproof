@@ -278,10 +278,10 @@ export default function AttachmentList({
                 <div
                   key={a.id}
                   style={{
-                    border: "1px solid rgba(15,23,42,0.08)",
+                    border: "1px solid var(--borderSoft)",
                     borderRadius: 12,
                     padding: 8,
-                    background: "#fff",
+                    background: "var(--card)",
                     display: "grid",
                     gap: 8,
                   }}
@@ -341,9 +341,9 @@ export default function AttachmentList({
                             onClick={() => deleteAttachment(a)}
                             disabled={busy}
                             style={{
-                              border: "1px solid rgba(239,68,68,0.18)",
-                              background: "rgba(239,68,68,0.06)",
-                              color: "#dc2626",
+                              border: "1px solid rgba(var(--danger-rgb),0.18)",
+                              background: "rgba(var(--danger-rgb),0.06)",
+                              color: "var(--danger)",
                               borderRadius: 999,
                               padding: "6px 10px",
                               fontSize: 12,
@@ -398,9 +398,9 @@ export default function AttachmentList({
                             onClick={() => openAttachment(a)}
                             disabled={busy}
                             style={{
-                              border: "1px solid rgba(15,23,42,0.10)",
-                              background: "#fff",
-                              color: "#0f172a",
+                              border: "1px solid var(--borderStrong)",
+                              background: "var(--card)",
+                              color: "var(--text)",
                               borderRadius: 999,
                               padding: "6px 10px",
                               fontSize: 12,
@@ -419,9 +419,9 @@ export default function AttachmentList({
                               onClick={() => deleteAttachment(a)}
                               disabled={busy}
                               style={{
-                                border: "1px solid rgba(239,68,68,0.18)",
-                                background: "rgba(239,68,68,0.06)",
-                                color: "#dc2626",
+                                border: "1px solid rgba(var(--danger-rgb),0.18)",
+                                background: "rgba(var(--danger-rgb),0.06)",
+                                color: "var(--danger)",
                                 borderRadius: 999,
                                 padding: "6px 10px",
                                 fontSize: 12,
@@ -461,10 +461,10 @@ export default function AttachmentList({
               <div
                 key={a.id}
                 style={{
-                  border: "1px solid rgba(15,23,42,0.08)",
+                  border: "1px solid var(--borderSoft)",
                   borderRadius: 14,
                   padding: 10,
-                  background: "#fff",
+                  background: "var(--card)",
                   display: "grid",
                   gridTemplateColumns: kind === "image" ? "120px minmax(0,1fr) auto" : "1fr auto",
                   gap: 12,
@@ -516,9 +516,9 @@ export default function AttachmentList({
                       onClick={() => deleteAttachment(a)}
                       disabled={busy}
                       style={{
-                        border: "1px solid rgba(239,68,68,0.18)",
-                        background: "rgba(239,68,68,0.06)",
-                        color: "#dc2626",
+                        border: "1px solid rgba(var(--danger-rgb),0.18)",
+                        background: "rgba(var(--danger-rgb),0.06)",
+                        color: "var(--danger)",
                         borderRadius: 999,
                         padding: "6px 10px",
                         fontSize: 12,
@@ -545,10 +545,10 @@ export default function AttachmentList({
             <div
               key={a.id}
               style={{
-                border: "1px solid rgba(15,23,42,0.08)",
+                border: "1px solid var(--borderSoft)",
                 borderRadius: 14,
                 padding: 10,
-                background: "#fff",
+                background: "var(--card)",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "flex-start",
@@ -592,9 +592,9 @@ export default function AttachmentList({
                     );
                   }}
                   style={{
-                    border: "1px solid rgba(239,68,68,0.18)",
-                    background: "rgba(239,68,68,0.06)",
-                    color: "#dc2626",
+                    border: "1px solid rgba(var(--danger-rgb),0.18)",
+                    background: "rgba(var(--danger-rgb),0.06)",
+                    color: "var(--danger)",
                     borderRadius: 999,
                     padding: "6px 10px",
                     fontSize: 12,
@@ -665,8 +665,8 @@ function ImagePreview({
           height: mobile ? "64px" : "90px",
           objectFit: "cover",
           borderRadius: 12,
-          border: "1px solid rgba(15,23,42,0.08)",
-          background: "rgba(15,23,42,0.02)",
+          border: "1px solid var(--borderSoft)",
+          background: "var(--surfaceSoft)",
         }}
       />
     </button>

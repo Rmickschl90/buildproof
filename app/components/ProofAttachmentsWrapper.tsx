@@ -81,10 +81,10 @@ export default function ProofAttachmentsWrapper({
 
       <div
         style={{
-          border: "1px solid rgba(15,23,42,0.08)",
+          border: "1px solid var(--borderSoft)",
           borderRadius: 14,
           padding: 10,
-          background: "rgba(15,23,42,0.02)",
+          background: "var(--surfaceSoft)",
         }}
       >
         <div key={refreshKey ?? 0}>
@@ -108,11 +108,11 @@ export default function ProofAttachmentsWrapper({
           ref={uploaderRef}
           style={{
             border: highlightUploader
-              ? "2px solid rgba(37,99,235,0.45)"
-              : "1px solid rgba(15,23,42,0.08)",
+              ? "2px solid rgba(var(--accent-rgb),0.45)"
+              : "1px solid var(--borderSoft)",
             borderRadius: 14,
             padding: 10,
-            background: "#fff",
+            background: "var(--card)",
             boxShadow: highlightUploader
               ? "0 0 0 6px rgba(59,130,246,0.12)"
               : undefined,
