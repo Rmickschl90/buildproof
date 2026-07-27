@@ -3948,11 +3948,7 @@ export default function DashboardPage() {
                   <img
                     src="/Leeward-Logo-Approved-Concept.png"
                     alt="Leeward"
-                    style={{
-                      height: 84,
-                      width: "auto",
-                      display: "block",
-                    }}
+                    className="dashboardLogo"
                   />
                 </div>
               </div>
@@ -4888,8 +4884,11 @@ export default function DashboardPage() {
                 transition: "all 0.25s ease",
               }}
             >
-              <div className="row" style={{ alignItems: "center" }}>
-                <div>
+              <div
+                className="row"
+                style={{ alignItems: "center", flexWrap: "wrap", rowGap: 8 }}
+              >
+                <div style={{ minWidth: 0, flex: "1 1 220px" }}>
                   <div
                     style={{
                       display: "inline-block",
@@ -4911,6 +4910,7 @@ export default function DashboardPage() {
                       fontSize: 16,
                       fontWeight: 500,
                       opacity: 0.82,
+                      overflowWrap: "anywhere",
                     }}
                   >
                     {clientSummary}
@@ -4918,7 +4918,11 @@ export default function DashboardPage() {
                 </div>
 
                 {!clientEditing ? (
-                  <button className="btn" onClick={() => setClientEditing(true)}>
+                  <button
+                    className="btn"
+                    style={{ flexShrink: 0 }}
+                    onClick={() => setClientEditing(true)}
+                  >
                     Edit
                   </button>
                 ) : null}

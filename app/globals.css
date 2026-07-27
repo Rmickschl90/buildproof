@@ -385,6 +385,12 @@ a:hover {
 }
 
 
+.dashboardLogo {
+  height: 84px;
+  width: auto;
+  display: block;
+}
+
 /* --- Mobile comfort --- */
 @media (max-width: 480px) {
   .container {
@@ -401,6 +407,15 @@ a:hover {
 
   .btn {
     padding: 11px 12px;
+  }
+
+  /* Mobile header fix (2026-07-27): at the full 84px height the logo's
+     intrinsic width left no room beside the Upgrade/Team + Account button
+     column on real narrow phone viewports, forcing the header's flex row to
+     wrap (logo on top, buttons stacked below) instead of staying side-by-side.
+     Shrinking the logo here frees enough width for both to sit on one line. */
+  .dashboardLogo {
+    height: 44px;
   }
 }
 
