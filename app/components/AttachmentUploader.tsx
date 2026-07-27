@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase";
 import {
   createOfflineAttachmentRecord,
   getAllOfflineAttachmentRecords,
+  markAttachmentPending,
+  removeOfflineAttachmentRecord,
   type OfflineAttachmentRecord,
 } from "@/lib/offlineAttachmentOutbox";
 import { normalizeImageFileForUpload } from "@/lib/normalizeImageFile";
@@ -123,6 +125,46 @@ export default function AttachmentUploader({
     return { queued, uploading, error };
   }, [records]);
 
+  // Stuck-attachment fix (2026-07-27): "failed" is now a genuine terminal
+  // state (see lib/offlineAttachmentOutbox.ts) -- a permanently-failing
+  // upload used to just reset to "pending" forever with no cap, which also
+  // silently blocked this project's send banner ("Waiting for attachments to
+  // finish uploading...") from ever clearing. flushOfflineAttachmentOutbox()
+  // deliberately never auto-retries "failed" records, so they need an
+  // explicit manual action here or they'd just sit there with no feedback.
+  const failedRecords = useMemo(
+    () => records.filter((r) => r.status === "failed"),
+    [records]
+  );
+
+  const [retryingFailedId, setRetryingFailedId] = useState<string | null>(null);
+
+  async function retryFailedRecord(id: string) {
+    setRetryingFailedId(id);
+
+    try {
+      await markAttachmentPending(id, null);
+      await refreshRecords();
+
+      if (typeof navigator !== "undefined" && navigator.onLine) {
+        await flushOfflineAttachmentOutbox(getAccessToken);
+        await refreshRecords();
+        window.dispatchEvent(new CustomEvent("buildproof-data-changed"));
+        onUploaded?.();
+      }
+    } catch {
+      // refreshRecords() below will surface the current real state either way
+    } finally {
+      setRetryingFailedId(null);
+      await refreshRecords();
+    }
+  }
+
+  async function dismissFailedRecord(id: string) {
+    await removeOfflineAttachmentRecord(id);
+    await refreshRecords();
+  }
+
   async function addFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
     if (isLocked) return;
@@ -227,7 +269,11 @@ export default function AttachmentUploader({
     }
   }
 
-  const actionableCount = records.length;
+  // Excludes "failed" records -- the generic Retry button below only drives
+  // flushOfflineAttachmentOutbox(), which deliberately skips terminal
+  // "failed" records now. Those get their own per-record Retry/Dismiss in
+  // the failedRecords section instead.
+  const actionableCount = records.filter((r) => r.status !== "failed").length;
 
   return (
     <div style={{ display: "grid", gap: 10 }}>
@@ -311,7 +357,59 @@ export default function AttachmentUploader({
         </div>
       ) : null}
 
+      {failedRecords.length > 0 ? (
+        <div
+          style={{
+            display: "grid",
+            gap: 6,
+            padding: 10,
+            borderRadius: 10,
+            border: "1px solid rgba(var(--danger-rgb),0.28)",
+            background: "rgba(var(--danger-rgb),0.06)",
+          }}
+        >
+          <div style={{ fontWeight: 700, fontSize: 13 }}>
+            ⚠ {failedRecords.length} file{failedRecords.length === 1 ? "" : "s"} couldn't be uploaded
+          </div>
 
+          {failedRecords.map((r) => (
+            <div key={r.id} style={{ display: "grid", gap: 4 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  flexWrap: "wrap",
+                }}
+              >
+                <span className="sub" style={{ fontSize: 12 }}>
+                  {r.fileName}: {r.lastError || "Upload failed"}
+                </span>
+
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <button
+                    className="btn"
+                    onClick={() => retryFailedRecord(r.id)}
+                    disabled={retryingFailedId === r.id || isLocked}
+                    style={{ height: 28, fontSize: 12, padding: "0 10px" }}
+                  >
+                    {retryingFailedId === r.id ? "Retrying..." : "Retry"}
+                  </button>
+
+                  <button
+                    className="btn"
+                    onClick={() => dismissFailedRecord(r.id)}
+                    style={{ height: 28, fontSize: 12, padding: "0 10px" }}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

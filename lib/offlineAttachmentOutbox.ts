@@ -1,6 +1,20 @@
 // /lib/offlineAttachmentOutbox.ts
 
-export type OfflineAttachmentStatus = "pending" | "uploading";
+// "failed" (2026-07-27) is a genuine terminal state -- added after finding
+// that a permanently-failing attachment upload (any error at all -- network,
+// a rejected file, a permissions issue) previously just got reset back to
+// "pending" forever via markAttachmentPending(), with no cap and no way to
+// stop. That mattered beyond just the attachment itself: offlineSendFlush.ts's
+// hasUnfinishedEntryAttachmentsForProject() blocks ANY send for a project
+// while it has a "pending"/"uploading" attachment record, so one attachment
+// that could never succeed permanently blocked that project's send banner
+// ("Waiting for attachments to finish uploading...") from ever clearing --
+// the exact same shape of bug as the stuck-send issue fixed earlier the same
+// day, one layer upstream. getPendingOfflineAttachments() below deliberately
+// does NOT include "failed" -- once a record reaches this state it stops
+// being auto-retried, and (being neither "pending" nor "uploading") it also
+// stops counting toward the send-blocking check.
+export type OfflineAttachmentStatus = "pending" | "uploading" | "failed";
 
 export type OfflineAttachmentRecord = {
   id: string;
@@ -263,6 +277,33 @@ export async function markAttachmentPending(
 
     await promisify(store.put(updated));
   });
+}
+
+export async function markAttachmentFailed(
+  id: string,
+  error: string
+): Promise<void> {
+  await withStore("readwrite", async (store) => {
+    const rec = (await promisify(store.get(id))) as OfflineAttachmentRecord | undefined;
+
+    if (!rec) {
+      throw new Error("Offline attachment record not found");
+    }
+
+    const updated: OfflineAttachmentRecord = {
+      ...rec,
+      status: "failed",
+      lastError: error,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await promisify(store.put(updated));
+  });
+}
+
+export async function getFailedOfflineAttachmentRecords(): Promise<OfflineAttachmentRecord[]> {
+  const all = await getAllOfflineAttachmentRecords();
+  return all.filter((record) => record.status === "failed");
 }
 
 export async function removeOfflineAttachmentRecord(id: string): Promise<void> {

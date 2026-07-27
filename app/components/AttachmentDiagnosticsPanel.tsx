@@ -1,28 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getAllOfflineAttachmentRecords } from "@/lib/offlineAttachmentOutbox";
+import {
+  getAllOfflineAttachmentRecords,
+  type OfflineAttachmentRecord,
+} from "@/lib/offlineAttachmentOutbox";
 
 type Props = {
   projectId: string;
   proofId: number;
 };
 
-type OfflineAttachmentRecord = {
-  id: string;
-  projectId: string;
-  proofId: number | null;
-  offlineProofId?: string;
-  fileName: string;
-  mimeType: string;
-  sizeBytes: number;
-  status: "pending" | "uploading";
-  createdAt: string;
-  updatedAt: string;
-  uploadAttemptCount: number;
-  lastUploadAttemptAt: string | null;
-  lastError: string | null;
-};
+// Was a locally-duplicated type here (status: "pending" | "uploading", missing
+// the "failed" state added 2026-07-27) -- since getAllOfflineAttachmentRecords()
+// actually returns the lib's real OfflineAttachmentRecord type regardless of
+// what this file declared locally, the two would have drifted and broken the
+// build the same way the equivalent duplicate in SendDiagnosticsPanel.tsx did
+// earlier the same day. Importing the real type instead of redeclaring it
+// means this can't happen again.
 
 function formatDate(value?: string | null) {
   if (!value) return "—";
