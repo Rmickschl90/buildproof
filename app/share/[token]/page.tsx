@@ -497,6 +497,27 @@ export default async function SharePage(props: {
     return sum + approvalValue(a);
   }, 0);
 
+  // Paid / Balance Due -- invoice mode only, summary figures only (no
+  // itemized payment list on this client-facing surface, per the confirmed
+  // design decision in "Project Payments - Implementation Plan.md"). Total
+  // (currentTotal above) is unaffected by payments -- Balance Due is simply
+  // Total minus whatever's been logged as paid.
+  let paidTotal = 0;
+
+  if (isInvoiceMode) {
+    const { data: paymentRows } = await supabaseServer
+      .from("project_payments")
+      .select("amount")
+      .eq("project_id", projectId);
+
+    paidTotal = (paymentRows ?? []).reduce(
+      (sum, p) => sum + (Number(p.amount) || 0),
+      0
+    );
+  }
+
+  const balanceDue = currentTotal - paidTotal;
+
   // Skip signing proof attachments entirely in invoice mode -- they're never
   // rendered there (entries are excluded), so there's no reason to pay for
   // Storage signed-URL calls for attachments that won't be shown.
@@ -1456,6 +1477,28 @@ export default async function SharePage(props: {
                   })}
                 </div>
               </div>
+            ) : null}
+            {isInvoiceMode && hasBaseline ? (
+              <>
+                <div className="stat">
+                  <div className="k">Paid</div>
+                  <div className="v">
+                    {paidTotal.toLocaleString("en-US", {
+                      style: "currency",
+                      currency: "USD",
+                    })}
+                  </div>
+                </div>
+                <div className="stat">
+                  <div className="k">Balance Due</div>
+                  <div className="v">
+                    {balanceDue.toLocaleString("en-US", {
+                      style: "currency",
+                      currency: "USD",
+                    })}
+                  </div>
+                </div>
+              </>
             ) : null}
           </div>
         </div>

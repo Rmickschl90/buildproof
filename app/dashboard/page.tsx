@@ -47,6 +47,13 @@ import {
   type OfflineProjectRecord,
 } from "@/lib/offlineProjectOutbox";
 import { getOfflineApprovalAttachmentsForApproval } from "@/lib/offlineApprovalAttachmentOutbox";
+import {
+  addOfflinePayment,
+  createTempPaymentId,
+  listOfflinePaymentsForProject,
+  remapOfflinePaymentProjectId,
+  type OfflinePaymentRecord,
+} from "@/lib/offlinePaymentOutbox";
 import OfflineAttachmentBootstrap from "../components/OfflineAttachmentBootstrap";
 import {
   loadCachedDashboardProject,
@@ -113,6 +120,16 @@ type Approval = {
   // normalization in buildVisibleApprovals) keeps compiling unchanged.
   is_baseline?: boolean;
   line_items?: ApprovalLineItem[];
+};
+
+type ProjectPayment = {
+  id: string;
+  project_id: string;
+  amount: number;
+  note: string | null;
+  paid_at: string;
+  created_at: string;
+  created_by: string;
 };
 
 type TimelineApproval = Approval;
@@ -309,6 +326,15 @@ export default function DashboardPage() {
   const [offlineProjects, setOfflineProjects] = useState<OfflineProjectRecord[]>([]);
   const [offlineApprovals, setOfflineApprovals] = useState<OfflineApprovalRecord[]>([]);
   const [offlineProofs, setOfflineProofs] = useState<OfflineProofRecord[]>([]);
+  const [payments, setPayments] = useState<ProjectPayment[]>([]);
+  const [offlinePayments, setOfflinePayments] = useState<OfflinePaymentRecord[]>([]);
+  const [logPaymentOpen, setLogPaymentOpen] = useState(false);
+  const [logPaymentMode, setLogPaymentMode] = useState<"dollar" | "percent">("dollar");
+  const [logPaymentAmountInput, setLogPaymentAmountInput] = useState("");
+  const [logPaymentDate, setLogPaymentDate] = useState("");
+  const [logPaymentNote, setLogPaymentNote] = useState("");
+  const [logPaymentStatus, setLogPaymentStatus] = useState<string | null>(null);
+  const [logPaymentSubmitting, setLogPaymentSubmitting] = useState(false);
   const [isBrowserOnline, setIsBrowserOnline] = useState(
     typeof navigator === "undefined" ? true : navigator.onLine
   );
@@ -723,6 +749,7 @@ export default function DashboardPage() {
 
             await loadProofs(project.id, false, project);
             await loadApprovals(project.id, false, project);
+            await loadPayments(project.id);
           }
         }
 
@@ -1163,13 +1190,21 @@ export default function DashboardPage() {
       await flushOfflineApprovalAttachmentOutbox(getAccessToken);
       await flushOfflineApprovalSendOutbox(getAccessToken);
 
+      const { flushOfflinePaymentOutbox } = await import(
+        "@/lib/offlinePaymentFlush"
+      );
+
+      await flushOfflinePaymentOutbox(getAccessToken);
+
       if (!reconnectProjectId.startsWith("offline-project-")) {
         await loadProofs(reconnectProjectId, showArchivedEntries);
         await loadApprovals(reconnectProjectId, showArchivedEntries);
+        await loadPayments(reconnectProjectId);
       }
 
       await refreshOfflineProofs(reconnectProjectId);
       await refreshOfflineApprovals(reconnectProjectId);
+      await refreshOfflinePayments(reconnectProjectId);
     } finally {
       isRunningReconnectRef.current = false;
     }
@@ -1211,11 +1246,15 @@ export default function DashboardPage() {
     if (!selectedProject) {
       setOfflineProofs([]);
       setOfflineApprovals([]);
+      setPayments([]);
+      setOfflinePayments([]);
       return;
     }
 
     void refreshOfflineProofs(selectedProject.id);
     void refreshOfflineApprovals(selectedProject.id);
+    void loadPayments(selectedProject.id);
+    void refreshOfflinePayments(selectedProject.id);
 
     setClientNameDraft(selectedProject.client_name ?? "");
     setClientEmailDraft(selectedProject.client_email ?? "");
@@ -1553,6 +1592,160 @@ export default function DashboardPage() {
     }
   }
 
+  // Log Payment -- two explicit modes rather than a magic trailing "%":
+  // a dollar amount entered directly, or a percentage computed against the
+  // current Balance Due (not the gross Total). Percentage-of-Total made
+  // sense for a fixed, pre-agreed deposit schedule, but this feature has no
+  // schedule concept at all (after-the-fact recording only, confirmed
+  // earlier) -- the % field is purely a "what's X% of what's still owed,
+  // right now" calculator, so Balance Due is the only base that stays
+  // meaningful after any payments have already been logged.
+  function computeLogPaymentAmount(
+    mode: "dollar" | "percent",
+    input: string,
+    balanceDue: number
+  ): number | null {
+    const trimmed = input.trim().replace(/[%$,]/g, "");
+    if (!trimmed) return null;
+
+    const value = Number(trimmed);
+    if (!Number.isFinite(value) || value <= 0) return null;
+
+    if (mode === "percent") {
+      if (balanceDue <= 0) return null;
+      return Math.round(balanceDue * (value / 100) * 100) / 100;
+    }
+
+    return value;
+  }
+
+  async function handleLogPayment() {
+    if (!selectedProject) {
+      setLogPaymentStatus("Select a project first.");
+      return;
+    }
+
+    const projectId = selectedProject.id;
+    const amount = computeLogPaymentAmount(
+      logPaymentMode,
+      logPaymentAmountInput,
+      paymentsSummary.balanceDue
+    );
+
+    if (amount === null) {
+      setLogPaymentStatus(
+        logPaymentMode === "percent"
+          ? "Enter a valid percentage of the current balance due."
+          : "Enter a valid dollar amount."
+      );
+      return;
+    }
+
+    const note = logPaymentNote.trim() || null;
+    const paidAt = logPaymentDate || undefined;
+
+    async function saveOfflinePayment() {
+      await addOfflinePayment({
+        id: createTempPaymentId(),
+        projectId,
+        amount,
+        note,
+        paidAt: paidAt || new Date().toISOString().slice(0, 10),
+        creatingUserId: userId ?? undefined,
+      });
+
+      await refreshOfflinePayments(projectId);
+
+      setLogPaymentStatus("Saved offline ✅ — will sync when connection returns");
+      setLogPaymentAmountInput("");
+      setLogPaymentNote("");
+      setLogPaymentOpen(false);
+    }
+
+    try {
+      setLogPaymentSubmitting(true);
+      setLogPaymentStatus(null);
+
+      if (projectId.startsWith("offline-project-") || !navigator.onLine) {
+        await saveOfflinePayment();
+        return;
+      }
+
+      const token = await getAccessToken();
+
+      const res = await fetch("/api/payments/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ projectId, amount, note, paidAt }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        const message = String(json?.error || "").toLowerCase();
+
+        if (
+          !json?.error ||
+          message.includes("failed to fetch") ||
+          message.includes("network") ||
+          message.includes("fetch")
+        ) {
+          await saveOfflinePayment();
+          return;
+        }
+
+        setLogPaymentStatus(json?.error || "Failed to log payment.");
+        return;
+      }
+
+      setLogPaymentAmountInput("");
+      setLogPaymentNote("");
+      setLogPaymentOpen(false);
+      await loadPayments(projectId);
+    } catch (err: any) {
+      try {
+        await saveOfflinePayment();
+      } catch (offlineErr: any) {
+        setLogPaymentStatus(
+          err?.message || offlineErr?.message || "Failed to log payment."
+        );
+      }
+    } finally {
+      setLogPaymentSubmitting(false);
+    }
+  }
+
+  async function handleDeletePayment(paymentId: string) {
+    if (!selectedProject) return;
+
+    try {
+      const token = await getAccessToken();
+
+      const res = await fetch("/api/payments/delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ paymentId }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        console.error("Failed to delete payment:", json?.error);
+        return;
+      }
+
+      await loadPayments(selectedProject.id);
+    } catch (err: any) {
+      console.error("Failed to delete payment:", err?.message);
+    }
+  }
+
   async function testCreateApproval() {
     const token = await getAccessToken();
 
@@ -1667,6 +1860,22 @@ export default function DashboardPage() {
     }
   }
 
+  async function refreshOfflinePayments(projectId?: string | null) {
+    if (!projectId) {
+      setOfflinePayments([]);
+      return;
+    }
+
+    try {
+      const records = await listOfflinePaymentsForProject(projectId);
+
+      setOfflinePayments(records);
+    } catch (error) {
+      console.error("Failed to load offline payments", error);
+      setOfflinePayments([]);
+    }
+  }
+
   async function refreshOfflineProjects() {
     try {
       const records = await getAllOfflineProjects();
@@ -1741,6 +1950,8 @@ export default function DashboardPage() {
           );
 
           await remapOfflineApprovalSendProjectId(record.id, data.id);
+
+          await remapOfflinePaymentProjectId(record.id, data.id);
 
         } else {
           const result = await supabase
@@ -2105,6 +2316,63 @@ export default function DashboardPage() {
       }
 
       setStatus(message);
+    }
+  }
+
+  async function loadPayments(projectId: string) {
+    try {
+      if (projectId.startsWith("offline-project-")) {
+        return;
+      }
+
+      // 🔒 Prevent fetch while offline
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        return;
+      }
+
+      const token = await getAccessToken();
+
+      const res = await fetch("/api/payments/list", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ projectId }),
+      });
+
+      const text = await res.text();
+      const json = text ? JSON.parse(text) : {};
+
+      if (!res.ok) {
+        const message = String(json?.error || "Failed to load payments.").toLowerCase();
+
+        if (
+          message.includes("failed to fetch") ||
+          message.includes("network") ||
+          message.includes("fetch")
+        ) {
+          return;
+        }
+
+        console.error("Failed to load payments:", json?.error);
+        return;
+      }
+
+      setPayments((json?.payments ?? []) as ProjectPayment[]);
+      await refreshOfflinePayments(projectId);
+    } catch (err: any) {
+      const message = String(err?.message || "Failed to load payments.");
+
+      if (
+        message.toLowerCase().includes("failed to fetch") ||
+        message.toLowerCase().includes("network") ||
+        message.toLowerCase().includes("fetch")
+      ) {
+        return;
+      }
+
+      console.error("Failed to load payments:", message);
     }
   }
 
@@ -3469,6 +3737,20 @@ export default function DashboardPage() {
     );
   }, [approvals, estimateSummary.baseline]);
 
+  // Payments: Total never moves based on payments (estimateSummary.approvedTotal
+  // stays the gross contract value). Paid is the sum of logged payments; Balance
+  // Due is Total minus Paid. Per the confirmed design decision, this always
+  // nets against the gross Total, never a partial/remaining figure.
+  const paymentsSummary = useMemo(() => {
+    const paidTotal = payments.reduce(
+      (sum, p) => sum + (Number(p.amount) || 0),
+      0
+    );
+    const balanceDue = estimateSummary.approvedTotal - paidTotal;
+
+    return { paidTotal, balanceDue };
+  }, [payments, estimateSummary.approvedTotal]);
+
   if (!hasMounted) return null;
 
   return (
@@ -4364,6 +4646,58 @@ export default function DashboardPage() {
                   {!estimateSummary.baseline ? " · no baseline estimate yet" : ""}
                 </div>
 
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 24,
+                    marginTop: 14,
+                    paddingTop: 14,
+                    borderTop: "1px solid var(--borderSoft)",
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: 0.5,
+                        opacity: 0.55,
+                        marginBottom: 4,
+                      }}
+                    >
+                      Paid
+                    </div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: "var(--text)" }}>
+                      {paymentsSummary.paidTotal.toLocaleString("en-US", {
+                        style: "currency",
+                        currency: "USD",
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: 0.5,
+                        opacity: 0.55,
+                        marginBottom: 4,
+                      }}
+                    >
+                      Balance Due
+                    </div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: "var(--text)" }}>
+                      {paymentsSummary.balanceDue.toLocaleString("en-US", {
+                        style: "currency",
+                        currency: "USD",
+                      })}
+                    </div>
+                  </div>
+                </div>
+
                 {estimateSummary.baseline ? (
                   <button
                     className="btn"
@@ -4475,8 +4809,288 @@ export default function DashboardPage() {
                   No estimate or change orders yet. Tap the + button to create one.
                 </p>
               ) : null}
+
+              <div
+                style={{
+                  marginTop: 22,
+                  paddingTop: 18,
+                  borderTop: "1px solid var(--borderSoft)",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: 10,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.5,
+                      opacity: 0.6,
+                    }}
+                  >
+                    Payments
+                  </div>
+
+                  <button
+                    className="btn"
+                    style={{ padding: "6px 12px", fontSize: 13 }}
+                    onClick={() => {
+                      setLogPaymentMode("dollar");
+                      setLogPaymentAmountInput("");
+                      setLogPaymentNote("");
+                      setLogPaymentDate(new Date().toISOString().slice(0, 10));
+                      setLogPaymentStatus(null);
+                      setLogPaymentOpen(true);
+                    }}
+                  >
+                    + Log Payment
+                  </button>
+                </div>
+
+                {payments.length === 0 && offlinePayments.length === 0 ? (
+                  <p className="sub" style={{ opacity: 0.6 }}>
+                    No payments logged yet.
+                  </p>
+                ) : (
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {payments.map((payment) => (
+                      <div
+                        key={payment.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 12,
+                          borderRadius: 12,
+                          padding: "10px 12px",
+                          background: "var(--surfaceSoft)",
+                          border: "1px solid var(--borderSoft)",
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontWeight: 700, color: "var(--text)" }}>
+                            {Number(payment.amount).toLocaleString("en-US", {
+                              style: "currency",
+                              currency: "USD",
+                            })}
+                          </div>
+                          <div className="sub" style={{ opacity: 0.65, marginTop: 2 }}>
+                            {payment.paid_at}
+                            {payment.note ? ` · ${payment.note}` : ""}
+                          </div>
+                        </div>
+
+                        <button
+                          className="btn"
+                          style={{
+                            padding: "4px 10px",
+                            fontSize: 12,
+                            opacity: 0.7,
+                          }}
+                          onClick={() => handleDeletePayment(payment.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    ))}
+
+                    {offlinePayments.map((record) => (
+                      <div
+                        key={record.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 12,
+                          borderRadius: 12,
+                          padding: "10px 12px",
+                          background: "var(--surfaceSoft)",
+                          border: "1px dashed var(--borderSoft)",
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontWeight: 700, color: "var(--text)" }}>
+                            {Number(record.amount).toLocaleString("en-US", {
+                              style: "currency",
+                              currency: "USD",
+                            })}
+                          </div>
+                          <div className="sub" style={{ opacity: 0.65, marginTop: 2 }}>
+                            {record.paidAt}
+                            {record.note ? ` · ${record.note}` : ""} · syncing when
+                            back online
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
+
+          {selectedProject &&
+            activeGlobalTab === "projects" &&
+            activeProjectTab === "estimate" &&
+            logPaymentOpen && (
+              <div
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  background: "rgba(0,0,0,0.45)",
+                  zIndex: 60,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 16,
+                }}
+                onClick={() => setLogPaymentOpen(false)}
+              >
+                <div
+                  className="card"
+                  style={{ maxWidth: 420, width: "100%" }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      marginBottom: 14,
+                    }}
+                  >
+                    <div style={{ fontWeight: 800, fontSize: 16 }}>Log Payment</div>
+                    <button
+                      className="btn"
+                      style={{ padding: "4px 10px" }}
+                      onClick={() => setLogPaymentOpen(false)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                    <button
+                      type="button"
+                      className="btn"
+                      style={{
+                        flex: 1,
+                        background:
+                          logPaymentMode === "dollar" ? "var(--text)" : undefined,
+                        color: logPaymentMode === "dollar" ? "var(--card)" : undefined,
+                      }}
+                      onClick={() => {
+                        setLogPaymentMode("dollar");
+                        setLogPaymentAmountInput("");
+                      }}
+                    >
+                      $ Amount
+                    </button>
+                    <button
+                      type="button"
+                      className="btn"
+                      style={{
+                        flex: 1,
+                        background:
+                          logPaymentMode === "percent" ? "var(--text)" : undefined,
+                        color: logPaymentMode === "percent" ? "var(--card)" : undefined,
+                      }}
+                      onClick={() => {
+                        setLogPaymentMode("percent");
+                        setLogPaymentAmountInput("");
+                      }}
+                    >
+                      % of Balance Due
+                    </button>
+                  </div>
+
+                  <label className="sub" style={{ display: "block", marginBottom: 4 }}>
+                    {logPaymentMode === "percent"
+                      ? `Percent of balance due (${paymentsSummary.balanceDue.toLocaleString(
+                          "en-US",
+                          { style: "currency", currency: "USD" }
+                        )})`
+                      : "Dollar amount"}
+                  </label>
+                  <input
+                    className="input"
+                    style={{ marginBottom: 4, width: "100%" }}
+                    value={logPaymentAmountInput}
+                    onChange={(e) => setLogPaymentAmountInput(e.target.value)}
+                    placeholder={logPaymentMode === "percent" ? "e.g. 30" : "e.g. 2500"}
+                    inputMode="decimal"
+                  />
+
+                  {logPaymentMode === "percent" ? (
+                    <div className="sub" style={{ marginBottom: 12, opacity: 0.75 }}>
+                      {(() => {
+                        const preview = computeLogPaymentAmount(
+                          "percent",
+                          logPaymentAmountInput,
+                          paymentsSummary.balanceDue
+                        );
+
+                        if (paymentsSummary.balanceDue <= 0) {
+                          return "No balance due remaining — enter a dollar amount instead.";
+                        }
+
+                        return preview !== null
+                          ? `= ${preview.toLocaleString("en-US", {
+                              style: "currency",
+                              currency: "USD",
+                            })}`
+                          : "Enter a percentage to see the dollar amount.";
+                      })()}
+                    </div>
+                  ) : (
+                    <div style={{ marginBottom: 12 }} />
+                  )}
+
+                  <label className="sub" style={{ display: "block", marginBottom: 4 }}>
+                    Date paid
+                  </label>
+                  <input
+                    type="date"
+                    className="input"
+                    style={{ marginBottom: 12, width: "100%" }}
+                    value={logPaymentDate}
+                    onChange={(e) => setLogPaymentDate(e.target.value)}
+                  />
+
+                  <label className="sub" style={{ display: "block", marginBottom: 4 }}>
+                    Note (optional)
+                  </label>
+                  <input
+                    className="input"
+                    style={{ marginBottom: 14, width: "100%" }}
+                    value={logPaymentNote}
+                    onChange={(e) => setLogPaymentNote(e.target.value)}
+                    placeholder="e.g. deposit, check #1042"
+                  />
+
+                  {logPaymentStatus ? (
+                    <div className="sub" style={{ marginBottom: 10, opacity: 0.8 }}>
+                      {logPaymentStatus}
+                    </div>
+                  ) : null}
+
+                  <button
+                    className="btn btnPrimary"
+                    style={{ width: "100%" }}
+                    disabled={logPaymentSubmitting}
+                    onClick={() => void handleLogPayment()}
+                  >
+                    {logPaymentSubmitting ? "Saving..." : "Save Payment"}
+                  </button>
+                </div>
+              </div>
+            )}
 
           {selectedProject &&
             activeGlobalTab === "projects" &&

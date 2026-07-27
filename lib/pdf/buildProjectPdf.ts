@@ -113,6 +113,13 @@ export type ApprovalWithResponseRow = ApprovalRow & {
   attachments?: ApprovalAttachmentRow[] | null;
 };
 
+export type PaymentRow = {
+  id: string;
+  amount: number;
+  note?: string | null;
+  paid_at: string;
+};
+
 // ---------- Args expected by your route ----------
 export type BuildProjectPdfArgs = {
   project: ProjectRow;
@@ -122,6 +129,11 @@ export type BuildProjectPdfArgs = {
   deliveries?: DeliveryRow[];
   contactEvents?: ProjectContactEventRow[];
   shareViews?: ShareViewRow[];
+  // Paid/Balance Due summary -- dispute-mode only (see "Payment Summary"
+  // section below), per the confirmed design decision in "Project Payments
+  // - Implementation Plan.md". Optional and unused by the standard-mode
+  // Download PDF and the Send Update email PDF, which never pass this in.
+  payments?: PaymentRow[];
   timelineHash?: string | null;
   supabase: any;
   reportMode?: "standard" | "dispute";
@@ -169,10 +181,31 @@ export async function buildProjectPdf(
     deliveries = [],
     contactEvents = [],
     shareViews = [],
+    payments = [],
     timelineHash = null,
     supabase,
     reportMode = "standard",
   } = args;
+
+  // Paid/Balance Due -- mirrors the dashboard Estimate tab's and the invoice
+  // share page's Total calculation exactly (baseline + approved change
+  // orders; pending/draft never included), so the dispute packet's numbers
+  // always agree with what the contractor and client already see elsewhere.
+  const projectTotal = (approvals ?? []).reduce((sum, a) => {
+    if (a.status !== "approved") return sum;
+    const hasLineItems = Array.isArray(a.line_items) && a.line_items.length > 0;
+    const value = hasLineItems
+      ? a.line_items!.reduce((s, li) => s + (Number(li.line_total) || 0), 0)
+      : Number(a.cost_delta) || 0;
+    return sum + value;
+  }, 0);
+
+  const paidTotal = (payments ?? []).reduce(
+    (sum, p) => sum + (Number(p.amount) || 0),
+    0
+  );
+
+  const balanceDue = projectTotal - paidTotal;
 
   console.log("[buildProjectPdf] projectId =", project.id);
   console.log("[buildProjectPdf] proofs =", proofs?.length ?? 0);
@@ -1167,6 +1200,149 @@ export async function buildProjectPdf(
     }
 
     y = cardY - 18;
+  }
+
+  // Payment Summary -- dispute-mode only: Contract Total / Paid to Date /
+  // Balance Due, plus (see below) the full itemized payment log. Only
+  // rendered when there's an actual baseline/total to report against -- an
+  // empty summary page for a project with no approvals yet isn't useful.
+  if (reportMode === "dispute" && projectTotal > 0) {
+    pageNumber += 1;
+    page = addTimelinePage(
+      pdf,
+      font,
+      fontBold,
+      project.title || "Project",
+      pageNumber,
+      { reportMode, timelineHash }
+    );
+    y = PAGE_HEIGHT - MARGIN - 64;
+
+    page.drawText("Payment Summary", {
+      x: MARGIN,
+      y,
+      size: 18,
+      font: fontBold,
+      color: COLORS.navy3,
+    });
+
+    y -= 26;
+
+    page.drawText("Contract total, amounts paid to date, and balance due.", {
+      x: MARGIN,
+      y,
+      size: 10.5,
+      font,
+      color: COLORS.muted,
+    });
+
+    y -= 34;
+
+    const summaryRows: Array<[string, string]> = [
+      ["Contract Total", `$${projectTotal.toFixed(2)}`],
+      ["Paid to Date", `$${paidTotal.toFixed(2)}`],
+      ["Balance Due", `$${balanceDue.toFixed(2)}`],
+    ];
+
+    for (const [label, value] of summaryRows) {
+      page.drawText(label, {
+        x: MARGIN,
+        y,
+        size: 12.5,
+        font: fontBold,
+        color: COLORS.text,
+      });
+
+      const valueWidth = fontBold.widthOfTextAtSize(value, 12.5);
+      page.drawText(value, {
+        x: MARGIN + CONTENT_WIDTH - valueWidth,
+        y,
+        size: 12.5,
+        font: fontBold,
+        color: COLORS.text,
+      });
+
+      y -= 24;
+    }
+
+    y -= 8;
+
+    // Itemized payment log -- dispute-packet only. Revised 2026-07-27: Ryan's
+    // first real review of this section called the summary-only figures
+    // "pretty generic" for a document whose whole job is dispute-grade
+    // documentation -- a bare "$1,540.00 paid" proves nothing without a date
+    // and reference (check #, method) to back it up. The invoice share page
+    // stays summary-only (client-facing, per the original reasoning: keeps
+    // informal notes like "Venmo"/check numbers off a link a client opens),
+    // but the dispute packet -- an internal evidentiary export, never a
+    // client-facing link -- now lists every logged payment: paid date,
+    // note if present, amount. payments[] arrives pre-sorted paid_at
+    // ascending (see app/api/export/pdf/route.ts's query).
+    if (payments.length > 0) {
+      page.drawText("Payments Logged", {
+        x: MARGIN,
+        y,
+        size: 12.5,
+        font: fontBold,
+        color: COLORS.text,
+      });
+
+      y -= 22;
+
+      for (const payment of payments) {
+        const rowHeight = 20;
+
+        if (y - rowHeight < MARGIN + 24) {
+          pageNumber += 1;
+          page = addTimelinePage(
+            pdf,
+            font,
+            fontBold,
+            project.title || "Project",
+            pageNumber,
+            { reportMode, timelineHash }
+          );
+          y = PAGE_HEIGHT - MARGIN - 64;
+
+          page.drawText("Payments Logged (continued)", {
+            x: MARGIN,
+            y,
+            size: 12.5,
+            font: fontBold,
+            color: COLORS.text,
+          });
+
+          y -= 22;
+        }
+
+        const paidAtLabel = sanitizePdfText(payment.paid_at || "");
+        const noteLabel = payment.note ? sanitizePdfText(payment.note) : "";
+        const amountLabel = `$${(Number(payment.amount) || 0).toFixed(2)}`;
+
+        const leftLabel = noteLabel
+          ? `${paidAtLabel} - ${noteLabel}`
+          : paidAtLabel;
+
+        page.drawText(leftLabel, {
+          x: MARGIN,
+          y,
+          size: 10.5,
+          font,
+          color: COLORS.text,
+        });
+
+        const amountWidth = font.widthOfTextAtSize(amountLabel, 10.5);
+        page.drawText(amountLabel, {
+          x: MARGIN + CONTENT_WIDTH - amountWidth,
+          y,
+          size: 10.5,
+          font,
+          color: COLORS.text,
+        });
+
+        y -= rowHeight;
+      }
+    }
   }
 
   if (reportMode === "dispute") {

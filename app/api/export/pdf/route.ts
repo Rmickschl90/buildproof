@@ -176,6 +176,7 @@ export async function POST(req: Request) {
     let deliveries: any[] = [];
     let contactEvents: any[] = [];
     let shareViews: any[] = [];
+    let payments: any[] = [];
     let timelineHash: string | null = null;
 
     if (reportMode === "dispute") {
@@ -215,6 +216,18 @@ export async function POST(req: Request) {
 
       shareViews = shareViewRows ?? [];
 
+      const { data: paymentRows, error: paymentsErr } = await supabaseServer
+        .from("project_payments")
+        .select("id,amount,note,paid_at")
+        .eq("project_id", projectId)
+        .order("paid_at", { ascending: true });
+
+      if (paymentsErr) {
+        return NextResponse.json({ error: paymentsErr.message }, { status: 400 });
+      }
+
+      payments = paymentRows ?? [];
+
       const { data: latestSentJob, error: latestSentJobErr } = await supabaseServer
         .from("send_jobs")
         .select("timeline_hash,processed_at")
@@ -247,6 +260,7 @@ export async function POST(req: Request) {
       deliveries,
       contactEvents,
       shareViews,
+      payments,
       timelineHash,
       supabase: supabaseServer,
       reportMode,
