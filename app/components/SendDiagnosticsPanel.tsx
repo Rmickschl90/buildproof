@@ -2,26 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { getAllOfflineSendRecords } from "@/lib/offlineSendOutbox";
+import {
+  getAllOfflineSendRecords,
+  type OfflineSendRecord,
+} from "@/lib/offlineSendOutbox";
 
 type Props = {
   projectId: string;
 };
 
-type OfflineSendRecord = {
-  id: string;
-  idempotencyKey: string;
-  projectId: string;
-  toEmail: string;
-  includeArchived: boolean;
-  status: "pending" | "syncing" | "handed_off";
-  createdAt: string;
-  updatedAt: string;
-  syncAttemptCount: number;
-  lastSyncAttemptAt: string | null;
-  lastError: string | null;
-  serverJobId: string | null;
-};
+// Was a locally-duplicated type here (status: "pending" | "syncing" |
+// "handed_off", missing the new "failed" state added 2026-07-27) -- since
+// getAllOfflineSendRecords() actually returns the lib's real OfflineSendRecord
+// type regardless of what this file declared locally, the two drifted and
+// broke the build the moment "failed" was added there. Importing the real
+// type instead of redeclaring it means this can't happen again.
 
 type ActiveJob = {
   id: string;
