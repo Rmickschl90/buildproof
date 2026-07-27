@@ -29,7 +29,12 @@ export function getStoredTheme(): Theme | null {
 }
 
 export function getActiveTheme(): Theme {
-  return getStoredTheme() ?? getSystemTheme();
+  // Default to dark when there's no explicit stored preference yet (Ryan,
+  // 2026-07-27: dark mode looks better and should be the app's default on
+  // first open), rather than following system preference. A user's explicit
+  // choice via ThemeToggle always wins once one exists in localStorage --
+  // this only affects brand-new sessions/devices with nothing stored.
+  return getStoredTheme() ?? "dark";
 }
 
 export function applyTheme(theme: Theme) {
@@ -58,9 +63,7 @@ export const THEME_BOOTSTRAP_SCRIPT = `
 (function() {
   try {
     var stored = localStorage.getItem('${STORAGE_KEY}');
-    var theme = (stored === 'light' || stored === 'dark')
-      ? stored
-      : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    var theme = (stored === 'light' || stored === 'dark') ? stored : 'dark';
     document.documentElement.setAttribute('data-theme', theme);
   } catch (e) {}
 })();

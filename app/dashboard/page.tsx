@@ -2258,10 +2258,13 @@ export default function DashboardPage() {
           statusMap[projectId] = "won";
         } else if (status === "declined" || status === "expired") {
           statusMap[projectId] = "declined";
-        } else {
-          // draft or pending
+        } else if (status === "pending") {
           statusMap[projectId] = "bidding";
         }
+        // A "draft" baseline (or any other unsent state) intentionally gets
+        // no badge at all -- an un-sent estimate is itself the signal that
+        // this project still needs action, no separate color needed on top
+        // of that (Ryan, 2026-07-27).
       }
 
       setProjectBidStatus(statusMap);
