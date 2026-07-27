@@ -1,6 +1,14 @@
 // /lib/offlineSendOutbox.ts
 
-export type OfflineSendStatus = "pending" | "syncing" | "handed_off";
+// "failed" (2026-07-27) is a genuine terminal state -- added after a
+// permanently-invalid recipient address (a bad test email) got stuck
+// retrying forever, since previously any failure just reset status back to
+// "pending" with no cap and no way to ever stop. getFlushableOfflineSendRecords()
+// below deliberately does NOT include "failed" -- once a record reaches this
+// state it is done being auto-retried, full stop. See markOfflineSendFailed
+// and lib/offlineSendFlush.ts's failure classification for how a record gets
+// here.
+export type OfflineSendStatus = "pending" | "syncing" | "handed_off" | "failed";
 
 export type OfflineSendRecord = {
   id: string;
@@ -171,8 +179,28 @@ export async function getAllOfflineSendRecords(): Promise<OfflineSendRecord[]> {
 export async function getFlushableOfflineSendRecords(): Promise<OfflineSendRecord[]> {
   const records = await getAllOfflineSendRecords();
 
+  // "handed_off" is deliberately included here (2026-07-27) -- this was the
+  // real root cause behind a send getting permanently stuck. A record only
+  // reaches "handed_off" after a server job id already exists, and the flush
+  // loop's own logic (in lib/offlineSendFlush.ts) already knows how to resume
+  // a handed-off record via its stored serverJobId. But this function
+  // previously excluded "handed_off" entirely, so once a record landed there
+  // it could never be picked up by any future automatic flush again -- not
+  // on reconnect, not on the 3-second indicator poll, nothing. If that
+  // happened to coincide with the send job's server-side status sitting at
+  // "retrying" (send_jobs has its own independent 5-attempt cap +
+  // next_retry_at schedule in app/api/send/process-job/route.ts, driven
+  // entirely by client calls -- there is no server cron), the job would just
+  // sit one attempt short of its own terminal "failed" state forever, since
+  // nothing client-side would ever call process-job again to push it there.
+  // Confirmed live on staging: a record from an invalid test-email send sat
+  // at status "handed_off" / server job status "retrying" (attempt 4 of 5)
+  // for 8+ hours, invisible to every flush attempt in between.
   return records.filter(
-    (record) => record.status === "pending" || record.status === "syncing"
+    (record) =>
+      record.status === "pending" ||
+      record.status === "syncing" ||
+      record.status === "handed_off"
   );
 }
 
@@ -228,6 +256,23 @@ export async function markOfflineSendPending(
     lastError: errorMessage,
     waitReason,
   }));
+}
+
+export async function markOfflineSendFailed(
+  id: string,
+  errorMessage: string
+): Promise<OfflineSendRecord> {
+  return updateOfflineSendRecord(id, (record) => ({
+    ...record,
+    status: "failed",
+    lastError: errorMessage,
+    waitReason: null,
+  }));
+}
+
+export async function getFailedOfflineSendRecords(): Promise<OfflineSendRecord[]> {
+  const records = await getAllOfflineSendRecords();
+  return records.filter((record) => record.status === "failed");
 }
 
 export async function markOfflineSendHandedOff(

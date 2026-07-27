@@ -1,5 +1,6 @@
 import {
   getFlushableOfflineSendRecords,
+  markOfflineSendFailed,
   markOfflineSendHandedOff,
   markOfflineSendPending,
   markOfflineSendSyncing,
@@ -39,6 +40,53 @@ async function hasUnfinishedEntryAttachmentsForProject(projectId: string) {
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Stuck-send fix (2026-07-27): a permanently-invalid recipient (e.g. a bad
+// test email Resend rejects) used to get reset back to "pending" forever with
+// no cap, since every failure path here previously called
+// markOfflineSendPending unconditionally -- see REGRESSION_LEDGER.md /
+// CLAUDE.md for the incident this closes out. Two independent safeguards so
+// neither has to be perfect on its own:
+//   1. Pattern-match known permanent, retry-proof failures (bad recipient
+//      address, unverified sending domain) and fail them immediately.
+//   2. A hard attempt cap as a backstop for anything the pattern match
+//      misses or misclassifies -- nothing can loop forever regardless.
+const MAX_SEND_ATTEMPTS = 5;
+
+function isLikelyPermanentSendError(message: string): boolean {
+  const m = (message || "").toLowerCase();
+  return (
+    m.includes("invalid `to`") ||
+    m.includes("invalid to field") ||
+    m.includes("invalid recipient") ||
+    m.includes("invalid email") ||
+    m.includes("not a valid email") ||
+    m.includes("testing email address") ||
+    m.includes("domain is not verified") ||
+    m.includes("domain not verified")
+  );
+}
+
+// Decides whether a failure should permanently stop this record (terminal
+// "failed") or go back to "pending" for another automatic retry later.
+// Centralized so all 4 failure sites below apply the exact same rule.
+async function recordSendFailure(
+  record: OfflineSendRecord,
+  message: string,
+  onStatus?: FlushStatusCallback
+) {
+  const shouldStop =
+    isLikelyPermanentSendError(message) ||
+    record.syncAttemptCount >= MAX_SEND_ATTEMPTS;
+
+  if (shouldStop) {
+    await markOfflineSendFailed(record.id, message);
+  } else {
+    await markOfflineSendPending(record.id, message);
+  }
+
+  onStatus?.("failed", { message });
 }
 
 async function createSendJob(record: OfflineSendRecord, token: string) {
@@ -254,15 +302,12 @@ export async function flushOfflineSendOutbox(
           }
 
           if (existingJobStatus === "failed") {
-            await markOfflineSendPending(
-              record.id,
-              existingJob?.last_error || "Send job failed."
+            await recordSendFailure(
+              record,
+              existingJob?.last_error || "Send job failed.",
+              onStatus
             );
             failed += 1;
-
-            onStatus?.("failed", {
-              message: existingJob?.last_error || "Send job failed.",
-            });
 
             continue;
           }
@@ -303,15 +348,12 @@ export async function flushOfflineSendOutbox(
         }
 
         if (preProcessStatus === "failed") {
-          await markOfflineSendPending(
-            record.id,
-            preProcessJob?.last_error || "Send job failed."
+          await recordSendFailure(
+            record,
+            preProcessJob?.last_error || "Send job failed.",
+            onStatus
           );
           failed += 1;
-
-          onStatus?.("failed", {
-            message: preProcessJob?.last_error || "Send job failed.",
-          });
 
           continue;
         }
@@ -337,15 +379,12 @@ export async function flushOfflineSendOutbox(
         }
 
         if (jobStatus === "failed") {
-          await markOfflineSendPending(
-            record.id,
-            job?.last_error || "Send job failed."
+          await recordSendFailure(
+            record,
+            job?.last_error || "Send job failed.",
+            onStatus
           );
           failed += 1;
-
-          onStatus?.("failed", {
-            message: job?.last_error || "Send job failed.",
-          });
 
           continue;
         }
@@ -368,8 +407,7 @@ export async function flushOfflineSendOutbox(
               "Update saved — will send automatically when connection returns.",
           });
         } else {
-          await markOfflineSendPending(record.id, message);
-          onStatus?.("failed", { message });
+          await recordSendFailure(record, message, onStatus);
         }
 
         failed += 1;
