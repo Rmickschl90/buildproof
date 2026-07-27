@@ -229,6 +229,28 @@ export async function POST(req: Request) {
             { status: 409 }
           );
         }
+
+        // Data-hygiene fix (2026-07-27): see approvals/create's identical
+        // comment -- clear is_baseline on any declined/expired rows so this
+        // approval becomes the sole is_baseline=true row for the project,
+        // rather than leaving a stale flag on the old one.
+        const inactiveBaselineIds = (existingBaselineRows || [])
+          .filter((row) => INACTIVE_BASELINE_STATUSES.includes(row.status))
+          .map((row) => row.id);
+
+        if (inactiveBaselineIds.length > 0) {
+          const { error: clearOldBaselineError } = await supabaseServer
+            .from("approval_requests")
+            .update({ is_baseline: false })
+            .in("id", inactiveBaselineIds);
+
+          if (clearOldBaselineError) {
+            console.error(
+              "[approvals/update] failed to clear stale baseline flag",
+              clearOldBaselineError
+            );
+          }
+        }
       }
 
       updatePayload.is_baseline = isBaseline;

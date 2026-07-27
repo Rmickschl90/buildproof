@@ -219,6 +219,37 @@ export async function POST(req: Request) {
           { status: 409 }
         );
       }
+
+      // Data-hygiene fix (2026-07-27): a declined/expired baseline is allowed
+      // to sit there forever as a permanent historical record (never
+      // deleted, per this app's dispute-documentation model), but it should
+      // stop being flagged is_baseline once a new baseline takes its place --
+      // otherwise multiple rows end up with is_baseline=true and every
+      // consumer of "what's the current baseline" (dashboard, share page,
+      // PDF export) has to guess which one is really current. Clear the flag
+      // on any inactive rows found above so there is always at most one
+      // is_baseline=true row per project, full stop.
+      const inactiveBaselineIds = (existingBaselineRows || [])
+        .filter((row) => INACTIVE_BASELINE_STATUSES.includes(row.status))
+        .map((row) => row.id);
+
+      if (inactiveBaselineIds.length > 0) {
+        const { error: clearOldBaselineError } = await supabaseServer
+          .from("approval_requests")
+          .update({ is_baseline: false })
+          .in("id", inactiveBaselineIds);
+
+        if (clearOldBaselineError) {
+          console.error(
+            "[approvals/create] failed to clear stale baseline flag",
+            clearOldBaselineError
+          );
+          // Non-fatal: the new baseline can still be created correctly below;
+          // worst case a stale flag lingers on the old declined/expired row,
+          // which display logic already guards against via
+          // INACTIVE_BASELINE_STATUSES filtering as a fallback.
+        }
+      }
     }
 
     const insertPayload: Record<string, unknown> = {

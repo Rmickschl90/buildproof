@@ -299,6 +299,15 @@ export default function DashboardPage() {
 
   // ---------------- DATA ----------------
   const [projects, setProjects] = useState<Project[]>([]);
+  // Project status badge feature (2026-07-27): projectId -> derived bid
+  // status, computed from each project's baseline approval (is_baseline=true
+  // row). "bidding" = draft/pending baseline, "won" = approved baseline,
+  // "declined" = declined/expired baseline. No entry means no baseline has
+  // ever been submitted for that project yet. Purely a visual aid -- never
+  // read for access control or any authoritative logic.
+  const [projectBidStatus, setProjectBidStatus] = useState<
+    Record<string, "bidding" | "won" | "declined">
+  >({});
   const [selectedProject, setSelectedProject] = useState<Project | null>(() => {
     const cached = getInitialCachedProjectSnapshot();
     return cached?.project ?? null;
@@ -479,6 +488,14 @@ export default function DashboardPage() {
   // ---- Projects search + sort ----
   const [projectSearch, setProjectSearch] = useState("");
   const [projectSortMode, setProjectSortMode] = useState<"newest" | "oldest" | "az">("newest");
+  // Project status badge feature (2026-07-27): consolidated filter popover,
+  // mirroring the Timeline tab's single search box + filter icon button
+  // pattern instead of separate search/sort/Archived controls.
+  const [projectBidStatusFilter, setProjectBidStatusFilter] = useState<
+    "all" | "bidding" | "won" | "declined"
+  >("all");
+  const [projectFilterMenuOpen, setProjectFilterMenuOpen] = useState(false);
+  const projectFilterMenuRef = useRef<HTMLDivElement | null>(null);
 
   // ---- Delivery History ----
   const [showDeliveryHistory, setShowDeliveryHistory] = useState(false);
@@ -1419,6 +1436,24 @@ export default function DashboardPage() {
   }, [entryFilterMenuOpen]);
 
   useEffect(() => {
+    if (!projectFilterMenuOpen) return;
+
+    function onDown(e: MouseEvent | TouchEvent) {
+      const el = projectFilterMenuRef.current;
+      const target = e.target as Node | null;
+      if (!el || !target) return;
+      if (!el.contains(target)) setProjectFilterMenuOpen(false);
+    }
+
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
+    };
+  }, [projectFilterMenuOpen]);
+
+  useEffect(() => {
     if (!proofMenuOpenId) return;
 
     function onDown(e: MouseEvent | TouchEvent) {
@@ -2169,6 +2204,49 @@ export default function DashboardPage() {
     const nextProjects = (data ?? []) as Project[];
     setProjects(nextProjects);
     setStatus("");
+    await loadProjectBidStatuses(nextProjects.map((p) => p.id));
+  }
+
+  // Project status badge feature (2026-07-27): looks up each project's
+  // baseline approval (is_baseline=true, at most one per project after the
+  // create/update routes' hygiene fix) and derives a simple bidding/won/
+  // declined status for the colored card stripe. Best-effort -- failures
+  // here just mean no badges render, never a blocking error for the page.
+  async function loadProjectBidStatuses(projectIds: string[]) {
+    if (projectIds.length === 0) {
+      setProjectBidStatus({});
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("approval_requests")
+        .select("project_id, status")
+        .eq("is_baseline", true)
+        .in("project_id", projectIds);
+
+      if (error) {
+        console.error("[loadProjectBidStatuses] failed", error);
+        return;
+      }
+
+      const statusMap: Record<string, "bidding" | "won" | "declined"> = {};
+
+      for (const row of data || []) {
+        if (row.status === "approved") {
+          statusMap[row.project_id] = "won";
+        } else if (row.status === "declined" || row.status === "expired") {
+          statusMap[row.project_id] = "declined";
+        } else {
+          // draft or pending
+          statusMap[row.project_id] = "bidding";
+        }
+      }
+
+      setProjectBidStatus(statusMap);
+    } catch (err) {
+      console.error("[loadProjectBidStatuses] unexpected error", err);
+    }
   }
 
   async function preloadProofAttachments(proofsToCache: Proof[]) {
@@ -3563,6 +3641,10 @@ export default function DashboardPage() {
       });
     }
 
+    if (projectBidStatusFilter !== "all") {
+      list = list.filter((p) => projectBidStatus[p.id] === projectBidStatusFilter);
+    }
+
     if (projectSortMode === "az") {
       list.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
     } else if (projectSortMode === "oldest") {
@@ -3572,7 +3654,15 @@ export default function DashboardPage() {
     }
 
     return list;
-  }, [projects, offlineProjects, projectSearch, projectSortMode, userId]);
+  }, [
+    projects,
+    offlineProjects,
+    projectSearch,
+    projectSortMode,
+    projectBidStatusFilter,
+    projectBidStatus,
+    userId,
+  ]);
 
   const filteredProofs = useMemo<TimelineProof[]>(() => {
     const serverContentSet = new Set(
@@ -4069,32 +4159,202 @@ export default function DashboardPage() {
             >
               <div className="row" style={{ alignItems: "center" }}>
                 <div style={{ fontWeight: 800 }}>Projects</div>
-
-                <button className="btn" onClick={() => router.push("/archived")}>
-                  Archived
-                </button>
               </div>
 
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                 <input
                   className="input"
                   placeholder="Search projects or clients..."
                   value={projectSearch}
                   onChange={(e) => setProjectSearch(e.target.value)}
-                  style={{ flex: "1 1 220px", minWidth: 180 }}
+                  style={{ flex: 1, minWidth: 0, height: 38, fontSize: 14 }}
                 />
 
-                <select
-                  className="input"
-                  value={projectSortMode}
-                  onChange={(e) => setProjectSortMode(e.target.value as any)}
-                  style={{ width: 160 }}
-                  title="Sort projects"
-                >
-                  <option value="newest">Newest</option>
-                  <option value="oldest">Oldest</option>
-                  <option value="az">A–Z</option>
-                </select>
+                <div style={{ position: "relative" }} ref={projectFilterMenuRef}>
+                  {(() => {
+                    const hasActiveFilters =
+                      projectBidStatusFilter !== "all" || projectSortMode !== "newest";
+
+                    return (
+                      <button
+                        className="btn"
+                        onClick={() => setProjectFilterMenuOpen((v) => !v)}
+                        title="Filter & sort projects"
+                        aria-label="Filter & sort projects"
+                        style={{
+                          height: 38,
+                          width: 38,
+                          padding: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                          position: "relative",
+                          background: hasActiveFilters
+                            ? "rgba(var(--accent-rgb),0.10)"
+                            : undefined,
+                          color: hasActiveFilters ? "var(--accentText)" : undefined,
+                          border: hasActiveFilters
+                            ? "1px solid rgba(var(--accent-rgb),0.25)"
+                            : undefined,
+                        }}
+                      >
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <polygon points="3 4 21 4 14 12.5 14 19 10 21 10 12.5 3 4" />
+                        </svg>
+
+                        {hasActiveFilters ? (
+                          <span
+                            style={{
+                              position: "absolute",
+                              top: 3,
+                              right: 3,
+                              width: 7,
+                              height: 7,
+                              borderRadius: "50%",
+                              background: "var(--accentText)",
+                            }}
+                          />
+                        ) : null}
+                      </button>
+                    );
+                  })()}
+
+                  {projectFilterMenuOpen ? (
+                    <div
+                      style={{
+                        position: "absolute",
+                        right: 0,
+                        top: 44,
+                        zIndex: 20,
+                        width: 230,
+                        maxWidth: "min(260px, calc(100vw - 24px))",
+                        border: "1px solid var(--borderStrong)",
+                        borderRadius: 14,
+                        background: "var(--card)",
+                        padding: 12,
+                        boxShadow: "var(--shadowSoft)",
+                        display: "grid",
+                        gap: 12,
+                        boxSizing: "border-box",
+                      }}
+                    >
+                      <div>
+                        <div
+                          className="sub"
+                          style={{ fontWeight: 700, opacity: 0.75, marginBottom: 6 }}
+                        >
+                          Status
+                        </div>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          {(
+                            [
+                              { key: "all", label: "All" },
+                              { key: "bidding", label: "Bidding" },
+                              { key: "won", label: "Won" },
+                              { key: "declined", label: "Declined" },
+                            ] as const
+                          ).map((opt) => (
+                            <button
+                              key={opt.key}
+                              className="btn"
+                              onClick={() => setProjectBidStatusFilter(opt.key)}
+                              style={{
+                                height: 30,
+                                fontSize: 12,
+                                padding: "2px 10px",
+                                borderRadius: 999,
+                                whiteSpace: "nowrap",
+                                background:
+                                  projectBidStatusFilter === opt.key
+                                    ? "rgba(var(--accent-rgb),0.10)"
+                                    : undefined,
+                                color:
+                                  projectBidStatusFilter === opt.key
+                                    ? "var(--accentText)"
+                                    : undefined,
+                                fontWeight:
+                                  projectBidStatusFilter === opt.key ? 700 : undefined,
+                                border:
+                                  projectBidStatusFilter === opt.key
+                                    ? "1px solid rgba(var(--accent-rgb),0.25)"
+                                    : undefined,
+                              }}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div
+                          className="sub"
+                          style={{ fontWeight: 700, opacity: 0.75, marginBottom: 6 }}
+                        >
+                          Sort
+                        </div>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          {(
+                            [
+                              { key: "newest", label: "Newest" },
+                              { key: "oldest", label: "Oldest" },
+                              { key: "az", label: "A–Z" },
+                            ] as const
+                          ).map((opt) => (
+                            <button
+                              key={opt.key}
+                              className="btn"
+                              onClick={() => setProjectSortMode(opt.key)}
+                              style={{
+                                height: 30,
+                                fontSize: 12,
+                                padding: "2px 10px",
+                                borderRadius: 999,
+                                whiteSpace: "nowrap",
+                                background:
+                                  projectSortMode === opt.key
+                                    ? "rgba(var(--accent-rgb),0.10)"
+                                    : undefined,
+                                color:
+                                  projectSortMode === opt.key
+                                    ? "var(--accentText)"
+                                    : undefined,
+                                fontWeight: projectSortMode === opt.key ? 700 : undefined,
+                                border:
+                                  projectSortMode === opt.key
+                                    ? "1px solid rgba(var(--accent-rgb),0.25)"
+                                    : undefined,
+                              }}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <button
+                        className="btn"
+                        onClick={() => {
+                          setProjectFilterMenuOpen(false);
+                          router.push("/archived");
+                        }}
+                        style={{ width: "100%" }}
+                      >
+                        View Archived
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               </div>
 
               <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
@@ -4121,10 +4381,26 @@ export default function DashboardPage() {
                   transition: "all 0.25s ease",
                 }}
               >
-                {filteredProjects.map((p) => (
+                {filteredProjects.map((p) => {
+                  const bidStatus = projectBidStatus[p.id];
+                  const bidStripeColor =
+                    bidStatus === "won"
+                      ? "rgb(var(--success-rgb))"
+                      : bidStatus === "declined"
+                        ? "rgb(var(--danger-rgb))"
+                        : bidStatus === "bidding"
+                          ? "rgb(var(--warning-rgb))"
+                          : null;
+
+                  return (
                   <button
                     key={p.id}
                     className={`projectBtn ${selectedProjectId === p.id ? "projectBtnActive" : ""}`}
+                    style={
+                      bidStripeColor
+                        ? { borderLeft: `6px solid ${bidStripeColor}` }
+                        : undefined
+                    }
                     onClick={() => {
                       // 🧠 ALWAYS save recent (works online + offline)
                       saveRecentProject({
@@ -4240,7 +4516,8 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   </button>
-                ))}
+                  );
+                })}
               </div>
 
               {filteredProjects.length === 0 ? (
