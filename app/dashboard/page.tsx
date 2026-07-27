@@ -20,8 +20,7 @@ type PdfSaverPlugin = {
 const PdfSaver = registerPlugin<PdfSaverPlugin>("PdfSaver");
 
 import OnboardingWizard from "../components/OnboardingWizard";
-import SendUpdatePack from "../components/SendUpdatePack";
-import DeliveryHistoryPanel from "../components/DeliveryHistoryPanel";
+import SendUpdateModal from "../components/SendUpdateModal";
 import ProofAttachmentsWrapper from "../components/ProofAttachmentsWrapper";
 import ApprovalComposer from "../components/ApprovalComposer";
 import ApprovalCard from "../components/ApprovalCard";
@@ -3675,6 +3674,42 @@ export default function DashboardPage() {
             }}
           />
 
+          {selectedProject ? (
+            <SendUpdateModal
+              open={isSendMode}
+              onClose={() => {
+                setIsSendMode(false);
+                setSendCloseSignal((k) => k + 1);
+              }}
+              projectId={selectedProject.id}
+              projectTitle={selectedProject.title}
+              clientName={selectedProject.client_name ?? undefined}
+              clientEmail={selectedProject.client_email ?? undefined}
+              clientPhone={selectedProject.client_phone ?? undefined}
+              entryCount={
+                filteredProofs.filter((proof) => {
+                  if ("isOffline" in proof) return true;
+                  return !proof.locked_at && !proof.deleted_at;
+                }).length
+              }
+              archivedEntryCount={proofs.filter((p) => !!p.deleted_at).length}
+              showDeliveryHistory={showDeliveryHistory}
+              onToggleDeliveryHistory={() => setShowDeliveryHistory((v) => !v)}
+              onSendSuccess={async () => {
+                finishOnboarding();
+                await loadProofs(selectedProject.id, showArchivedEntries);
+                setShowDeliveryHistory(true);
+                setIsSendMode(false);
+
+                setSendSuccessMessage("Your project timeline and PDF were sent successfully.");
+
+                setTimeout(() => {
+                  setSendSuccessMessage("");
+                }, 5000);
+              }}
+            />
+          ) : null}
+
           {!isSendMode && !selectedProject && activeGlobalTab === "projects" ? (
             <div
               id="onboarding-project-area"
@@ -4512,83 +4547,7 @@ export default function DashboardPage() {
           {selectedProject && activeGlobalTab === "projects" && activeProjectTab === "timeline" && (
             <div className="card">
 
-              <div
-                id="onboarding-send-area"
-                style={{
-                  marginTop: 4,
-                  marginBottom: 18,
-                  padding: highlightTarget === "onboarding-send-area" ? 10 : 0,
-                  borderRadius: 14,
-                  boxShadow:
-                    highlightTarget === "onboarding-send-area"
-                      ? "0 0 0 6px rgba(59,130,246,0.12)"
-                      : undefined,
-                  transition: "all 0.25s ease",
-                }}
-              >
-                {!isSendMode ? null : (
-                  <>
-                    <div
-                      style={{
-                        marginBottom: 10,
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: 8,
-                      }}
-                    >
-                      <button
-                        className="btn"
-                        onClick={() => setShowDeliveryHistory((v) => !v)}
-                        title="Show or hide delivery history"
-                        style={{
-                          maxWidth: "100%",
-                          whiteSpace: "normal",
-                          textAlign: "center",
-                        }}
-                      >
-                        {showDeliveryHistory ? "Hide Delivery History" : "Show Delivery History"}
-                      </button>
-                    </div>
-
-                    {showDeliveryHistory ? (
-                      <div style={{ marginBottom: 10 }}>
-                        <DeliveryHistoryPanel projectId={selectedProject.id} />
-                      </div>
-                    ) : null}
-
-                    <SendUpdatePack
-                      projectId={selectedProject.id}
-                      projectTitle={selectedProject.title}
-                      clientName={selectedProject.client_name ?? undefined}
-                      clientEmail={selectedProject.client_email ?? undefined}
-                      clientPhone={selectedProject.client_phone ?? undefined}
-                      entryCount={
-                        filteredProofs.filter((proof) => {
-                          if ("isOffline" in proof) return true;
-                          return !proof.locked_at && !proof.deleted_at;
-                        }).length
-                      }
-                      archivedEntryCount={proofs.filter((p) => !!p.deleted_at).length}
-                      onSendSuccess={async () => {
-                        finishOnboarding();
-                        await loadProofs(selectedProject.id, showArchivedEntries);
-                        setShowDeliveryHistory(true);
-                        setIsSendMode(false);
-
-                        setSendSuccessMessage("Your project timeline and PDF were sent successfully.");
-
-                        setTimeout(() => {
-                          setSendSuccessMessage("");
-                        }, 5000);
-                      }}
-                    />
-                  </>
-                )}
-              </div>
-
-
-
-
+              {/* Send Update now renders as SendUpdateModal (a real overlay), not inline here -- see the modal render near NewProjectModal above. */}
 
               {!isSendMode && !isApprovalMode ? (
                 <>

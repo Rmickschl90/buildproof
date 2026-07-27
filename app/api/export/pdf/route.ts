@@ -92,6 +92,8 @@ export async function POST(req: Request) {
   approval_type,
   description,
   cost_delta,
+  line_items,
+  is_baseline,
   schedule_delta,
   status,
   created_at,

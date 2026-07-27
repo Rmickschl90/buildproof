@@ -183,6 +183,29 @@ export async function POST(req: Request) {
                 })
                 : [];
 
+        const hasLineItems =
+            Array.isArray(approval.line_items) && approval.line_items.length > 0;
+
+        const lineItemsTotal = hasLineItems
+            ? approval.line_items.reduce(
+                (sum: number, li: any) => sum + (Number(li.line_total) || 0),
+                0
+            )
+            : 0;
+
+        const lineItemsTextLines = hasLineItems
+            ? [
+                `Line items:`,
+                ...approval.line_items.map(
+                    (li: any) =>
+                        `- ${li.description} (${li.quantity} x $${li.unit_cost}): $${Number(
+                            li.line_total
+                        ).toFixed(2)}`
+                ),
+                `Total: $${lineItemsTotal.toFixed(2)}`,
+            ]
+            : [];
+
         const subject = `Approval requested: ${approval.title}`;
 
         const text = [
@@ -194,7 +217,11 @@ export async function POST(req: Request) {
             `Description:`,
             `${approval.description}`,
             ``,
-            approval.cost_delta !== null ? `Cost impact: ${approval.cost_delta}` : null,
+            ...(hasLineItems
+                ? lineItemsTextLines
+                : approval.cost_delta !== null
+                    ? [`Cost impact: ${approval.cost_delta}`]
+                    : []),
             approval.schedule_delta ? `Schedule impact: ${approval.schedule_delta}` : null,
             approval.due_at ? `Due date: ${approval.due_at}` : null,
             attachments && attachments.length ? `` : null,
@@ -248,10 +275,33 @@ export async function POST(req: Request) {
           ${escapeHtml(approval.description)}
         </div>
 
-        ${approval.cost_delta !== null || approval.schedule_delta || approval.due_at
+        ${hasLineItems
                 ? `
           <div style="margin:0 0 18px 0;padding:14px;border:1px solid rgba(15,23,42,0.08);border-radius:12px;background:#f8fafc;">
-            ${approval.cost_delta !== null
+            <div style="font-weight:700;margin-bottom:8px;color:#0f172a;">Line Items</div>
+            ${approval.line_items
+                    .map((li: any) => {
+                        return `
+                <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:6px;color:#334155;">
+                  <span>${escapeHtml(String(li.description))} (${escapeHtml(String(li.quantity))} &times; $${escapeHtml(String(li.unit_cost))})</span>
+                  <span style="font-weight:700;white-space:nowrap;">$${escapeHtml(Number(li.line_total).toFixed(2))}</span>
+                </div>
+              `;
+                    })
+                    .join("")}
+            <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(15,23,42,0.08);display:flex;justify-content:space-between;font-weight:800;color:#0f172a;">
+              <span>Total</span>
+              <span>$${escapeHtml(lineItemsTotal.toFixed(2))}</span>
+            </div>
+          </div>
+        `
+                : ""
+            }
+
+        ${(!hasLineItems && approval.cost_delta !== null) || approval.schedule_delta || approval.due_at
+                ? `
+          <div style="margin:0 0 18px 0;padding:14px;border:1px solid rgba(15,23,42,0.08);border-radius:12px;background:#f8fafc;">
+            ${!hasLineItems && approval.cost_delta !== null
                     ? `<div style="margin:0 0 8px 0;"><strong>Cost impact:</strong> ${escapeHtml(String(approval.cost_delta))}</div>`
                     : ""
                 }

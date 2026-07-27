@@ -59,6 +59,13 @@ export type ShareViewRow = {
   ip_address?: string | null;
 };
 
+export type ApprovalLineItem = {
+  description: string;
+  quantity: number;
+  unit_cost: number;
+  line_total: number;
+};
+
 export type ApprovalRow = {
   id: string;
   project_id: string;
@@ -66,6 +73,8 @@ export type ApprovalRow = {
   approval_type: string | null;
   description: string | null;
   cost_delta: number | null;
+  line_items?: ApprovalLineItem[] | null;
+  is_baseline?: boolean | null;
   schedule_delta: string | null;
   status: string | null;
   created_at: string;
@@ -339,6 +348,23 @@ export async function buildProjectPdf(
       const costImpact = approval.cost_delta != null ? `$${approval.cost_delta}` : "None";
       const scheduleImpact = sanitizePdfText(approval.schedule_delta || "None");
 
+      // Line items give the client-facing PDF the same itemized breakdown
+      // already shown in the dashboard's ApprovalCard and the share/invoice
+      // page -- this is the one artifact meant to stand alone as dispute
+      // documentation, so a bare total isn't enough here. cost_delta is
+      // already kept in sync with the line-items subtotal at save time
+      // (see ApprovalComposer), so the existing "Cost Impact" line above
+      // stays untouched; this just adds the itemized detail below it.
+      const hasLineItems =
+        Array.isArray(approval.line_items) && approval.line_items.length > 0;
+
+      const lineItemsTotal = hasLineItems
+        ? approval.line_items!.reduce(
+          (sum, li) => sum + (Number(li.line_total) || 0),
+          0
+        )
+        : 0;
+
       const sentAt = sanitizePdfText(
         formatDateTime(
           approval.sent_at || approval.created_at,
@@ -399,6 +425,10 @@ export async function buildProjectPdf(
       const attachmentHeight =
         approvalAttachments.length > 0 ? approvalAttachments.length * 14 + 38 : 0;
 
+      const lineItemsHeight = hasLineItems
+        ? approval.line_items!.length * 14 + 46
+        : 0;
+
       const approvalPreviewBoxW = 120;
       const approvalPreviewBoxH = 140;
       const approvalPreviewGap = 10;
@@ -414,6 +444,7 @@ export async function buildProjectPdf(
       const cardHeight =
         122 +
         descHeight +
+        lineItemsHeight +
         evidenceHeight +
         attachmentHeight +
         approvalImageHeight +
@@ -484,6 +515,43 @@ export async function buildProjectPdf(
         font: fontBold,
         color: COLORS.ink,
       });
+
+      if (approval.is_baseline) {
+        const approvalRequestTitleWidth = fontBold.widthOfTextAtSize(
+          "Approval Request",
+          14
+        );
+
+        const baselineBadgeText = "Baseline Estimate";
+        const baselineBadgeSize = 9;
+        const baselineBadgePadX = 8;
+        const baselineBadgePadY = 5;
+        const baselineBadgeTextWidth = fontBold.widthOfTextAtSize(
+          baselineBadgeText,
+          baselineBadgeSize
+        );
+        const baselineBadgeW = baselineBadgeTextWidth + baselineBadgePadX * 2;
+        const baselineBadgeH = baselineBadgeSize + baselineBadgePadY * 2;
+        const baselineBadgeX = cardX + 22 + approvalRequestTitleWidth + 10;
+        const baselineBadgeY = top - 24 - baselineBadgeH + 11;
+
+        page.drawRectangle({
+          x: baselineBadgeX,
+          y: baselineBadgeY,
+          width: baselineBadgeW,
+          height: baselineBadgeH,
+          borderWidth: 0,
+          color: COLORS.successBg,
+        });
+
+        page.drawText(baselineBadgeText, {
+          x: baselineBadgeX + baselineBadgePadX,
+          y: baselineBadgeY + baselineBadgePadY,
+          size: baselineBadgeSize,
+          font: fontBold,
+          color: COLORS.successText,
+        });
+      }
 
       drawStatusBadge({
         page,
@@ -582,6 +650,78 @@ export async function buildProjectPdf(
         }
 
         detailY -= 2;
+      }
+
+      if (hasLineItems) {
+        page.drawLine({
+          start: { x: cardX + 22, y: detailY + 4 },
+          end: { x: cardX + cardWidth - 18, y: detailY + 4 },
+          thickness: 1,
+          color: COLORS.line,
+        });
+
+        detailY -= 12;
+
+        page.drawText("Line Items", {
+          x: cardX + 22,
+          y: detailY,
+          size: 10,
+          font: fontBold,
+          color: COLORS.text,
+        });
+
+        detailY -= 16;
+
+        for (const li of approval.line_items!) {
+          const label = sanitizePdfText(
+            `${li.description} (${li.quantity} x $${li.unit_cost})`
+          );
+          const amount = `$${Number(li.line_total).toFixed(2)}`;
+
+          page.drawText(label, {
+            x: cardX + 22,
+            y: detailY,
+            size: 9.5,
+            font,
+            color: COLORS.text,
+          });
+
+          const amountWidth = font.widthOfTextAtSize(amount, 9.5);
+
+          page.drawText(amount, {
+            x: cardX + cardWidth - 18 - amountWidth,
+            y: detailY,
+            size: 9.5,
+            font: fontBold,
+            color: COLORS.text,
+          });
+
+          detailY -= 14;
+        }
+
+        detailY -= 2;
+
+        const totalLabel = "Total";
+        const totalAmount = `$${lineItemsTotal.toFixed(2)}`;
+        const totalAmountWidth = fontBold.widthOfTextAtSize(totalAmount, 10.5);
+
+        page.drawText(totalLabel, {
+          x: cardX + 22,
+          y: detailY,
+          size: 10.5,
+          font: fontBold,
+          color: COLORS.text,
+        });
+
+        page.drawText(totalAmount, {
+          x: cardX + cardWidth - 18 - totalAmountWidth,
+          y: detailY,
+          size: 10.5,
+          font: fontBold,
+          color: COLORS.text,
+        });
+
+        detailY -= 16;
       }
 
       if (disputeEvidenceLines.length > 0) {

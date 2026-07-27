@@ -88,6 +88,8 @@ export async function GET(
     approval_type,
     description,
     cost_delta,
+    line_items,
+    is_baseline,
     schedule_delta,
     status,
     created_at,

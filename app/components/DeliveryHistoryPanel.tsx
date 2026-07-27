@@ -35,22 +35,22 @@ function statusBadge(statusRaw: string | null | undefined) {
 function pillStyle(tone: "ok" | "mid" | "bad") {
   if (tone === "ok") {
     return {
-      border: "1px solid rgba(15,23,42,0.14)",
-      background: "rgba(15,23,42,0.03)",
-      color: "rgba(15,23,42,0.92)",
+      border: "1px solid rgba(var(--text-rgb),0.14)",
+      background: "rgba(var(--text-rgb),0.03)",
+      color: "rgba(var(--text-rgb),0.92)",
     };
   }
   if (tone === "bad") {
     return {
-      border: "1px solid rgba(220,38,38,0.30)",
-      background: "rgba(220,38,38,0.06)",
-      color: "#b91c1c",
+      border: "1px solid rgba(var(--danger-rgb),0.30)",
+      background: "rgba(var(--danger-rgb),0.06)",
+      color: "var(--dangerText)",
     };
   }
   return {
-    border: "1px solid rgba(15,23,42,0.14)",
-    background: "rgba(15,23,42,0.02)",
-    color: "rgba(15,23,42,0.85)",
+    border: "1px solid rgba(var(--text-rgb),0.14)",
+    background: "rgba(var(--text-rgb),0.02)",
+    color: "rgba(var(--text-rgb),0.85)",
   };
 }
 
@@ -174,10 +174,10 @@ export default function DeliveryHistoryPanel({ projectId }: { projectId: string 
   return (
     <div
       style={{
-        border: "1px solid rgba(15,23,42,0.08)",
+        border: "1px solid var(--borderSoft)",
         borderRadius: 16,
         padding: 14,
-        background: "#fff",
+        background: "var(--card)",
         marginBottom: 12,
       }}
     >
@@ -298,10 +298,10 @@ export default function DeliveryHistoryPanel({ projectId }: { projectId: string 
           <div
             style={{
               marginTop: 12,
-              border: "1px solid rgba(15,23,42,0.08)",
+              border: "1px solid var(--borderSoft)",
               borderRadius: 14,
               padding: 10,
-              background: "rgba(15,23,42,0.02)",
+              background: "var(--surfaceSoft)",
               display: "grid",
               gap: 8,
             }}
@@ -312,10 +312,10 @@ export default function DeliveryHistoryPanel({ projectId }: { projectId: string 
                 <div
                   key={r.id}
                   style={{
-                    border: "1px solid rgba(15,23,42,0.08)",
+                    border: "1px solid var(--borderSoft)",
                     borderRadius: 14,
                     padding: 12,
-                    background: "#fff",
+                    background: "var(--card)",
                   }}
                 >
                   <div
@@ -359,7 +359,7 @@ export default function DeliveryHistoryPanel({ projectId }: { projectId: string 
                   )}
 
                   {showDetails && r.error && (
-                    <div style={{ marginTop: 6, fontSize: 13, color: "#b91c1c", wordBreak: "break-word" }}>
+                    <div style={{ marginTop: 6, fontSize: 13, color: "var(--dangerText)", wordBreak: "break-word" }}>
                       {r.error}
                     </div>
                   )}

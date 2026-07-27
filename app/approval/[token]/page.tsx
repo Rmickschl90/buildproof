@@ -101,7 +101,7 @@ export default async function ApprovalPage({ params }: Props) {
                             }}
                         >
                             <div>
-                                <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.65, marginBottom: 4 }}>
+                                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase", color: "#475569", marginBottom: 6 }}>
                                     Title
                                 </div>
                                 <div style={{ fontSize: 24, fontWeight: 800, color: "#0f172a" }}>
@@ -110,7 +110,7 @@ export default async function ApprovalPage({ params }: Props) {
                             </div>
 
                             <div>
-                                <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.65, marginBottom: 4 }}>
+                                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase", color: "#475569", marginBottom: 6 }}>
                                     Type
                                 </div>
                                 <div style={{ color: "#334155" }}>
@@ -119,7 +119,7 @@ export default async function ApprovalPage({ params }: Props) {
                             </div>
 
                             <div>
-                                <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.65, marginBottom: 4 }}>
+                                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase", color: "#475569", marginBottom: 6 }}>
                                     Description
                                 </div>
                                 <div style={{ color: "#334155", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
@@ -127,9 +127,68 @@ export default async function ApprovalPage({ params }: Props) {
                                 </div>
                             </div>
 
-                            {approval.cost_delta !== null ? (
+                            {Array.isArray(approval.line_items) && approval.line_items.length > 0 ? (
                                 <div>
-                                    <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.65, marginBottom: 4 }}>
+                                    <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase", color: "#475569", marginBottom: 6 }}>
+                                        Line Items
+                                    </div>
+                                    <div
+                                        style={{
+                                            border: "1px solid rgba(15,23,42,0.08)",
+                                            borderRadius: 10,
+                                            padding: 12,
+                                            background: "#f8fafc",
+                                            display: "grid",
+                                            gap: 6,
+                                        }}
+                                    >
+                                        {approval.line_items.map((li: any, idx: number) => (
+                                            <div
+                                                key={idx}
+                                                style={{
+                                                    display: "flex",
+                                                    justifyContent: "space-between",
+                                                    gap: 12,
+                                                    color: "#334155",
+                                                    fontSize: 14,
+                                                }}
+                                            >
+                                                <span>
+                                                    {li.description} ({li.quantity} &times; ${li.unit_cost})
+                                                </span>
+                                                <span style={{ fontWeight: 700 }}>
+                                                    ${Number(li.line_total).toFixed(2)}
+                                                </span>
+                                            </div>
+                                        ))}
+
+                                        <div
+                                            style={{
+                                                marginTop: 4,
+                                                paddingTop: 8,
+                                                borderTop: "1px solid rgba(15,23,42,0.08)",
+                                                display: "flex",
+                                                justifyContent: "space-between",
+                                                fontWeight: 800,
+                                                color: "#0f172a",
+                                            }}
+                                        >
+                                            <span>Total</span>
+                                            <span>
+                                                $
+                                                {approval.line_items
+                                                    .reduce(
+                                                        (sum: number, li: any) => sum + (Number(li.line_total) || 0),
+                                                        0
+                                                    )
+                                                    .toFixed(2)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : approval.cost_delta !== null ? (
+                                <div>
+                                    <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase", color: "#475569", marginBottom: 6 }}>
                                         Cost Impact
                                     </div>
                                     <div style={{ color: "#334155" }}>{approval.cost_delta}</div>
@@ -138,7 +197,7 @@ export default async function ApprovalPage({ params }: Props) {
 
                             {approval.schedule_delta ? (
                                 <div>
-                                    <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.65, marginBottom: 4 }}>
+                                    <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase", color: "#475569", marginBottom: 6 }}>
                                         Schedule Impact
                                     </div>
                                     <div style={{ color: "#334155" }}>{approval.schedule_delta}</div>
@@ -147,7 +206,7 @@ export default async function ApprovalPage({ params }: Props) {
 
                             {approval.due_at ? (
                                 <div>
-                                    <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.65, marginBottom: 4 }}>
+                                    <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase", color: "#475569", marginBottom: 6 }}>
                                         Due Date
                                     </div>
                                     <div style={{ color: "#334155" }}>{formatDate(approval.due_at)}</div>

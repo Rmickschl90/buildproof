@@ -906,15 +906,9 @@ export default function SendUpdatePack({
       ) : null}
 
       <div
-        className="card"
         style={{
           display: "grid",
           gap: 14,
-          padding: 18,
-          border: "1px solid rgba(15,23,42,0.08)",
-          borderRadius: 16,
-          background: "#fff",
-          boxShadow: "0 10px 24px rgba(15,23,42,0.05)",
         }}
       >
         <div
@@ -923,8 +917,8 @@ export default function SendUpdatePack({
             gap: 8,
             padding: "14px 14px",
             borderRadius: 14,
-            border: "1px solid rgba(59,130,246,0.14)",
-            background: "rgba(239,246,255,0.9)",
+            border: "1px solid rgba(var(--accent-rgb),0.14)",
+            background: "rgba(var(--accent-rgb),0.08)",
           }}
         >
           <div
@@ -933,14 +927,14 @@ export default function SendUpdatePack({
               fontWeight: 800,
               letterSpacing: 0.5,
               textTransform: "uppercase",
-              color: "#1d4ed8",
+              color: "var(--accentText)",
               opacity: 0.9,
             }}
           >
             Update Summary
           </div>
 
-          <div style={{ fontWeight: 700, color: "#0f172a", lineHeight: 1.35 }}>
+          <div style={{ fontWeight: 700, color: "var(--text)", lineHeight: 1.35 }}>
             Includes {entryCount} draft entr{entryCount === 1 ? "y" : "ies"} that will be finalized when sent.
           </div>
         </div>
@@ -951,8 +945,8 @@ export default function SendUpdatePack({
             gap: 10,
             padding: 14,
             borderRadius: 14,
-            border: "1px solid rgba(15,23,42,0.08)",
-            background: "rgba(15,23,42,0.02)",
+            border: "1px solid var(--borderSoft)",
+            background: "var(--surfaceSoft)",
           }}
         >
           <div
@@ -976,7 +970,7 @@ export default function SendUpdatePack({
           />
 
           {!hasOfficialClientEmail ? (
-            <div className="sub" style={{ opacity: 0.8, color: "#b45309", fontWeight: 700 }}>
+            <div className="sub" style={{ opacity: 0.8, color: "var(--warningTextAlt)", fontWeight: 700 }}>
               Add client email to enable official updates. Until then, Leeward can still be used for journaling and PDF exports.
             </div>
           ) : (
@@ -1006,7 +1000,7 @@ export default function SendUpdatePack({
             <div
               className="sub"
               style={{
-                color: "#b45309",
+                color: "var(--warningTextAlt)",
                 fontWeight: 700,
                 marginBottom: 2,
               }}
@@ -1018,15 +1012,12 @@ export default function SendUpdatePack({
           ) : null}
 
           <button
-            className="btn"
+            className={`btn${canSend ? " btnPrimary" : ""}`}
             disabled={!canSend}
             onClick={sendProjectUpdate}
             style={{
               width: "100%",
-              background: canSend ? "#16a34a" : undefined,
-              color: canSend ? "white" : undefined,
               fontWeight: 800,
-              borderColor: canSend ? "#16a34a" : undefined,
             }}
           >
             {activeJobId && !isBusy
@@ -1057,8 +1048,8 @@ export default function SendUpdatePack({
             gap: 10,
             padding: 14,
             borderRadius: 14,
-            border: "1px solid rgba(15,23,42,0.08)",
-            background: "#fff",
+            border: "1px solid var(--borderSoft)",
+            background: "var(--card)",
           }}
         >
           <div
@@ -1088,7 +1079,7 @@ export default function SendUpdatePack({
           ) : null}
 
           {statusSummary.latestDelivery?.error ? (
-            <div className="sub" style={{ color: "#b91c1c", fontWeight: 700 }}>
+            <div className="sub" style={{ color: "var(--dangerText)", fontWeight: 700 }}>
               Last error: {statusSummary.latestDelivery.error}
             </div>
           ) : null}
@@ -1100,8 +1091,8 @@ export default function SendUpdatePack({
             gap: 10,
             padding: 14,
             borderRadius: 14,
-            border: "1px solid rgba(15,23,42,0.08)",
-            background: "#fff",
+            border: "1px solid var(--borderSoft)",
+            background: "var(--card)",
           }}
         >
           <div
@@ -1183,16 +1174,12 @@ export default function SendUpdatePack({
           className="sub"
           style={{
             fontSize: 12,
-            color: "rgba(15,23,42,0.6)",
+            color: "rgba(var(--text-rgb),0.6)",
             lineHeight: 1.35,
           }}
         >
           This link updates as the project progresses. Sent updates provide a fixed record.
         </div>
-
-
-
-        
       </div>
     </div>
   );
