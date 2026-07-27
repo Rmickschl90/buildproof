@@ -2212,34 +2212,55 @@ export default function DashboardPage() {
   // create/update routes' hygiene fix) and derives a simple bidding/won/
   // declined status for the colored card stripe. Best-effort -- failures
   // here just mean no badges render, never a blocking error for the page.
+  //
+  // Goes through /api/projects/bid-statuses rather than querying
+  // approval_requests directly from the browser -- confirmed via direct
+  // testing on staging that this table has no client-readable RLS SELECT
+  // policy (every other read of approval_requests in this file already goes
+  // through a server route, e.g. loadApprovals -> /api/approvals/list; a
+  // direct .from("approval_requests") query here silently returned an empty
+  // array for every project regardless of filters).
   async function loadProjectBidStatuses(projectIds: string[]) {
     if (projectIds.length === 0) {
       setProjectBidStatus({});
       return;
     }
 
-    try {
-      const { data, error } = await supabase
-        .from("approval_requests")
-        .select("project_id, status")
-        .eq("is_baseline", true)
-        .in("project_id", projectIds);
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      return;
+    }
 
-      if (error) {
-        console.error("[loadProjectBidStatuses] failed", error);
+    try {
+      const token = await getAccessToken();
+
+      const res = await fetch("/api/projects/bid-statuses", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ projectIds }),
+      });
+
+      const text = await res.text();
+      const json = text ? JSON.parse(text) : {};
+
+      if (!res.ok) {
+        console.error("[loadProjectBidStatuses] failed", json?.error);
         return;
       }
 
+      const rawStatuses = (json?.statuses || {}) as Record<string, string>;
       const statusMap: Record<string, "bidding" | "won" | "declined"> = {};
 
-      for (const row of data || []) {
-        if (row.status === "approved") {
-          statusMap[row.project_id] = "won";
-        } else if (row.status === "declined" || row.status === "expired") {
-          statusMap[row.project_id] = "declined";
+      for (const [projectId, status] of Object.entries(rawStatuses)) {
+        if (status === "approved") {
+          statusMap[projectId] = "won";
+        } else if (status === "declined" || status === "expired") {
+          statusMap[projectId] = "declined";
         } else {
           // draft or pending
-          statusMap[row.project_id] = "bidding";
+          statusMap[projectId] = "bidding";
         }
       }
 
