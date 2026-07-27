@@ -3418,6 +3418,13 @@ export default function DashboardPage() {
   }
 
   function handleAddFirstEntryClick() {
+    // Bug fix (2026-07-27, onboarding audit): onboarding-entry-area only
+    // renders while activeProjectTab === "timeline" (Estimate/Nav Overhaul
+    // split the project view into Timeline/Estimate tabs after this wizard
+    // was originally wired up). Without forcing the tab first, clicking this
+    // step while viewing Estimate silently did nothing -- the target element
+    // didn't exist in the DOM for pulseHighlight to find.
+    setActiveProjectTab("timeline");
     setIsAddEntryMode(true);
     pulseHighlight("onboarding-entry-area");
 
@@ -3428,6 +3435,9 @@ export default function DashboardPage() {
   }
 
   function handleAddFilesClick() {
+    // Same tab-gating fix as handleAddFirstEntryClick above --
+    // onboarding-attachments-area only exists on the Timeline tab.
+    setActiveProjectTab("timeline");
     setHighlightTarget("onboarding-attachments-area");
 
     setTimeout(() => {
@@ -3445,10 +3455,23 @@ export default function DashboardPage() {
   }
 
   function handleSendFirstUpdateClick() {
+    // Same tab-gating fix -- onboarding-send-trigger (the Send Update
+    // button) only renders on the Timeline tab.
+    setActiveProjectTab("timeline");
     pulseHighlight("onboarding-send-trigger");
   }
 
 
+
+  function handleCreateEstimateClick() {
+    // New onboarding step (2026-07-27): points the user at the Estimate
+    // tab's floating "+" button so a baseline estimate actually gets
+    // created. Forces the Estimate tab first since onboarding-estimate-fab
+    // only renders while activeProjectTab === "estimate" -- same tab-gating
+    // pattern as the other onboarding handlers above.
+    setActiveProjectTab("estimate");
+    pulseHighlight("onboarding-estimate-fab");
+  }
 
   function handleAddClientInfoClick() {
     setHighlightTarget("client-info-section");
@@ -3953,6 +3976,7 @@ export default function DashboardPage() {
               entryCount={proofs.length}
               hasSelectedProject={!!selectedProject}
               hasClientEmail={!!selectedProject?.client_email?.trim()}
+              hasBaselineEstimate={!!estimateSummary.baseline}
               showAttachmentStep={showAttachmentStep}
               isCompleted={onboardingComplete}
               onCreateProject={handleCreateProjectClick}
@@ -3961,6 +3985,7 @@ export default function DashboardPage() {
               onAddFiles={handleAddFilesClick}
               onSendFirstUpdate={handleSendFirstUpdateClick}
               onAddClientInfo={handleAddClientInfoClick}
+              onCreateEstimate={handleCreateEstimateClick}
             />
           ) : null}
 
@@ -5131,6 +5156,7 @@ export default function DashboardPage() {
             activeProjectTab === "estimate" &&
             !isApprovalMode && (
               <button
+                id="onboarding-estimate-fab"
                 className="btn btnPrimary"
                 aria-label={estimateSummary.baseline ? "New Change Order" : "New Estimate"}
                 title={estimateSummary.baseline ? "New Change Order" : "New Estimate"}
@@ -5143,12 +5169,16 @@ export default function DashboardPage() {
                   height: 56,
                   borderRadius: "50%",
                   padding: 0,
-                  boxShadow: "0 8px 24px rgba(var(--text-rgb),0.25)",
+                  boxShadow:
+                    highlightTarget === "onboarding-estimate-fab"
+                      ? "0 0 0 6px rgba(59,130,246,0.35), 0 8px 24px rgba(var(--text-rgb),0.25)"
+                      : "0 8px 24px rgba(var(--text-rgb),0.25)",
                   fontSize: 28,
                   lineHeight: 1,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  transition: "all 0.25s ease",
                 }}
                 onClick={() => {
                   window.localStorage.removeItem(`approval-draft:${selectedProject.id}`);

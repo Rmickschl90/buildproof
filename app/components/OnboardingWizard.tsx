@@ -5,6 +5,7 @@ type Props = {
   entryCount: number;
   hasSelectedProject: boolean;
   hasClientEmail: boolean;
+  hasBaselineEstimate: boolean;
   showAttachmentStep: boolean;
   isCompleted?: boolean;
   onCreateProject: () => void;
@@ -13,6 +14,7 @@ type Props = {
   onAddFiles: () => void;
   onSendFirstUpdate: () => void;
   onAddClientInfo: () => void;
+  onCreateEstimate: () => void;
 };
 
 export default function OnboardingWizard({
@@ -20,6 +22,7 @@ export default function OnboardingWizard({
   entryCount,
   hasSelectedProject,
   hasClientEmail,
+  hasBaselineEstimate,
   showAttachmentStep,
   isCompleted = false,
   onCreateProject,
@@ -28,6 +31,7 @@ export default function OnboardingWizard({
   onAddFiles,
   onSendFirstUpdate,
   onAddClientInfo,
+  onCreateEstimate,
 }: Props) {
   if (isCompleted) return null;
 
@@ -52,6 +56,12 @@ export default function OnboardingWizard({
     message = "Add a client email now so you can send updates without backtracking later.";
     buttonLabel = "Add Client Info";
     buttonAction = onAddClientInfo;
+  } else if (!hasBaselineEstimate) {
+    title = "Create your baseline estimate";
+    message =
+      "Set up the original bid on the Estimate tab. You can add change orders later, and clients can view a live running total.";
+    buttonLabel = "Create Estimate";
+    buttonAction = onCreateEstimate;
   } else if (showAttachmentStep) {
     title = "Add photos or files";
     message = "Attach photos, invoices, or documents to complete this entry.";
@@ -77,10 +87,10 @@ export default function OnboardingWizard({
         marginBottom: 14,
         padding: 18,
         borderRadius: 18,
-        border: "1px solid rgba(37,99,235,0.18)",
+        border: "1px solid rgba(var(--accent-rgb),0.18)",
         background:
-          "linear-gradient(135deg, rgba(239,246,255,1) 0%, rgba(224,242,254,1) 100%)",
-        boxShadow: "0 10px 30px rgba(15,23,42,0.06)",
+          "linear-gradient(135deg, rgba(var(--accent-rgb),0.12) 0%, rgba(var(--accent-rgb),0.05) 100%)",
+        boxShadow: "var(--shadowSoft)",
       }}
     >
       <div style={{ display: "grid", gap: 12 }}>
@@ -91,7 +101,7 @@ export default function OnboardingWizard({
               fontWeight: 800,
               textTransform: "uppercase",
               letterSpacing: 0.5,
-              color: "#1d4ed8",
+              color: "var(--accentText)",
               marginBottom: 6,
             }}
           >
@@ -104,7 +114,7 @@ export default function OnboardingWizard({
               fontSize: 28,
               lineHeight: 1.1,
               fontWeight: 900,
-              color: "#0f172a",
+              color: "var(--text)",
             }}
           >
             {title}
@@ -115,7 +125,7 @@ export default function OnboardingWizard({
               margin: "10px 0 0 0",
               fontSize: 16,
               lineHeight: 1.5,
-              color: "#334155",
+              color: "rgba(var(--text-rgb),0.72)",
               maxWidth: 700,
             }}
           >
