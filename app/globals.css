@@ -419,7 +419,17 @@ a:hover {
      while still comfortably fitting beside the button column at real phone
      widths (~342px available content width vs. ~200px needed at this size). */
   .dashboardLogo {
-    height: 60px;
+    height: 68px;
+  }
+
+  /* Shrinking the Upgrade/Team + Account buttons specifically (not .btn
+     globally -- that class is used all over the app) frees more width for
+     the logo above, and stops the buttons from visually outscaling it. Only
+     applied to these two header-row buttons via headerActionBtn, not the
+     buttons inside the Account dropdown itself. */
+  .headerActionBtn {
+    padding: 7px 10px;
+    font-size: 13px;
   }
 }
 

@@ -3962,18 +3962,18 @@ export default function DashboardPage() {
                 }}
               >
                 {billingSource === "organization" ? (
-                  <button className="btn" onClick={openMembersPanel}>
+                  <button className="btn headerActionBtn" onClick={openMembersPanel}>
                     {orgContext?.role === "owner" ? "Invite Team" : "Team"}
                   </button>
                 ) : (
-                  <button className="btn" onClick={openUpgradePanel}>
+                  <button className="btn headerActionBtn" onClick={openUpgradePanel}>
                     Upgrade
                   </button>
                 )}
 
                 <div style={{ position: "relative" }} ref={accountMenuRef}>
                   <button
-                    className="btn"
+                    className="btn headerActionBtn"
                     onClick={() => setAccountMenuOpen((v) => !v)}
                     title="Account"
                     style={{ width: "100%" }}
