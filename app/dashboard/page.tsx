@@ -2934,6 +2934,13 @@ export default function DashboardPage() {
       await refreshOfflineProofs(projectId);
 
       setProofStatus("Saved offline ✅ — will sync when service returns");
+
+      // Close the Add Entry modal on save (2026-07-27, per Ryan: the modal
+      // popping up over the timeline and then just sitting there with a
+      // "add photos below" message was confusing, since "below" wasn't
+      // visible behind the modal backdrop). Closing it drops the user back
+      // on the Timeline tab, which is unaffected by isAddEntryMode.
+      setIsAddEntryMode(false);
       scrollBackToOnboarding(700);
     }
 
@@ -3008,6 +3015,12 @@ export default function DashboardPage() {
       }
 
       setProofStatus("Saved ✅ — add photos/files below");
+
+      // Same close-on-save as saveOfflineProof above -- the newly saved
+      // entry is already opened via setOpenProofId() just above, so once
+      // the modal is gone the user lands directly on that expanded entry
+      // in the timeline, where the attachment uploader actually lives.
+      setIsAddEntryMode(false);
       scrollBackToOnboarding(700);
     } catch (err: any) {
       const message = err?.message || "";
