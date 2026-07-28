@@ -166,7 +166,7 @@ export async function POST(req: Request) {
 
         const approvalTypeLabel =
             approval.approval_type === "change_order"
-                ? "Change Order"
+                ? "Additional Charge"
                 : approval.approval_type === "scope"
                     ? "Scope"
                     : approval.approval_type === "material"

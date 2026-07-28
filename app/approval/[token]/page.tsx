@@ -9,7 +9,7 @@ type Props = {
 function formatApprovalType(value: string) {
     switch (value) {
         case "change_order":
-            return "Change Order";
+            return "Additional Charge";
         case "scope":
             return "Scope";
         case "material":

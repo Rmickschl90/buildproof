@@ -372,7 +372,7 @@ export async function buildProjectPdf(
       console.log("PDF APPROVAL DEBUG:", approval.recipient_email, approval.recipient_source);
 
       const title = sanitizePdfText(approval.title || "Approval Request");
-      const type = sanitizePdfText(approval.approval_type || "Approval");
+      const type = sanitizePdfText(getApprovalTypeLabel(approval.approval_type));
       const description = sanitizePdfText(approval.description || "");
       const approvalAttachments = approval.attachments || [];
       const imageApprovalAttachments = approvalAttachments.filter((attachment) =>
@@ -2341,6 +2341,23 @@ function getApprovalStatusLabel(status: string | null) {
   if (value === "draft") return "Draft";
 
   return "Unknown";
+}
+
+// Bug fix (2026-07-27, terminology pass): this was previously rendering the
+// raw stored `approval_type` value directly (e.g. literal "change_order"
+// with the underscore, "Type: change_order" in the PDF) instead of a
+// formatted label -- the only one of the four places approval_type gets
+// displayed that wasn't already going through a label mapping. Mirrors
+// ApprovalCard.tsx / approval/[token]/page.tsx's formatApprovalType().
+function getApprovalTypeLabel(type: string | null) {
+  const value = (type || "").toLowerCase();
+
+  if (value === "change_order") return "Additional Charge";
+  if (value === "scope") return "Scope";
+  if (value === "material") return "Material";
+  if (value === "schedule") return "Schedule";
+
+  return "General";
 }
 
 function getApprovalBadgeStyle(status: string | null) {

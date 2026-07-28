@@ -1372,7 +1372,7 @@ export default function ApprovalComposer({
             setApprovalType(e.target.value as ApprovalType);
           }}
         >
-          <option value="change_order">Change Order</option>
+          <option value="change_order">Additional Charge</option>
           <option value="scope">Scope</option>
           <option value="material">Material</option>
           <option value="schedule">Schedule</option>
@@ -1438,8 +1438,8 @@ export default function ApprovalComposer({
 
         {approvalType === "change_order" ? (
           <div className="sub" style={{ opacity: 0.65, marginTop: -6, marginBottom: 2 }}>
-            Cost impact for a Change Order is always calculated from the line items below — add at
-            least one to set it.
+            Cost impact for an Additional Charge is always calculated from the line items below —
+            add at least one to set it.
           </div>
         ) : null}
 

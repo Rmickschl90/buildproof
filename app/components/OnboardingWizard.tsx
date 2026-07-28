@@ -59,7 +59,7 @@ export default function OnboardingWizard({
   } else if (!hasBaselineEstimate) {
     title = "Create your baseline estimate";
     message =
-      "Set up the original bid on the Estimate tab. You can add change orders later, and clients can view a live running total.";
+      "Set up your starting estimate on the Estimate tab. You can add additional charges later, and clients can view a live running total.";
     buttonLabel = "Create Estimate";
     buttonAction = onCreateEstimate;
   } else if (showAttachmentStep) {

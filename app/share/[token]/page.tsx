@@ -1517,7 +1517,7 @@ export default async function SharePage(props: {
             {invoiceChangeOrders.length > 0 ? (
               <div style={{ marginTop: 18 }}>
                 <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 8 }}>
-                  Change Orders
+                  Additional Charges
                 </div>
                 <div className="timeline">
                   {invoiceChangeOrders.map((approval) => renderApprovalEntry(approval))}

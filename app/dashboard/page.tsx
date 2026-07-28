@@ -4266,7 +4266,7 @@ export default function DashboardPage() {
                         flexShrink: 0,
                       }}
                     />
-                    Bidding
+                    Pending
                   </span>
                   <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     <span
@@ -4278,7 +4278,7 @@ export default function DashboardPage() {
                         flexShrink: 0,
                       }}
                     />
-                    Won
+                    Approved
                   </span>
                   <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     <span
@@ -4393,8 +4393,8 @@ export default function DashboardPage() {
                           {(
                             [
                               { key: "all", label: "All" },
-                              { key: "bidding", label: "Bidding" },
-                              { key: "won", label: "Won" },
+                              { key: "bidding", label: "Pending" },
+                              { key: "won", label: "Approved" },
                               { key: "declined", label: "Declined" },
                             ] as const
                           ).map((opt) => (
@@ -5060,7 +5060,7 @@ export default function DashboardPage() {
                   ? "Edit Estimate"
                   : approvalComposerDefaultBaseline
                     ? "New Estimate"
-                    : "New Change Order"
+                    : "New Additional Charge"
               }
               maxWidth={640}
             >
@@ -5352,7 +5352,7 @@ export default function DashboardPage() {
                     marginBottom: 8,
                   }}
                 >
-                  Change Orders
+                  Additional Charges
                 </div>
               ) : null}
 
@@ -5685,8 +5685,8 @@ export default function DashboardPage() {
               <button
                 id="onboarding-estimate-fab"
                 className="btn btnPrimary"
-                aria-label={estimateSummary.baseline ? "New Change Order" : "New Estimate"}
-                title={estimateSummary.baseline ? "New Change Order" : "New Estimate"}
+                aria-label={estimateSummary.baseline ? "New Additional Charge" : "New Estimate"}
+                title={estimateSummary.baseline ? "New Additional Charge" : "New Estimate"}
                 style={{
                   position: "fixed",
                   right: 20,
