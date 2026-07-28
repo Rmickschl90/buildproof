@@ -1267,3 +1267,52 @@ Estimate" badge), the regular share/journal page ("VERIFIED JOURNAL",
 updated subtitle), and the Archived Records page (heading, empty state,
 count string) — all confirmed showing the new copy on a live deploy, not
 just present in source.
+
+**Client-facing PDF/email verification (same evening).** Beyond the dashboard
+UI checks above, pulled a real dispute-package PDF straight off staging (via
+`window.URL.createObjectURL` interception + `pdf.js` text extraction, not
+just source grep) and confirmed every hand-edited PDF string renders
+correctly across all 4 pages: "Official Record," "Record Summary,"
+"Chronological record of activity... remain unchanged in the record,"
+"Leeward Journal," "Timeline," "Original Estimate" badge, "Type: Additional
+Charge," "Client Communication Record," "Delivery History," "View Record."
+Also triggered a real "Send Update" on staging (draft entries flipped to
+Finalized, confirming a genuine send, not a cooldown-guard reuse) and Ryan
+confirmed the received email's subject reads "Update: {title}" (not
+"Project Update: {title}").
+
+**Follow-on fixes found during this live verification pass, same session:**
+1. `app/share/[token]/page.tsx`'s summary caption hardcoded "Shared by
+   contractor •..." on both the regular journal and `?invoice=1` views —
+   missed by the original rename pass because the word itself wasn't
+   "Project," but it's the same underlying problem: it assumes a contractor
+   persona, undercutting the whole point of broadening to landlords/property
+   managers. Fixed by dropping "Shared by contractor" entirely rather than
+   substituting a new universal noun (Ryan's explicit call, to avoid
+   inventing another persona-specific word).
+2. Ryan flagged that the "Pending/Approved/Declined" status-dot legend next
+   to the "Records" heading was ambiguous for a new user — unclear whether
+   it referred to the record itself, any submitted change, or something
+   else. Checked the actual query behind it
+   (`app/api/projects/bid-statuses/route.ts`) and confirmed it's scoped to
+   `is_baseline = true` specifically — the record's original estimate only,
+   never an Additional Charge. Landed on an explicit "ORIGINAL ESTIMATE"
+   eyebrow label (no "Status" suffix — Ryan's call, since "status" is
+   already implied by the Pending/Approved/Declined values that follow it,
+   and he wanted "original" kept explicit so contractors don't assume the
+   dot reflects any submitted change/additional charge too).
+3. Restyled the "Records" list heading itself (20px/800/`var(--text)`,
+   matching the app's existing `.h1` scale) since it was visually
+   indistinguishable from the small muted legend text next to it. Then,
+   after Ryan flagged cramped mobile spacing (the heading + legend group was
+   fighting for space via the shared `.row` class's `justify-content:
+   space-between`, wrapping unpredictably across 3 lines), restructured to
+   an explicit `flexDirection: column` stack — "Records" always on its own
+   line, the "Original Estimate" legend group always directly below it as
+   one predictable wrapped block — instead of relying on `.row`'s
+   space-between behavior to wrap correctly.
+
+Committed and pushed to `estimate-nav-phase-1` (`f2c6bade`, 16 files
+changed). NOT YET deployed to production — still mid-flight alongside the
+rest of the Estimate/Invoice/Dark-Mode work on this branch, per that
+initiative's own staging-first rollout constraint.

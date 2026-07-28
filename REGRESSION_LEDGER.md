@@ -2808,3 +2808,21 @@ Rendered display strings only — no DB columns, stored enum values, function/pr
 
 ## Result
 Full rename verified live end-to-end on staging. Not yet promoted to production — this branch (`estimate-nav-phase-1`) is still mid-flight on other Estimate/Invoice/Dark-Mode work per this repo's staging-first rollout constraint for that whole initiative.
+
+---
+
+# RECORD RENAME — CLIENT-FACING PDF/EMAIL VERIFICATION + FOLLOW-ON FIXES — 2026-07-27
+
+## Objective
+Close out the remaining unverified surfaces from the Project→Record rename above (the actual client-facing dispute PDF and Send Update email, not yet behaviorally checked at that point) and address two real gaps Ryan caught while reviewing the live result.
+
+## Verification
+Pulled a real dispute-package PDF directly off `leeward-staging-internal` (intercepted `URL.createObjectURL`, parsed the actual bytes with `pdf.js`, not a source grep) and confirmed all 4 pages render the renamed strings correctly: "Official Record," "Record Summary," "remain unchanged in the record," "Leeward Journal," "Timeline," "Original Estimate" badge, "Type: Additional Charge," "Client Communication Record," "Delivery History," "View Record." Then triggered a real "Send Update" on staging — draft entries flipped Draft → Finalized (confirms a genuine send, not a cooldown-guard reuse) — and Ryan confirmed via his own inbox that the subject reads "Update: {title}", not the old "Project Update: {title}".
+
+## Follow-on fixes found during this review
+1. **"Shared by contractor" persona leak.** `app/share/[token]/page.tsx`'s summary caption hardcoded "Shared by contractor •..." on both the regular journal and `?invoice=1` share views. Missed by the original rename pass since the literal word wasn't "Project" — but it's the same root problem, assuming a contractor persona on a page meant to work for landlords/property managers too. Fixed by dropping "Shared by contractor" entirely (Ryan's explicit call, rather than inventing a new universal noun).
+2. **Ambiguous status-dot legend.** Ryan flagged that the Pending/Approved/Declined dot legend next to the "Records" heading didn't say what it measured. Checked `app/api/projects/bid-statuses/route.ts` and confirmed it's scoped to `is_baseline = true` only (the record's original estimate, never an Additional Charge). Added an explicit "ORIGINAL ESTIMATE" eyebrow label — no "Status" suffix (redundant given the Pending/Approved/Declined values), "Original" kept explicit per Ryan's reasoning that a contractor could otherwise assume the dot reflects any submitted change, not just the baseline bid.
+3. **Records heading + mobile layout.** Restyled the "Records" list heading to 20px/800/`var(--text)` (matching the app's `.h1` scale) since it was visually indistinguishable from the small legend text next to it. Then, after Ryan reported cramped/unpredictable mobile wrapping (the shared `.row` class's `justify-content: space-between` was fighting the heading and legend for horizontal space, wrapping across 3 lines), restructured to an explicit `flexDirection: column` stack so the heading and legend always render as two predictable blocks regardless of screen width.
+
+## Result
+Committed and pushed to `estimate-nav-phase-1` (`f2c6bade`, 16 files changed). Full Project→Record rename, including client-facing PDF/email, is now genuinely verified end-to-end — not just the in-app dashboard/share pages checked in the prior entry. NOT YET deployed to production.
