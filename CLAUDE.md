@@ -343,6 +343,40 @@ plan limit — the current plan allows only 1 verified domain
 paid plan upgrade first. Not started; do not assume this is in progress
 without checking back with Ryan on the Resend plan/billing decision.
 
+## Fixed: Duplicate-Send Cooldown Guard (2026-07-27)
+
+Found in the same session as the email deliverability issue above:
+while troubleshooting the (separately-fixed) stuck-attachment bug, Ryan
+retried "Send Update" repeatedly against a project whose send pipeline
+*looked* stuck. Once the real blocker cleared, several genuinely
+independent sends went out — 4 separate `send_jobs` rows and 4 delivery
+records for what should have been one update, confirmed via Resend's
+dashboard and our own `message_deliveries` table.
+
+Root cause: `app/api/send/create-job/route.ts`'s existing duplicate
+guard only checked for a prior job still in an *active* status
+(`pending`/`processing`/`retrying`). Once a job reached a terminal state
+— `sent` or `failed` — the guard no longer applied, so a retry after the
+prior job finished was treated as a brand-new, legitimate send request.
+
+Fix: the active-only lookup was replaced with a lookup of the most
+recent job for that project (any status) plus a 3-minute cooldown
+(`SEND_COOLDOWN_MS`, measured from `processed_at` falling back to
+`created_at`). A terminal job within the cooldown window is now reused
+(`reused: true, cooldown: true`) instead of a new job being created, with
+a clear user-facing message rather than a silent no-op. Server-side only
+— `lib/offlineSendFlush.ts` already generically re-checks whatever
+`jobId` `create-job` returns and reacts to its real status, so no client
+change was needed.
+
+Behaviorally verified on `leeward-staging-internal`: created a real send
+job, let it reach `status: "sent"` (one real test email sent to Ryan's
+own inbox, per his explicit one-time approval), then immediately called
+`create-job` again with identical params — response was `reused: true,
+cooldown: true`, same `jobId` as the first call, no new job row created,
+no second email sent. Full detail in `REGRESSION_LEDGER.md` under
+"DUPLICATE-SEND COOLDOWN GUARD ADDED — 2026-07-27".
+
 ## Active Build: Team Accounts V1
 
 This is the current, deliberate, sanctioned exception to "architecture

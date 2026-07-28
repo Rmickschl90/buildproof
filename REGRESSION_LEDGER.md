@@ -2760,3 +2760,28 @@ Before running any command that can rewrite `.env.local` (`vercel link` → pull
 
 ## Result
 `.env.local` restored to its known-good, production-pointed state (with the two deliberate, correct localhost URL changes kept). No actual data was lost anywhere — Supabase/Stripe/Twilio/Resend credentials all still exist at their respective sources and were either recovered from backup files or (Twilio) confirmed to have never held real values locally. This was entirely wasted local-dev-environment time, not a data-integrity or production-safety incident — no production system, database, or deploy was touched at any point during this session.
+
+---
+
+# DUPLICATE-SEND COOLDOWN GUARD ADDED — 2026-07-27
+
+## Objective
+Close a real gap surfaced while troubleshooting an unrelated attachment-upload bug earlier this session: Ryan repeatedly retried "Send Update" against a project whose send pipeline *looked* stuck (a separate, already-fixed bug), and once the real underlying blocker cleared, several genuinely independent send jobs went out — 4 separate sends recorded in `send_jobs`/delivery history for one update.
+
+## Root cause
+`app/api/send/create-job/route.ts`'s existing duplicate-guard (`existingJob` query) only checked for a prior job still in an *active* status (`pending`/`processing`/`retrying`). Once a job reached a terminal state — `sent` **or** `failed` — the guard stopped applying entirely. Each retry landed after the prior job had already gone terminal, so nothing caught it. This was a real gap, not a misuse of the feature: a confused user retrying a button that appears to do nothing is an expected real-world scenario, not an edge case.
+
+## Fix
+Replaced the active-only `existingJob` lookup with a `mostRecentJob` lookup (no status filter, most recent by `created_at`) plus a cooldown window:
+- If the most recent job is still active → same behavior as before (reused, no new job).
+- If the most recent job is terminal (`sent` or `failed`) and finished within the last `SEND_COOLDOWN_MS` (3 minutes, measured from `processed_at` falling back to `created_at`) → also reused, returns `cooldown: true` and a clear message ("This project update was already sent a moment ago..." / "...just finished. Please wait a moment...") instead of creating a new job.
+- Otherwise → proceeds to create a genuinely new job, unchanged.
+
+Server-side only change — traced `lib/offlineSendFlush.ts` and confirmed the client already generically re-checks whatever `jobId` `create-job` returns and reacts to its real status, so no client-side change was needed for the fix to take effect.
+
+## Verification (staging, `leeward-staging-internal`, real browser session, real Stripe-free send)
+1. Called `/api/send/create-job` for a real project → created a genuinely new job, worked through an unrelated stuck-"processing" sub-issue (job needed the existing 3-minute staleness window in `process-job` to be re-claimable — not a new bug, matches documented `PROCESSING_STALE_MS` behavior), and confirmed it reached `status: "sent"` (one real test email sent to Ryan's own inbox, per his explicit go-ahead for exactly one test send).
+2. Immediately called `/api/send/create-job` again with identical params → response was `{ reused: true, existing: true, cooldown: true, jobId: <same id as step 1>, status: "sent", message: "This project update was already sent a moment ago..." }`. No new job row was created and no second email was sent.
+
+## Result
+Duplicate-send protection now covers the full job lifecycle, not just the active-job window. Only one real email was sent during this entire verification — the cooldown guard correctly blocked the follow-up attempt.

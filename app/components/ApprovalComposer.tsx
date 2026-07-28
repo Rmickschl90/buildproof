@@ -1482,9 +1482,11 @@ export default function ApprovalComposer({
                     key={index}
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "1fr 70px 90px auto",
                       gap: 6,
-                      alignItems: "center",
+                      borderRadius: 12,
+                      padding: "10px 12px",
+                      background: "var(--surfaceSoft)",
+                      border: "1px solid var(--borderSoft)",
                     }}
                   >
                     <input
@@ -1496,38 +1498,47 @@ export default function ApprovalComposer({
                         updateLineItemRow(index, { description: e.target.value });
                       }}
                     />
-                    <input
-                      className="input"
-                      placeholder="Qty"
-                      value={row.quantity}
-                      onChange={(e) => {
-                        clearStatus();
-                        const val = e.target.value;
-                        if (/^\d*\.?\d*$/.test(val)) {
-                          updateLineItemRow(index, { quantity: val });
-                        }
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr auto",
+                        gap: 6,
+                        alignItems: "center",
                       }}
-                    />
-                    <input
-                      className="input"
-                      placeholder="Unit cost"
-                      value={row.unitCost}
-                      onChange={(e) => {
-                        clearStatus();
-                        const val = e.target.value;
-                        if (/^\d*\.?\d*$/.test(val)) {
-                          updateLineItemRow(index, { unitCost: val });
-                        }
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="btn btnDanger"
-                      style={{ padding: "6px 10px", fontSize: 12 }}
-                      onClick={() => removeLineItemRow(index)}
                     >
-                      Remove
-                    </button>
+                      <input
+                        className="input"
+                        placeholder="Qty"
+                        value={row.quantity}
+                        onChange={(e) => {
+                          clearStatus();
+                          const val = e.target.value;
+                          if (/^\d*\.?\d*$/.test(val)) {
+                            updateLineItemRow(index, { quantity: val });
+                          }
+                        }}
+                      />
+                      <input
+                        className="input"
+                        placeholder="Unit cost"
+                        value={row.unitCost}
+                        onChange={(e) => {
+                          clearStatus();
+                          const val = e.target.value;
+                          if (/^\d*\.?\d*$/.test(val)) {
+                            updateLineItemRow(index, { unitCost: val });
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="btn btnDanger"
+                        style={{ padding: "6px 10px", fontSize: 12 }}
+                        onClick={() => removeLineItemRow(index)}
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
