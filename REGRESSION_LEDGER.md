@@ -2826,3 +2826,17 @@ Pulled a real dispute-package PDF directly off `leeward-staging-internal` (inter
 
 ## Result
 Committed and pushed to `estimate-nav-phase-1` (`f2c6bade`, 16 files changed). Full Project→Record rename, including client-facing PDF/email, is now genuinely verified end-to-end — not just the in-app dashboard/share pages checked in the prior entry. NOT YET deployed to production.
+
+# DOCUMENTS TAB BUILT + VERIFIED ON STAGING — 2026-07-28
+
+## Objective
+Design and build a record-level Documents tab (Timeline / Estimate / **Documents**) in one session, per Ryan's explicit request to implement rather than just plan it out. Core design question resolved through discussion first: how a Documents-tab file gets included in an Export Dispute Package PDF, given today's export is a frictionless one-click confirm. Resolved as a persistent per-document "Include in dispute packet" toggle, decided once at upload/edit time rather than via a checklist at export time — keeps the existing one-click export unchanged for everyone who doesn't use Documents, defaults off (opt-in) since these files may hold sensitive info.
+
+## Built
+Migration `20260728120000_project_documents.sql` (new `project_documents` table, RLS enabled with no `authenticated` policies — same server-route-only idiom as `project_payments`); six routes under `app/api/documents/*` (`upload`, `insert`, `list`, `update`, `delete`, `open`), all `canUserAccessProject()`-gated, mirroring the existing `attachments/*` signed-upload-URL flow; the Documents tab UI in `app/dashboard/page.tsx`; and `appendReferenceDocuments()` in `lib/pdf/buildProjectPdf.ts` (dispute-mode only) — a per-document cover page plus copied PDF pages or a full embedded image page, reusing `appendPdfExhibits()`/`loadEmbeddedImage()`'s existing machinery under a distinctly-labeled "REFERENCE DOCUMENTS" heading (vs. the always-included "SUPPORTING DOCUMENTS" exhibits) so the two are never confused. Deliberate scope-down, flagged not hidden: no offline outbox for Documents in this pass — uploads require live connectivity.
+
+## Verification
+Migration applied to `leeward-staging-internal` only (deliberately staging-first this time, unlike Estimate Phase 2/Payments — no local-dev-blocking reason here), confirmed via a combined query (`column_count: 10`, `grant_count: 28`, `pg_class_count: 1`). Deployed to staging and verified via real browser automation, not code review: uploaded a real file; toggled "Include in dispute packet" on and confirmed it survives a full page reload (server-side persistence, not local state); pulled a real dispute-package PDF, extracted actual text via `pdf.js`, and confirmed the "REFERENCE DOCUMENTS" / "REFERENCE DOCUMENT A" cover page renders correctly with the following page containing a genuine embedded image XObject (no extractable text — not a placeholder); toggled the same document off and re-exported — confirmed the section and image both vanish (8 pages → 6, blob size dropped accordingly); confirmed the regular (non-dispute) Download PDF never mentions or includes the document at all regardless of toggle state, proving it can't leak into the standard-mode PDF or any client-facing surface.
+
+## Result
+Documents tab is fully built and behaviorally verified end-to-end on `leeward-staging-internal`. NOT YET deployed to production; NOT YET applied to production Supabase.

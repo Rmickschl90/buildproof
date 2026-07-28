@@ -367,6 +367,13 @@ export default function DashboardPage() {
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [documentUploadStatus, setDocumentUploadStatus] = useState<string | null>(null);
+  // Files from a failed upload attempt, kept in memory only (never written to
+  // IndexedDB/localStorage/a DB row) so Retry doesn't require re-picking the
+  // file -- and, just as importantly, so there is no persisted flag that
+  // could get "stuck" the way past outbox/banner bugs in this app have.
+  // Cleared on project switch, on the next successful upload, and on
+  // unmount, since it's plain component state.
+  const [failedDocumentUploads, setFailedDocumentUploads] = useState<File[]>([]);
   const documentUploadInputRef = useRef<HTMLInputElement | null>(null);
   const [isBrowserOnline, setIsBrowserOnline] = useState(
     typeof navigator === "undefined" ? true : navigator.onLine
@@ -1276,6 +1283,8 @@ export default function DashboardPage() {
       setPayments([]);
       setOfflinePayments([]);
       setDocuments([]);
+      setDocumentUploadStatus(null);
+      setFailedDocumentUploads([]);
       return;
     }
 
@@ -1284,6 +1293,8 @@ export default function DashboardPage() {
     void loadPayments(selectedProject.id);
     void refreshOfflinePayments(selectedProject.id);
     void loadDocuments(selectedProject.id);
+    setDocumentUploadStatus(null);
+    setFailedDocumentUploads([]);
 
     setClientNameDraft(selectedProject.client_name ?? "");
     setClientEmailDraft(selectedProject.client_email ?? "");
@@ -2504,6 +2515,24 @@ export default function DashboardPage() {
   // project_documents -- a record-level file vault, distinct from Timeline
   // attachments. Online-only for this first pass (no offline outbox) --
   // deliberate scope-down, flagged rather than silently omitted.
+  function isImageDocument(doc: Pick<ProjectDocument, "mime_type" | "filename">) {
+    const mt = (doc.mime_type || "").toLowerCase();
+    const name = (doc.filename || "").toLowerCase();
+    return (
+      mt.startsWith("image/") ||
+      /\.(jpg|jpeg|png|webp|gif)$/i.test(name)
+    );
+  }
+
+  function documentFileTypeLabel(doc: Pick<ProjectDocument, "mime_type" | "filename">) {
+    const name = (doc.filename || "").toLowerCase();
+    const ext = name.includes(".") ? name.split(".").pop() || "" : "";
+    if (ext) return ext.slice(0, 4).toUpperCase();
+    const mt = (doc.mime_type || "").toLowerCase();
+    if (mt.includes("pdf")) return "PDF";
+    return "FILE";
+  }
+
   async function loadDocuments(projectId: string) {
     if (projectId.startsWith("offline-project-")) return;
     if (typeof navigator !== "undefined" && !navigator.onLine) return;
@@ -2536,23 +2565,44 @@ export default function DashboardPage() {
     }
   }
 
-  async function handleUploadDocuments(files: FileList | null) {
-    if (!files || files.length === 0 || !selectedProject) return;
+  function isLikelyConnectivityError(message: string) {
+    const m = message.toLowerCase();
+    return (
+      (typeof navigator !== "undefined" && !navigator.onLine) ||
+      m.includes("failed to fetch") || // Chrome/Edge
+      m.includes("load failed") || // Safari
+      m.includes("network") ||
+      m.includes("networkerror")
+    );
+  }
+
+  // Shared by both a fresh file-picker selection and Retry. Uploads files
+  // one at a time; on failure, whatever hasn't uploaded yet is kept in
+  // `failedDocumentUploads` (in-memory only) so Retry can pick up from
+  // there without asking the user to re-select anything.
+  async function attemptDocumentUploads(fileArray: File[]) {
+    if (fileArray.length === 0 || !selectedProject) return;
 
     const projectId = selectedProject.id;
 
     if (projectId.startsWith("offline-project-") || (typeof navigator !== "undefined" && !navigator.onLine)) {
-      setDocumentUploadStatus("Documents can't be uploaded while offline yet — connect and try again.");
+      setDocumentUploadStatus("You're offline — connect and try again.");
+      setFailedDocumentUploads(fileArray);
       return;
     }
 
     setIsUploadingDocument(true);
     setDocumentUploadStatus(null);
 
+    const remaining = [...fileArray];
+    const uploadedCount = { value: 0 };
+
     try {
       const token = await getAccessToken();
 
-      for (const file of Array.from(files)) {
+      while (remaining.length > 0) {
+        const file = remaining[0];
+
         const prepRes = await fetch("/api/documents/upload", {
           method: "POST",
           headers: {
@@ -2601,15 +2651,46 @@ export default function DashboardPage() {
         if (!insertRes.ok) {
           throw new Error(insertJson?.error || "Insert failed");
         }
+
+        // Only drop this file from the retry list once it has genuinely
+        // finished all three steps.
+        remaining.shift();
+        uploadedCount.value += 1;
       }
 
+      setFailedDocumentUploads([]);
       await loadDocuments(projectId);
     } catch (err: any) {
-      setDocumentUploadStatus(err?.message || "Failed to upload document.");
+      const rawMessage = String(err?.message || "");
+      const connectivityIssue = isLikelyConnectivityError(rawMessage);
+
+      const progressNote =
+        uploadedCount.value > 0
+          ? ` (${uploadedCount.value} of ${fileArray.length} uploaded before this happened.)`
+          : "";
+
+      setDocumentUploadStatus(
+        connectivityIssue
+          ? `Upload failed — check your connection and try again.${progressNote}`
+          : `${rawMessage || "Upload failed."}${progressNote}`
+      );
+      setFailedDocumentUploads(remaining);
     } finally {
       setIsUploadingDocument(false);
-      if (documentUploadInputRef.current) documentUploadInputRef.current.value = "";
     }
+  }
+
+  async function handleUploadDocuments(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    // A fresh selection replaces whatever was previously queued for retry.
+    setFailedDocumentUploads([]);
+    await attemptDocumentUploads(Array.from(files));
+    if (documentUploadInputRef.current) documentUploadInputRef.current.value = "";
+  }
+
+  async function handleRetryFailedDocumentUploads() {
+    if (failedDocumentUploads.length === 0) return;
+    await attemptDocumentUploads(failedDocumentUploads);
   }
 
   async function handleToggleDocumentDispute(documentId: string, includeInDisputePacket: boolean) {
@@ -5792,9 +5873,30 @@ export default function DashboardPage() {
               </p>
 
               {documentUploadStatus ? (
-                <p className="sub" style={{ color: "var(--dangerText, #b91c1c)", marginBottom: 10 }}>
-                  {documentUploadStatus}
-                </p>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    flexWrap: "wrap",
+                    marginBottom: 10,
+                  }}
+                >
+                  <p className="sub" style={{ color: "var(--dangerText, #b91c1c)", margin: 0 }}>
+                    {documentUploadStatus}
+                  </p>
+
+                  {failedDocumentUploads.length > 0 ? (
+                    <button
+                      className="btn"
+                      style={{ padding: "4px 12px", fontSize: 12 }}
+                      disabled={isUploadingDocument}
+                      onClick={handleRetryFailedDocumentUploads}
+                    >
+                      {isUploadingDocument ? "Retrying..." : "Retry"}
+                    </button>
+                  ) : null}
+                </div>
               ) : null}
 
               {documentsLoading && documents.length === 0 ? (
@@ -5821,27 +5923,72 @@ export default function DashboardPage() {
                         rowGap: 8,
                       }}
                     >
-                      <div style={{ minWidth: 0, flex: "1 1 220px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: "1 1 220px" }}>
                         <a
                           href={`/api/documents/open?id=${encodeURIComponent(doc.id)}`}
                           target="_blank"
                           rel="noreferrer"
-                          style={{
-                            fontWeight: 700,
-                            color: "var(--text)",
-                            overflowWrap: "anywhere",
-                            textDecoration: "none",
-                          }}
+                          style={{ flexShrink: 0, display: "block" }}
+                          title={`Open ${doc.filename}`}
                         >
-                          {doc.label || doc.filename}
+                          {isImageDocument(doc) ? (
+                            <img
+                              src={`/api/documents/open?id=${encodeURIComponent(doc.id)}`}
+                              alt=""
+                              style={{
+                                width: 44,
+                                height: 44,
+                                objectFit: "cover",
+                                borderRadius: 8,
+                                border: "1px solid var(--borderSoft)",
+                                background: "var(--card)",
+                                display: "block",
+                              }}
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                width: 44,
+                                height: 44,
+                                borderRadius: 8,
+                                border: "1px solid var(--borderSoft)",
+                                background: "var(--card)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: 9,
+                                fontWeight: 800,
+                                letterSpacing: 0.3,
+                                color: "var(--muted)",
+                              }}
+                            >
+                              {documentFileTypeLabel(doc)}
+                            </div>
+                          )}
                         </a>
-                        <div className="sub" style={{ opacity: 0.65, marginTop: 2 }}>
-                          {doc.filename}
-                          {doc.size_bytes
-                            ? ` · ${(doc.size_bytes / 1024).toFixed(0)} KB`
-                            : ""}
-                          {" · "}
-                          {new Date(doc.created_at).toLocaleDateString()}
+
+                        <div style={{ minWidth: 0 }}>
+                          <a
+                            href={`/api/documents/open?id=${encodeURIComponent(doc.id)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                              fontWeight: 700,
+                              color: "var(--text)",
+                              overflowWrap: "anywhere",
+                              textDecoration: "none",
+                            }}
+                          >
+                            {doc.label || doc.filename}
+                          </a>
+                          <div className="sub" style={{ opacity: 0.65, marginTop: 2 }}>
+                            {doc.filename}
+                            {doc.size_bytes
+                              ? ` · ${(doc.size_bytes / 1024).toFixed(0)} KB`
+                              : ""}
+                            {" · "}
+                            {new Date(doc.created_at).toLocaleDateString()}
+                          </div>
                         </div>
                       </div>
 

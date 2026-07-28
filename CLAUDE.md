@@ -1316,3 +1316,85 @@ Committed and pushed to `estimate-nav-phase-1` (`f2c6bade`, 16 files
 changed). NOT YET deployed to production — still mid-flight alongside the
 rest of the Estimate/Invoice/Dark-Mode work on this branch, per that
 initiative's own staging-first rollout constraint.
+
+### Related new initiative: Documents Tab (2026-07-28)
+
+Sanctioned same-session build, following the same "talk it through, then
+build it" pattern as Payments — surfaced while discussing what other
+record-level features would help the newly-broadened landlord/property-
+manager audience. Ryan explicitly asked to design and implement this in
+one sitting rather than just document it as a future idea (contrast with
+the Inspection concept, captured as a plan doc only — see
+`06-Roadmap/Move-In - Move-Out Inspection - Future Idea.md`).
+
+Product shape, resolved through discussion before any code was written:
+a third project-level tab (Timeline / Estimate / **Documents**) that is
+strictly a file vault — no structured forms, no in-app document
+generation, matching Ryan's explicit call ("is this strictly uploaded
+material... just a separate env where uploaded docs live?"). Internal-
+only in v1, never shown on the client-facing share/invoice page, same
+treatment as the private per-record Notes section. The harder design
+question — how a specific document rides along in an Export Dispute
+Package PDF, given today's export is a frictionless one-click confirm —
+was resolved as a **persistent per-document toggle** ("Include in
+dispute packet"), decided once at upload/edit time rather than via a
+checklist shown at export time. This keeps the existing one-click export
+completely unchanged for every user who never touches Documents, avoids
+a decision point at the exact moment (a dispute) when someone is least
+likely to want one, and defaults to off (opt-in, not opt-out) since
+Documents-tab files may contain sensitive information not meant for
+export. Framed as an evidentiary-vs-reference distinction: the existing
+"Supporting Documents" exhibit section (entry/approval-tied PDF
+attachments) is always-included and untouched by this work; the new
+"Reference Documents" section is opt-in only and describes the record
+generally rather than proving a specific moment.
+
+Built: migration `20260728120000_project_documents.sql` (`project_documents`
+table — path, filename, mime_type, size_bytes, label,
+include_in_dispute_packet, uploaded_by; RLS enabled with no
+`authenticated` policies, same server-route-only idiom as
+`project_payments`); six API routes under `app/api/documents/*`
+(`upload`, `insert`, `list`, `update`, `delete`, `open`) all gated by
+`canUserAccessProject()`, mirroring the existing `attachments/*` signed-
+upload-URL flow exactly (same `attachments` storage bucket, distinct
+`documents/` path prefix); the Documents tab UI in
+`app/dashboard/page.tsx` (upload button, per-document toggle checkbox,
+delete, all styled to match the existing Payments section); and a new
+`appendReferenceDocuments()` function in `lib/pdf/buildProjectPdf.ts`
+(dispute-mode only) that generates a cover page per opted-in document
+plus either copied PDF pages or a full embedded image page, depending on
+file type — reusing the exact cover-page and image-embedding machinery
+already proven out by `appendPdfExhibits()`/`loadEmbeddedImage()`, just
+under a distinctly-labeled "REFERENCE DOCUMENTS" / "REFERENCE DOCUMENT"
+heading rather than "SUPPORTING DOCUMENTS" / "EXHIBIT", so the two
+sections are never visually confused.
+
+Deliberate scope-down for this first pass, flagged rather than silently
+omitted: no offline outbox/queue for Documents — uploads require live
+connectivity. Every other mutation in this app has an outbox/flush pair;
+queueing potentially large document uploads offline was judged out of
+scope for a first build and would need its own deliberate design pass.
+
+Migration applied to `leeward-staging-internal` (confirmed via a single
+combined query: `column_count: 10`, `grant_count: 28`,
+`pg_class_count: 1`) — deliberately staging-first this time (unlike the
+Estimate Phase 2 and Payments migrations), since there was no local-dev-
+blocking reason to apply early to production. Deployed to
+`leeward-staging-internal` and genuinely behaviorally verified via real
+browser automation, not just code review: uploaded a real file, toggled
+"Include in dispute packet" on, confirmed the toggle survives a full page
+reload (proving server-side persistence, not just local state), pulled a
+real dispute-package PDF and extracted its actual text via pdf.js —
+confirmed the "REFERENCE DOCUMENTS" / "REFERENCE DOCUMENT A" cover page
+text, filename, and date render correctly, and confirmed the following
+page contains a genuine embedded image XObject with no extractable text
+(not a placeholder). Then toggled the same document off and re-exported
+— confirmed the Reference Documents section and its embedded image both
+disappear entirely (8 pages → 6 pages, blob size dropped by exactly the
+embedded image's contribution), proving the toggle is a real gate, not
+cosmetic. Finally confirmed the regular (non-dispute) Download PDF, with
+the document still toggled on, never mentions or includes it at all (3
+pages, no "REFERENCE" text) — confirming Documents genuinely never
+leaks into the standard-mode PDF or any client-facing surface.
+
+NOT YET deployed to production. NOT YET applied to production Supabase.
