@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     // Always trial-eligible: no organization (and therefore no organization_subscriptions
     // row) can possibly exist yet for a brand-new signup, so this is definitionally the
     // first team subscription for this org-to-be.
-    params.append("subscription_data[trial_period_days]", "14");
+    params.append("subscription_data[trial_period_days]", "30");
     params.append("subscription_data[metadata][billing_owner_id]", user.id);
     params.append(
       "subscription_data[metadata][pending_organization_name]",

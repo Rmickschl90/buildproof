@@ -181,7 +181,7 @@ export default function SubscribePage() {
           <div className="card">
             <h1 className="h1">Choose your plan</h1>
             <p className="sub">
-              Start with a free 14-day trial on either plan. No charge today.
+              Start with a free 30-day trial on either plan. No charge today.
             </p>
 
             <div
@@ -195,7 +195,7 @@ export default function SubscribePage() {
               <div className="card" style={{ margin: 0 }}>
                 <h2 style={{ margin: 0, fontSize: 18 }}>Individual</h2>
                 <p className="sub" style={{ marginTop: 6 }}>
-                  Free for 14 days, then $29/month.
+                  Free for 30 days, then $29/month.
                 </p>
                 <div style={{ marginTop: 14 }}>
                   <button
@@ -214,7 +214,7 @@ export default function SubscribePage() {
               <div className="card" style={{ margin: 0 }}>
                 <h2 style={{ margin: 0, fontSize: 18 }}>Team</h2>
                 <p className="sub" style={{ marginTop: 6 }}>
-                  Free for 14 days, then $69/month for up to 5 users.
+                  Free for 30 days, then $69/month for up to 5 users.
                 </p>
                 <div style={{ marginTop: 14 }}>
                   <button
@@ -249,7 +249,7 @@ export default function SubscribePage() {
           <div className="card">
             <h1 className="h1">Name your team</h1>
             <p className="sub">
-              Start your free 14-day trial. No charge today. After your trial
+              Start your free 30-day trial. No charge today. After your trial
               ends, Leeward Team continues for $69/month for up to 5 users.
             </p>
 
@@ -298,7 +298,7 @@ export default function SubscribePage() {
     <div className="container">
       <div className="shell">
         <div className="card">
-          <h1 className="h1">Start your free 14-day trial</h1>
+          <h1 className="h1">Start your free 30-day trial</h1>
           <p className="sub">
             No charge today. After your trial ends, Leeward continues for $29/month.
           </p>

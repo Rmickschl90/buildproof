@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     params.append("client_reference_id", user.id);
     params.append("metadata[user_id]", user.id);
     if (isTrialEligible) {
-      params.append("subscription_data[trial_period_days]", "14");
+      params.append("subscription_data[trial_period_days]", "30");
     }
     params.append("subscription_data[metadata][user_id]", user.id);
     params.append("success_url", `${appUrl}/dashboard?billing=success`);

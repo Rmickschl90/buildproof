@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
     params.append("metadata[organization_id]", context.organizationId);
     params.append("metadata[billing_owner_id]", user.id);
     if (isTrialEligible) {
-      params.append("subscription_data[trial_period_days]", "14");
+      params.append("subscription_data[trial_period_days]", "30");
     }
     params.append(
       "subscription_data[metadata][organization_id]",

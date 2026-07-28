@@ -7163,7 +7163,7 @@ export default function DashboardPage() {
           >
             <div style={{ fontWeight: 600 }}>Upgrade to Team</div>
             <div style={{ fontSize: 13, opacity: 0.7 }}>
-              $69/month, up to 5 users, 14-day trial.
+              $69/month, up to 5 users, 30-day trial.
             </div>
 
             {!orgContext?.organizationId && (
