@@ -177,6 +177,7 @@ export async function POST(req: Request) {
     let contactEvents: any[] = [];
     let shareViews: any[] = [];
     let payments: any[] = [];
+    let referenceDocuments: any[] = [];
     let timelineHash: string | null = null;
 
     if (reportMode === "dispute") {
@@ -228,6 +229,26 @@ export async function POST(req: Request) {
 
       payments = paymentRows ?? [];
 
+      // Reference Documents -- Documents-tab files explicitly opted in via
+      // their own "Include in dispute packet" toggle (see project_documents
+      // migration). Deliberately separate from the Timeline/approval
+      // "Supporting Documents" exhibit section built further down --
+      // evidentiary attachments are always included automatically, these
+      // are opt-in only, since they may describe the record generally
+      // (leases, insurance certs) rather than proving a specific moment.
+      const { data: referenceDocRows, error: referenceDocsErr } = await supabaseServer
+        .from("project_documents")
+        .select("id,project_id,path,filename,mime_type,size_bytes,label,created_at")
+        .eq("project_id", projectId)
+        .eq("include_in_dispute_packet", true)
+        .order("created_at", { ascending: true });
+
+      if (referenceDocsErr) {
+        return NextResponse.json({ error: referenceDocsErr.message }, { status: 400 });
+      }
+
+      referenceDocuments = referenceDocRows ?? [];
+
       const { data: latestSentJob, error: latestSentJobErr } = await supabaseServer
         .from("send_jobs")
         .select("timeline_hash,processed_at")
@@ -261,6 +282,7 @@ export async function POST(req: Request) {
       contactEvents,
       shareViews,
       payments,
+      referenceDocuments,
       timelineHash,
       supabase: supabaseServer,
       reportMode,

@@ -120,6 +120,23 @@ export type PaymentRow = {
   paid_at: string;
 };
 
+// project_documents rows explicitly opted in via their own per-document
+// "Include in dispute packet" toggle -- see the project_documents migration
+// and the Documents tab UI in app/dashboard/page.tsx. Deliberately separate
+// from the entry/approval-tied "Supporting Documents" exhibit section
+// (which is always-included, never opt-in) -- see "Reference Documents"
+// section below.
+export type ReferenceDocumentRow = {
+  id: string;
+  project_id: string;
+  path: string;
+  filename: string | null;
+  mime_type: string | null;
+  size_bytes?: number | null;
+  label?: string | null;
+  created_at: string;
+};
+
 // ---------- Args expected by your route ----------
 export type BuildProjectPdfArgs = {
   project: ProjectRow;
@@ -134,6 +151,10 @@ export type BuildProjectPdfArgs = {
   // - Implementation Plan.md". Optional and unused by the standard-mode
   // Download PDF and the Send Update email PDF, which never pass this in.
   payments?: PaymentRow[];
+  // Documents-tab files opted into the dispute packet -- dispute-mode only,
+  // same treatment as `payments` above. Optional and unused by the
+  // standard-mode Download PDF and the Send Update email PDF.
+  referenceDocuments?: ReferenceDocumentRow[];
   timelineHash?: string | null;
   supabase: any;
   reportMode?: "standard" | "dispute";
@@ -182,6 +203,7 @@ export async function buildProjectPdf(
     contactEvents = [],
     shareViews = [],
     payments = [],
+    referenceDocuments = [],
     timelineHash = null,
     supabase,
     reportMode = "standard",
@@ -1881,6 +1903,18 @@ export async function buildProjectPdf(
         exhibits: pdfExhibits,
       });
     }
+
+    if (referenceDocuments.length > 0) {
+      await appendReferenceDocuments({
+        pdf,
+        supabase,
+        font,
+        fontBold,
+        projectTitle: project.title || "Record",
+        timelineHash,
+        documents: referenceDocuments,
+      });
+    }
   }
 
   const pdfBuffer = await pdf.save();
@@ -2850,6 +2884,234 @@ async function appendPdfExhibits(opts: {
         }
       );
     }
+  }
+}
+
+// ---------- Reference Documents (Documents tab, opt-in only) ----------
+// Mirrors appendPdfExhibits' cover-page-per-item shape, but deliberately
+// labeled/framed differently ("REFERENCE DOCUMENT", not "EXHIBIT" /
+// "SUPPORTING DOCUMENTS") to keep this section visually and conceptually
+// distinct from the always-included, entry/approval-tied exhibits above --
+// per the evidentiary-vs-reference distinction discussed for the Documents
+// tab: these describe the record generally rather than proving a specific
+// moment, and only appear here because a human explicitly opted each one in.
+async function appendReferenceDocuments(opts: {
+  pdf: PDFDocument;
+  supabase: any;
+  font: any;
+  fontBold: any;
+  projectTitle: string;
+  timelineHash?: string | null;
+  documents: ReferenceDocumentRow[];
+}) {
+  const { pdf, supabase, font, fontBold, projectTitle, timelineHash, documents } = opts;
+
+  for (let index = 0; index < documents.length; index++) {
+    const doc = documents[index];
+    const label = getExhibitLabel(index);
+    const filename = sanitizePdfText(doc.filename || "Document");
+    const isPdf =
+      (doc.mime_type || "").toLowerCase().includes("pdf") ||
+      (doc.filename || "").toLowerCase().endsWith(".pdf");
+    const isImage =
+      (doc.mime_type || "").toLowerCase().startsWith("image/") ||
+      /\.(jpg|jpeg|png|webp|gif)$/i.test(doc.filename || "");
+
+    const coverPageNumber = pdf.getPageCount() + 1;
+    const coverPage = addTimelinePage(
+      pdf,
+      font,
+      fontBold,
+      projectTitle,
+      coverPageNumber,
+      { reportMode: "dispute", timelineHash }
+    );
+
+    let coverY = PAGE_HEIGHT - MARGIN - 70;
+
+    coverPage.drawText("REFERENCE DOCUMENTS", {
+      x: MARGIN,
+      y: coverY,
+      size: 14,
+      font: fontBold,
+      color: COLORS.navy3,
+    });
+
+    coverY -= 44;
+
+    coverPage.drawText(`REFERENCE DOCUMENT ${label}`, {
+      x: MARGIN,
+      y: coverY,
+      size: 24,
+      font: fontBold,
+      color: COLORS.ink,
+    });
+
+    coverY -= 40;
+
+    if (doc.label) {
+      coverPage.drawText(sanitizePdfText(doc.label), {
+        x: MARGIN,
+        y: coverY,
+        size: 13,
+        font: fontBold,
+        color: COLORS.text,
+      });
+
+      coverY -= 26;
+    }
+
+    coverPage.drawText("Original filename:", {
+      x: MARGIN,
+      y: coverY,
+      size: 10,
+      font: fontBold,
+      color: COLORS.muted,
+    });
+
+    coverPage.drawText(filename, {
+      x: MARGIN + 138,
+      y: coverY,
+      size: 10,
+      font,
+      color: COLORS.text,
+    });
+
+    coverY -= 26;
+
+    coverPage.drawText("Added to record:", {
+      x: MARGIN,
+      y: coverY,
+      size: 10,
+      font: fontBold,
+      color: COLORS.muted,
+    });
+
+    coverPage.drawText(
+      doc.created_at ? sanitizePdfText(formatDateTime(doc.created_at, null)) : "Unknown date",
+      {
+        x: MARGIN + 138,
+        y: coverY,
+        size: 10,
+        font,
+        color: COLORS.text,
+      }
+    );
+
+    coverY -= 48;
+
+    const descriptionLines = wrapParagraphs(
+      "This document was uploaded to the record's Documents tab and explicitly included in this export. It describes the record generally and is not tied to a specific Timeline entry or approval.",
+      font,
+      10.5,
+      CONTENT_WIDTH
+    );
+
+    for (const line of descriptionLines) {
+      coverPage.drawText(line, {
+        x: MARGIN,
+        y: coverY,
+        size: 10.5,
+        font,
+        color: COLORS.muted,
+      });
+
+      coverY -= 15;
+    }
+
+    if (isPdf) {
+      const bytes = await downloadAttachmentBytes(supabase, doc.path);
+
+      if (!bytes) {
+        coverY -= 28;
+        coverPage.drawText("Unable to retrieve the original file from storage.", {
+          x: MARGIN,
+          y: coverY,
+          size: 11,
+          font: fontBold,
+          color: COLORS.dangerText,
+        });
+        continue;
+      }
+
+      try {
+        const sourcePdf = await PDFDocument.load(bytes);
+        const copiedPages = await pdf.copyPages(sourcePdf, sourcePdf.getPageIndices());
+
+        for (const copiedPage of copiedPages) {
+          pdf.addPage(copiedPage);
+        }
+      } catch (error) {
+        console.error("[pdf] failed to append reference document (pdf)", {
+          documentId: doc.id,
+          filename: doc.filename,
+          path: doc.path,
+          error: error instanceof Error ? error.message : String(error),
+        });
+
+        coverY -= 28;
+        coverPage.drawText(
+          "The original file could not be embedded. It may be corrupted, encrypted, or unsupported.",
+          { x: MARGIN, y: coverY, size: 10.5, font: fontBold, color: COLORS.dangerText }
+        );
+      }
+
+      continue;
+    }
+
+    if (isImage) {
+      try {
+        const embedded = await loadEmbeddedImage(pdf, supabase, {
+          id: doc.id,
+          project_id: doc.project_id,
+          proof_id: 0,
+          filename: doc.filename,
+          mime_type: doc.mime_type,
+          path: doc.path,
+          created_at: doc.created_at,
+        });
+
+        if (embedded) {
+          const imagePage = pdf.addPage(PAGE_SIZE);
+          const maxW = PAGE_WIDTH - MARGIN * 2;
+          const maxH = PAGE_HEIGHT - MARGIN * 2;
+          const fit = fitInside(embedded.width, embedded.height, maxW, maxH);
+
+          imagePage.drawImage(embedded.image, {
+            x: (PAGE_WIDTH - fit.width) / 2,
+            y: (PAGE_HEIGHT - fit.height) / 2,
+            width: fit.width,
+            height: fit.height,
+          });
+        } else {
+          coverY -= 28;
+          coverPage.drawText("Unable to retrieve the original image from storage.", {
+            x: MARGIN,
+            y: coverY,
+            size: 11,
+            font: fontBold,
+            color: COLORS.dangerText,
+          });
+        }
+      } catch (error) {
+        console.error("[pdf] failed to append reference document (image)", {
+          documentId: doc.id,
+          filename: doc.filename,
+          path: doc.path,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+
+      continue;
+    }
+
+    // Unsupported/unknown file type -- leave the cover page as-is rather
+    // than attempting to embed something we can't render.
+    coverY -= 28;
+    coverPage.drawText(
+      "This file type isn't previewable inline. Open it from the Documents tab.",
+      { x: MARGIN, y: coverY, size: 10.5, font, color: COLORS.muted }
+    );
   }
 }
 

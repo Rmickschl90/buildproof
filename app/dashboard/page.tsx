@@ -133,6 +133,24 @@ type ProjectPayment = {
   created_by: string;
 };
 
+// project_documents -- a record-level file vault, distinct from
+// `attachments` (which is strictly entry-tied). include_in_dispute_packet
+// is the entire mechanism for whether this document rides along in an
+// Export Dispute Package PDF -- decided here, once, not via a checklist
+// shown at export time.
+type ProjectDocument = {
+  id: string;
+  project_id: string;
+  path: string;
+  filename: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  label: string | null;
+  include_in_dispute_packet: boolean;
+  created_at: string;
+  uploaded_by: string;
+};
+
 type TimelineApproval = Approval;
 
 type TimelineProof = Proof | (OfflineProofRecord & { isOffline: true });
@@ -345,6 +363,11 @@ export default function DashboardPage() {
   const [logPaymentNote, setLogPaymentNote] = useState("");
   const [logPaymentStatus, setLogPaymentStatus] = useState<string | null>(null);
   const [logPaymentSubmitting, setLogPaymentSubmitting] = useState(false);
+  const [documents, setDocuments] = useState<ProjectDocument[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false);
+  const [documentUploadStatus, setDocumentUploadStatus] = useState<string | null>(null);
+  const documentUploadInputRef = useRef<HTMLInputElement | null>(null);
   const [isBrowserOnline, setIsBrowserOnline] = useState(
     typeof navigator === "undefined" ? true : navigator.onLine
   );
@@ -430,7 +453,7 @@ export default function DashboardPage() {
   const [activeGlobalTab, setActiveGlobalTab] = useState<"projects" | "account">("projects");
 
   // ---- Project-level navigation (Timeline / Estimate) ----
-  const [activeProjectTab, setActiveProjectTab] = useState<"timeline" | "estimate">("timeline");
+  const [activeProjectTab, setActiveProjectTab] = useState<"timeline" | "estimate" | "documents">("timeline");
 
   useEffect(() => {
     setActiveProjectTab("timeline");
@@ -752,6 +775,7 @@ export default function DashboardPage() {
             await loadProofs(project.id, false, project);
             await loadApprovals(project.id, false, project);
             await loadPayments(project.id);
+            await loadDocuments(project.id);
           }
         }
 
@@ -1202,6 +1226,7 @@ export default function DashboardPage() {
         await loadProofs(reconnectProjectId, showArchivedEntries);
         await loadApprovals(reconnectProjectId, showArchivedEntries);
         await loadPayments(reconnectProjectId);
+        await loadDocuments(reconnectProjectId);
       }
 
       await refreshOfflineProofs(reconnectProjectId);
@@ -1250,6 +1275,7 @@ export default function DashboardPage() {
       setOfflineApprovals([]);
       setPayments([]);
       setOfflinePayments([]);
+      setDocuments([]);
       return;
     }
 
@@ -1257,6 +1283,7 @@ export default function DashboardPage() {
     void refreshOfflineApprovals(selectedProject.id);
     void loadPayments(selectedProject.id);
     void refreshOfflinePayments(selectedProject.id);
+    void loadDocuments(selectedProject.id);
 
     setClientNameDraft(selectedProject.client_name ?? "");
     setClientEmailDraft(selectedProject.client_email ?? "");
@@ -2470,6 +2497,179 @@ export default function DashboardPage() {
       }
 
       console.error("Failed to load payments:", message);
+    }
+  }
+
+  // ---------------- DOCUMENTS TAB ----------------
+  // project_documents -- a record-level file vault, distinct from Timeline
+  // attachments. Online-only for this first pass (no offline outbox) --
+  // deliberate scope-down, flagged rather than silently omitted.
+  async function loadDocuments(projectId: string) {
+    if (projectId.startsWith("offline-project-")) return;
+    if (typeof navigator !== "undefined" && !navigator.onLine) return;
+
+    try {
+      setDocumentsLoading(true);
+      const token = await getAccessToken();
+
+      const res = await fetch("/api/documents/list", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ projectId }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        console.error("Failed to load documents:", json?.error);
+        return;
+      }
+
+      setDocuments((json?.documents ?? []) as ProjectDocument[]);
+    } catch (err: any) {
+      console.error("Failed to load documents:", err?.message);
+    } finally {
+      setDocumentsLoading(false);
+    }
+  }
+
+  async function handleUploadDocuments(files: FileList | null) {
+    if (!files || files.length === 0 || !selectedProject) return;
+
+    const projectId = selectedProject.id;
+
+    if (projectId.startsWith("offline-project-") || (typeof navigator !== "undefined" && !navigator.onLine)) {
+      setDocumentUploadStatus("Documents can't be uploaded while offline yet — connect and try again.");
+      return;
+    }
+
+    setIsUploadingDocument(true);
+    setDocumentUploadStatus(null);
+
+    try {
+      const token = await getAccessToken();
+
+      for (const file of Array.from(files)) {
+        const prepRes = await fetch("/api/documents/upload", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ projectId, fileName: file.name }),
+        });
+
+        const prepJson = await prepRes.json();
+        if (!prepRes.ok) {
+          throw new Error(prepJson?.error || "Upload prep failed");
+        }
+
+        const { uploadUrl, path, documentId } = prepJson;
+
+        const uploadRes = await fetch(uploadUrl, {
+          method: "PUT",
+          body: file,
+          headers: {
+            "Content-Type": file.type || "application/octet-stream",
+          },
+        });
+
+        if (!uploadRes.ok) {
+          throw new Error("File upload failed");
+        }
+
+        const insertRes = await fetch("/api/documents/insert", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            id: documentId,
+            projectId,
+            path,
+            fileName: file.name,
+            mimeType: file.type,
+            sizeBytes: file.size,
+          }),
+        });
+
+        const insertJson = await insertRes.json();
+        if (!insertRes.ok) {
+          throw new Error(insertJson?.error || "Insert failed");
+        }
+      }
+
+      await loadDocuments(projectId);
+    } catch (err: any) {
+      setDocumentUploadStatus(err?.message || "Failed to upload document.");
+    } finally {
+      setIsUploadingDocument(false);
+      if (documentUploadInputRef.current) documentUploadInputRef.current.value = "";
+    }
+  }
+
+  async function handleToggleDocumentDispute(documentId: string, includeInDisputePacket: boolean) {
+    // Optimistic update -- this toggle is the entire mechanism for what
+    // rides along in an Export Dispute Package PDF, so it should feel
+    // instant rather than waiting on a round trip.
+    setDocuments((prev) =>
+      prev.map((doc) =>
+        doc.id === documentId ? { ...doc, include_in_dispute_packet: includeInDisputePacket } : doc
+      )
+    );
+
+    try {
+      const token = await getAccessToken();
+
+      const res = await fetch("/api/documents/update", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ documentId, includeInDisputePacket }),
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        console.error("Failed to update document:", json?.error);
+        if (selectedProject) await loadDocuments(selectedProject.id);
+      }
+    } catch (err: any) {
+      console.error("Failed to update document:", err?.message);
+      if (selectedProject) await loadDocuments(selectedProject.id);
+    }
+  }
+
+  async function handleDeleteDocument(documentId: string) {
+    if (!selectedProject) return;
+
+    try {
+      const token = await getAccessToken();
+
+      const res = await fetch("/api/documents/delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ documentId }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        console.error("Failed to delete document:", json?.error);
+        return;
+      }
+
+      await loadDocuments(selectedProject.id);
+    } catch (err: any) {
+      console.error("Failed to delete document:", err?.message);
     }
   }
 
@@ -4911,6 +5111,20 @@ export default function DashboardPage() {
                 >
                   Estimate
                 </button>
+                <button
+                  className="btn"
+                  onClick={() => setActiveProjectTab("documents")}
+                  style={{
+                    flex: 1,
+                    background: activeProjectTab === "documents" ? "var(--card)" : "transparent",
+                    color: activeProjectTab === "documents" ? "var(--text)" : "var(--muted)",
+                    fontWeight: activeProjectTab === "documents" ? 700 : 500,
+                    border: "none",
+                    boxShadow: activeProjectTab === "documents" ? "var(--shadow)" : "none",
+                  }}
+                >
+                  Documents
+                </button>
               </div>
 
               {activeProjectTab === "timeline" && !isSendMode ? (
@@ -5535,6 +5749,135 @@ export default function DashboardPage() {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {selectedProject && activeGlobalTab === "projects" && activeProjectTab === "documents" && (
+            <div className="card">
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 10,
+                  flexWrap: "wrap",
+                  rowGap: 8,
+                }}
+              >
+                <div style={{ fontWeight: 800 }}>Documents</div>
+
+                <button
+                  className="btn btnPrimary"
+                  disabled={isUploadingDocument}
+                  onClick={() => documentUploadInputRef.current?.click()}
+                >
+                  {isUploadingDocument ? "Uploading..." : "+ Upload Document"}
+                </button>
+
+                <input
+                  ref={documentUploadInputRef}
+                  type="file"
+                  multiple
+                  style={{ display: "none" }}
+                  onChange={(e) => handleUploadDocuments(e.target.files)}
+                />
+              </div>
+
+              <p className="sub" style={{ opacity: 0.65, marginTop: -4, marginBottom: 14 }}>
+                A place for files that describe this record generally — leases,
+                insurance certificates, permits — not tied to a specific
+                Timeline entry. Internal only; never shown to the client.
+                Toggle "Include in dispute packet" on a document to have it
+                ride along the next time you export the dispute package.
+              </p>
+
+              {documentUploadStatus ? (
+                <p className="sub" style={{ color: "var(--dangerText, #b91c1c)", marginBottom: 10 }}>
+                  {documentUploadStatus}
+                </p>
+              ) : null}
+
+              {documentsLoading && documents.length === 0 ? (
+                <p className="sub" style={{ opacity: 0.6 }}>Loading documents...</p>
+              ) : documents.length === 0 ? (
+                <p className="sub" style={{ opacity: 0.6 }}>
+                  No documents uploaded yet.
+                </p>
+              ) : (
+                <div style={{ display: "grid", gap: 8 }}>
+                  {documents.map((doc) => (
+                    <div
+                      key={doc.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        borderRadius: 12,
+                        padding: "10px 12px",
+                        background: "var(--surfaceSoft)",
+                        border: "1px solid var(--borderSoft)",
+                        flexWrap: "wrap",
+                        rowGap: 8,
+                      }}
+                    >
+                      <div style={{ minWidth: 0, flex: "1 1 220px" }}>
+                        <a
+                          href={`/api/documents/open?id=${encodeURIComponent(doc.id)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{
+                            fontWeight: 700,
+                            color: "var(--text)",
+                            overflowWrap: "anywhere",
+                            textDecoration: "none",
+                          }}
+                        >
+                          {doc.label || doc.filename}
+                        </a>
+                        <div className="sub" style={{ opacity: 0.65, marginTop: 2 }}>
+                          {doc.filename}
+                          {doc.size_bytes
+                            ? ` · ${(doc.size_bytes / 1024).toFixed(0)} KB`
+                            : ""}
+                          {" · "}
+                          {new Date(doc.created_at).toLocaleDateString()}
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                        <label
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            fontSize: 12,
+                            color: "var(--muted)",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={doc.include_in_dispute_packet}
+                            onChange={(e) =>
+                              handleToggleDocumentDispute(doc.id, e.target.checked)
+                            }
+                          />
+                          Include in dispute packet
+                        </label>
+
+                        <button
+                          className="btn"
+                          style={{ padding: "4px 10px", fontSize: 12, opacity: 0.7 }}
+                          onClick={() => handleDeleteDocument(doc.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
