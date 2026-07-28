@@ -2840,14 +2840,14 @@ export default function DashboardPage() {
         window.dispatchEvent(new CustomEvent("buildproof-data-changed"));
         return;
       } catch (e: any) {
-        setStatus(e?.message || "Offline project save failed");
+        setStatus(e?.message || "Offline record save failed");
         return;
       }
     }
 
     if (!userId) return;
 
-    setStatus("Saving project...");
+    setStatus("Saving record...");
 
     const { error } = await supabase.from("projects").insert({
       title,
@@ -2860,7 +2860,7 @@ export default function DashboardPage() {
     });
 
     if (error) {
-      setStatus(`Add project failed: ${error.message}`);
+      setStatus(`Add record failed: ${error.message}`);
       return;
     }
 
@@ -2881,7 +2881,7 @@ export default function DashboardPage() {
     }
 
     try {
-      setStatus("Saving project name...");
+      setStatus("Saving record name...");
 
       // 🟢 OFFLINE PATH
       if (!navigator.onLine) {
@@ -3012,7 +3012,7 @@ export default function DashboardPage() {
     if (!ok) return;
 
     try {
-      setStatus("Archiving project...");
+      setStatus("Archiving record...");
       const iso = new Date().toISOString();
 
       const { error } = await supabase.from("projects").update({ archived_at: iso }).eq("id", selectedProject.id);
@@ -4954,7 +4954,7 @@ export default function DashboardPage() {
 
               {filteredProjects.length === 0 ? (
                 <div className="sub" style={{ marginTop: 12, opacity: 0.75 }}>
-                  No matching projects. Try searching by client name/email/phone.
+                  No matching records. Try searching by client name/email/phone.
                 </div>
               ) : null}
             </div>
