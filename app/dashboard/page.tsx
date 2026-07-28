@@ -3533,7 +3533,32 @@ export default function DashboardPage() {
       active?.blur();
     }, Math.max(delay - 80, 0));
 
-    scrollToElementById(`proof-entry-${proofId}`, delay);
+    // Poll for the entry element rather than firing once at a fixed delay
+    // (2026-07-27, per Ryan). The entry doesn't land in the DOM until
+    // loadProofs()'s state update actually flushes to a render, and that can
+    // land after a single fixed-delay attempt -- scrollToElementById would
+    // find nothing and silently no-op forever, leaving the user stranded
+    // with no scroll at all. Retries for up to ~4s, which comfortably
+    // covers real-world render lag.
+    const targetId = `proof-entry-${proofId}`;
+    const maxAttempts = 20;
+    let attempt = 0;
+
+    const tryScroll = () => {
+      attempt += 1;
+      const el = document.getElementById(targetId);
+
+      if (el) {
+        scrollToElementById(targetId, 0);
+        return;
+      }
+
+      if (attempt < maxAttempts) {
+        setTimeout(tryScroll, 200);
+      }
+    };
+
+    setTimeout(tryScroll, delay);
   }
 
   function handleCreateProjectClick() {
