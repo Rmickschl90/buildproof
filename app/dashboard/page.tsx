@@ -2921,7 +2921,7 @@ export default function DashboardPage() {
     }
 
     async function saveOfflineProof() {
-      await createOfflineProof({
+      const offlineRecord = await createOfflineProof({
         projectId,
         content: text,
         creatingUserId: userId ?? undefined,
@@ -2941,7 +2941,7 @@ export default function DashboardPage() {
       // visible behind the modal backdrop). Closing it drops the user back
       // on the Timeline tab, which is unaffected by isAddEntryMode.
       setIsAddEntryMode(false);
-      scrollBackToOnboarding(700);
+      scrollToNewProofEntry(offlineRecord.id, 700);
     }
 
     try {
@@ -3021,7 +3021,7 @@ export default function DashboardPage() {
       // the modal is gone the user lands directly on that expanded entry
       // in the timeline, where the attachment uploader actually lives.
       setIsAddEntryMode(false);
-      scrollBackToOnboarding(700);
+      scrollToNewProofEntry(result.data?.id, 700);
     } catch (err: any) {
       const message = err?.message || "";
       const lower = message.toLowerCase();
@@ -3517,6 +3517,25 @@ export default function DashboardPage() {
     scrollToElementById("onboarding-wizard", delay);
   }
 
+  // After adding an entry, scroll to that specific entry in the timeline
+  // instead of jumping back up to the onboarding wizard (2026-07-27, per
+  // Ryan: closing the Add Entry modal used to leave the user stranded with
+  // no indication of where their new entry landed). Falls back to
+  // scrollBackToOnboarding if we somehow don't have an id to target.
+  function scrollToNewProofEntry(proofId: string | number | null | undefined, delay = 700) {
+    if (proofId == null) {
+      scrollBackToOnboarding(delay);
+      return;
+    }
+
+    setTimeout(() => {
+      const active = document.activeElement as HTMLElement | null;
+      active?.blur();
+    }, Math.max(delay - 80, 0));
+
+    scrollToElementById(`proof-entry-${proofId}`, delay);
+  }
+
   function handleCreateProjectClick() {
     pulseHighlight("onboarding-project-area");
     setIsNewProjectModalOpen(true);
@@ -3541,6 +3560,19 @@ export default function DashboardPage() {
       const el = document.getElementById("new-entry-textarea") as HTMLTextAreaElement | null;
       el?.focus();
     }, 250);
+  }
+
+  // Cancel/close for the Add Entry composer now resets its draft state
+  // (2026-07-27, per Ryan: picking a template with no way to clear it left
+  // no path back to a blank entry short of manually deleting the text).
+  // Used by both the explicit Cancel button and the modal's own X/backdrop
+  // close so the composer always reopens blank, regardless of how it was
+  // dismissed.
+  function closeAddEntryModal() {
+    setIsAddEntryMode(false);
+    setNewProofContent("");
+    setIsTemplateText(false);
+    setShowTemplates(false);
   }
 
   function handleAddFilesClick() {
@@ -5047,7 +5079,7 @@ export default function DashboardPage() {
           {selectedProject && activeGlobalTab === "projects" && activeProjectTab === "timeline" && (
             <ModalShell
               open={isAddEntryMode}
-              onClose={() => setIsAddEntryMode(false)}
+              onClose={closeAddEntryModal}
               title="Add Entry"
             >
               <div
@@ -5118,7 +5150,7 @@ export default function DashboardPage() {
                 ) : null}
 
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button className="btn" onClick={() => setIsAddEntryMode(false)}>
+                  <button className="btn" onClick={closeAddEntryModal}>
                     Cancel
                   </button>
                   <button
@@ -5976,6 +6008,7 @@ export default function DashboardPage() {
                       return (
                         <div
                           key={offline ? proof.id : proof.id}
+                          id={`proof-entry-${proof.id}`}
                           className="proofItem"
                           style={{
                             border: isArchived
