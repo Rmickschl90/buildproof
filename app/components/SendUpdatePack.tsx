@@ -690,7 +690,7 @@ export default function SendUpdatePack({
 
   async function sendProjectUpdate() {
     if (!hasOfficialClientEmail) {
-      setStatus("Add a client email to enable official project updates.");
+      setStatus("Add a client email to enable official updates.");
       return;
     }
 
@@ -963,7 +963,7 @@ export default function SendUpdatePack({
 
           <input
             className="input"
-            placeholder="Add client email in project settings"
+            placeholder="Add client email in record settings"
             value={toEmail}
             readOnly
             disabled
@@ -975,7 +975,7 @@ export default function SendUpdatePack({
             </div>
           ) : (
             <div className="sub" style={{ opacity: 0.75 }}>
-              This project’s saved client email is the official delivery address for future updates.
+              This record’s saved client email is the official delivery address for future updates.
             </div>
           )}
 
@@ -1025,7 +1025,7 @@ export default function SendUpdatePack({
               : isBusy
                 ? getSendStatusLabel(sendUiStatus) || "Sending..."
                 : hasOfficialClientEmail
-                  ? "Send Project Update"
+                  ? "Send Update"
                   : "Add Client Email to Send Updates"}
           </button>
 
@@ -1037,7 +1037,7 @@ export default function SendUpdatePack({
 
           {activeJobId ? (
             <div className="sub" style={{ opacity: 0.75, fontSize: 12, fontWeight: 700 }}>
-              A send is already in progress for this project. Wait for it to finish or resume.
+              A send is already in progress for this record. Wait for it to finish or resume.
             </div>
           ) : null}
         </div>
@@ -1104,7 +1104,7 @@ export default function SendUpdatePack({
               opacity: 0.6,
             }}
           >
-            Share Project Timeline
+            Share Timeline
           </div>
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -1178,7 +1178,7 @@ export default function SendUpdatePack({
             lineHeight: 1.35,
           }}
         >
-          This link updates as the project progresses. Sent updates provide a fixed record.
+          This link updates as work progresses. Sent updates provide a fixed record.
         </div>
       </div>
     </div>

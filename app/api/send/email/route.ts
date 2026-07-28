@@ -24,7 +24,7 @@ function toBase64(buf: Uint8Array | Buffer) {
 }
 
 function safeFilename(name: string) {
-  return (name || "Project").replace(/[^\w\-]+/g, "_").slice(0, 80);
+  return (name || "Record").replace(/[^\w\-]+/g, "_").slice(0, 80);
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number) {
@@ -122,7 +122,7 @@ export async function POST(req: Request) {
       .single();
 
     if (projectErr || !project) {
-      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+      return NextResponse.json({ error: "Record not found" }, { status: 404 });
     }
 
     if (!(await canUserAccessProject(userId, projectId))) {
@@ -160,7 +160,7 @@ export async function POST(req: Request) {
         .eq("user_id", userId);
     }
 
-    const title = project.title || "Leeward Project";
+    const title = project.title || "Leeward Record";
     const messageBody = [
       `Attached is the latest PDF report for: ${title}`,
       "",
@@ -348,11 +348,11 @@ export async function POST(req: Request) {
       reportMode: "standard",
     });
 
-    const subject = `Project Update: ${title}`;
+    const subject = `Update: ${title}`;
     const text = [
-      `Hi — attached is the latest project PDF for: ${title}`,
+      `Hi — attached is the latest PDF for: ${title}`,
       "",
-      "View the live project timeline online:",
+      "View the live timeline online:",
       shareUrl,
       "",
       "The PDF is attached for easy download and recordkeeping.",
@@ -362,18 +362,18 @@ export async function POST(req: Request) {
 
     const html = `
       <div style="font-family:Arial,Helvetica,sans-serif;color:#0f172a;line-height:1.5;">
-        <p style="margin:0 0 14px 0;">Hi — attached is the latest project PDF for: <strong>${escapeHtml(
+        <p style="margin:0 0 14px 0;">Hi — attached is the latest PDF for: <strong>${escapeHtml(
       title
     )}</strong></p>
 
-        <p style="margin:0 0 10px 0;">View the live project timeline online:</p>
+        <p style="margin:0 0 10px 0;">View the live timeline online:</p>
 
         <p style="margin:0 0 18px 0;">
           <a
             href="${escapeAttr(shareUrl)}"
             style="display:inline-block;padding:10px 14px;border-radius:10px;background:#0f172a;color:#ffffff;text-decoration:none;font-weight:700;"
           >
-            View Project Timeline
+            View Timeline
           </a>
         </p>
 

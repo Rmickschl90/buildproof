@@ -21,7 +21,7 @@ export async function generateMetadata(props: {
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
   const logoUrl = appUrl ? `${appUrl}/buildproof-logo.png` : "/buildproof-logo.png";
 
-  let title = isInvoiceMode ? "Leeward Invoice" : "Leeward Project Journal";
+  let title = isInvoiceMode ? "Leeward Invoice" : "Leeward Journal";
 
   if (token) {
     const { data: share } = await supabaseServer
@@ -296,7 +296,7 @@ export default async function SharePage(props: {
   if (projectErr || !project) {
     return (
       <div style={{ padding: 24, fontFamily: "system-ui" }}>
-        <h1>Project not found</h1>
+        <h1>Record not found</h1>
       </div>
     );
   }
@@ -615,7 +615,7 @@ export default async function SharePage(props: {
                     color: "#15803d",
                   }}
                 >
-                  Baseline Estimate
+                  Original Estimate
                 </div>
               ) : null}
 
@@ -1330,7 +1330,7 @@ export default async function SharePage(props: {
           >
             <span style={{ fontSize: 20 }}>🧾</span>
             <span>
-              This is an Invoice — a cost summary only. It does not include project photos, notes,
+              This is an Invoice — a cost summary only. It does not include record photos, notes,
               or update history.
             </span>
           </div>
@@ -1359,13 +1359,13 @@ export default async function SharePage(props: {
 
               <div>
                 <div className="heroTitle">
-                  {project.title || "Shared Project"}
+                  {project.title || "Shared Record"}
                   {isInvoiceMode ? " — Invoice" : ""}
                 </div>
                 <div className="heroText">
                   {isInvoiceMode
-                    ? "A summary of the baseline estimate and change orders for this project, including a running total and itemized costs."
-                    : "A clean, read-only timeline of project updates, notes, photos, and attached files."}
+                    ? "A summary of the original estimate and additional charges for this record, including a running total and itemized costs."
+                    : "A clean, read-only timeline of updates, notes, photos, and attached files."}
                 </div>
               </div>
             </div>
@@ -1427,12 +1427,12 @@ export default async function SharePage(props: {
           <div className="summaryTop">
             <div>
               <div className="summaryKicker">
-                {isInvoiceMode ? "Invoice — cost summary" : "Verified project journal"}
+                {isInvoiceMode ? "Invoice — cost summary" : "Verified journal"}
               </div>
               <div className="summaryText">
                 {isInvoiceMode
-                  ? "Shared by contractor • Baseline estimate and change orders only."
-                  : "Shared by contractor • Updates, photos, invoices, PDFs, and receipts in chronological order."}
+                  ? "Original estimate and additional charges only."
+                  : "Updates, photos, invoices, PDFs, and receipts in chronological order."}
               </div>
             </div>
 
@@ -1529,7 +1529,7 @@ export default async function SharePage(props: {
               <div className="card" style={{ marginTop: 14, padding: 16 }}>
                 <div style={{ fontWeight: 900 }}>No invoice items yet</div>
                 <div style={{ marginTop: 6, color: "rgba(15,23,42,0.65)", fontSize: 13 }}>
-                  This project doesn't have a baseline estimate or change order with a cost yet.
+                  This record doesn't have an original estimate or additional charge with a cost yet.
                 </div>
               </div>
             ) : null}
@@ -1538,7 +1538,7 @@ export default async function SharePage(props: {
           <div className="card" style={{ marginTop: 14, padding: 16 }}>
             <div style={{ fontWeight: 900 }}>No updates yet</div>
             <div style={{ marginTop: 6, color: "rgba(15,23,42,0.65)", fontSize: 13 }}>
-              This journal link is active but the project has no entries yet.
+              This journal link is active but the record has no entries yet.
             </div>
           </div>
         ) : (

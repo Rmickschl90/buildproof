@@ -97,7 +97,7 @@ export default function ArchivedPage() {
       if (error) throw error;
 
       setProjects((list) => list.filter((x) => x.id !== p.id));
-      setStatus("Project restored ✅");
+      setStatus("Record restored ✅");
     } catch (e: any) {
       setStatus(e?.message ?? "Restore failed");
     } finally {
@@ -113,10 +113,10 @@ export default function ArchivedPage() {
           <div className="row" style={{ alignItems: "center" }}>
             <div style={{ display: "grid", gap: 2 }}>
               <h1 className="h1" style={{ margin: 0 }}>
-                Archived Projects
+                Archived Records
               </h1>
               <div className="sub" style={{ opacity: 0.7 }}>
-                Restore a project to bring it back to your dashboard.
+                Restore a record to bring it back to your dashboard.
               </div>
             </div>
 
@@ -137,7 +137,7 @@ export default function ArchivedPage() {
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
             <input
               className="input"
-              placeholder="Search project name, client, or email..."
+              placeholder="Search record name, client, or email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ flex: "1 1 220px", minWidth: 180 }}
@@ -148,7 +148,7 @@ export default function ArchivedPage() {
               value={sortMode}
               onChange={(e) => setSortMode(e.target.value as "archived_newest" | "archived_oldest" | "az")}
               style={{ width: 200 }}
-              title="Sort archived projects"
+              title="Sort archived records"
             >
               <option value="archived_newest">Archived: newest</option>
               <option value="archived_oldest">Archived: oldest</option>
@@ -156,11 +156,11 @@ export default function ArchivedPage() {
             </select>
           </div>
           <div className="sub" style={{ marginBottom: 12, opacity: 0.75 }}>
-            Showing <b>{sortedProjects.length}</b> of <b>{projects.length}</b> archived projects
+            Showing <b>{sortedProjects.length}</b> of <b>{projects.length}</b> archived records
           </div>
           {sortedProjects.length === 0 ? (
             <div className="sub" style={{ opacity: 0.7 }}>
-              {projects.length === 0 ? "No archived projects." : "No archived projects match your search."}
+              {projects.length === 0 ? "No archived records." : "No archived records match your search."}
             </div>
           ) : (
             <div className="list" style={{ display: "grid", gap: 10 }}>

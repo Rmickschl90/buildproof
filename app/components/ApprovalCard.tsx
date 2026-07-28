@@ -500,7 +500,7 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
                     whiteSpace: "nowrap",
                   }}
                 >
-                  Baseline Estimate
+                  Original Estimate
                 </div>
               ) : null}
 

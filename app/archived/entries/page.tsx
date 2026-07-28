@@ -79,7 +79,7 @@ export default function ArchivedEntriesPage() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      setStatus(`Load projects failed: ${error.message}`);
+      setStatus(`Load records failed: ${error.message}`);
       return;
     }
     setProjects((data ?? []) as Project[]);
@@ -146,7 +146,7 @@ export default function ArchivedEntriesPage() {
 
   const projectTitleById = useMemo(() => {
     const m = new Map<string, string>();
-    for (const p of projects) m.set(p.id, p.title || "(Untitled project)");
+    for (const p of projects) m.set(p.id, p.title || "(Untitled record)");
     return m;
   }, [projects]);
 
@@ -201,8 +201,8 @@ export default function ArchivedEntriesPage() {
           <div className="row" style={{ alignItems: "center" }}>
             <h1 className="h1">Archived Entries</h1>
             <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button className="btn" onClick={() => router.push("/archived")} title="Archived projects">
-                Archived projects
+              <button className="btn" onClick={() => router.push("/archived")} title="Archived records">
+                Archived records
               </button>
               <button className="btn btnPrimary" onClick={() => router.push("/dashboard")}>
                 Back to dashboard
@@ -221,7 +221,7 @@ export default function ArchivedEntriesPage() {
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <input
               className="input"
-              placeholder="Search archived entries (project name, text, id)…"
+              placeholder="Search archived entries (record name, text, id)…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ flex: "1 1 240px", minWidth: 200 }}
@@ -232,9 +232,9 @@ export default function ArchivedEntriesPage() {
               value={projectFilter}
               onChange={(e) => setProjectFilter(e.target.value)}
               style={{ width: 220 }}
-              title="Filter by project"
+              title="Filter by record"
             >
-              <option value="all">All projects</option>
+              <option value="all">All records</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.title || "(Untitled)"}
@@ -270,7 +270,7 @@ export default function ArchivedEntriesPage() {
 
           <div className="list" style={{ marginTop: 12 }}>
             {filtered.map((p) => {
-              const title = projectTitleById.get(p.project_id) || "(Project)";
+              const title = projectTitleById.get(p.project_id) || "(Record)";
               const isLocked = !!p.locked_at;
 
               return (
@@ -328,7 +328,7 @@ export default function ArchivedEntriesPage() {
                         </button>
                       ) : null}
                       <button className="btn" onClick={() => router.push(`/dashboard?p=${encodeURIComponent(p.project_id)}`)}>
-                        Open project
+                        Open record
                       </button>
                     </div>
                   </div>

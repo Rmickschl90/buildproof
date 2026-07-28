@@ -2785,3 +2785,26 @@ Server-side only change — traced `lib/offlineSendFlush.ts` and confirmed the c
 
 ## Result
 Duplicate-send protection now covers the full job lifecycle, not just the active-job window. Only one real email was sent during this entire verification — the cooldown guard correctly blocked the follow-up attempt.
+
+---
+
+# "PROJECT" → "RECORD" RENAME COMPLETE — 2026-07-27
+
+## Objective
+Copy-only rename of the app's primary noun from "Project" to "Record" (plus "Baseline Estimate" → "Original Estimate" and the earlier same-session "Change Order" → "Additional Charge" follow-through), so the product reads naturally for landlords/property managers as well as contractors. Full rationale: Current Implement/Project to Record Rename - Full Inventory and Plan.md in the Brain vault.
+
+## Scope
+Rendered display strings only — no DB columns, stored enum values, function/prop names, internal state values, or component/file names changed. 13 files: `app/dashboard/page.tsx`, `OnboardingWizard.tsx`, `NewProjectModal.tsx`, `SendUpdatePack.tsx`, `ApprovalComposer.tsx`, `app/share/[token]/page.tsx`, `app/archived/page.tsx`, `app/archived/entries/page.tsx`, `BulkCaptionUploader.tsx`, `app/api/send/email/route.ts`, `lib/pdf/buildProjectPdf.ts`, `ApprovalCard.tsx`, `app/api/approvals/create/route.ts`, `app/api/approvals/update/route.ts`. `app/help/page.tsx` and the marketing site explicitly deferred (already-planned separate review).
+
+## Verification
+`npm run build` passed. Then behaviorally verified live on `leeward-staging-internal` (real browser session against a real deployed build, not just source grep):
+- Dashboard record list: "Records" heading, "+ New Record" button, "Search records or clients..." placeholder.
+- Onboarding wizard: "Open your first record" / "Open First Record" step.
+- A record's mini-header: "RECORD" eyebrow, Actions menu (Notes / Rename / Download PDF / Export dispute package / Archive), rename mode's "Record name" label.
+- Estimate tab: subtitle ("Original estimate and additional charges for this record..."), "Original Estimate" badge, "Additional Charge" type label on a real approval.
+- Invoice share page (`?invoice=1`): "This is an Invoice..." banner says "record photos", subtitle says "original estimate and additional charges for this record", "Shared by contractor • Original estimate and additional charges only." caption, "Original Estimate" badge.
+- Regular share/journal page: "VERIFIED JOURNAL" badge, "A clean, read-only timeline of updates, notes, photos, and attached files." subtitle.
+- Archived Records page: heading, "Restore a record..." subtitle, "Showing 0 of 0 archived records" / "No archived records." empty state.
+
+## Result
+Full rename verified live end-to-end on staging. Not yet promoted to production — this branch (`estimate-nav-phase-1`) is still mid-flight on other Estimate/Invoice/Dark-Mode work per this repo's staging-first rollout constraint for that whole initiative.

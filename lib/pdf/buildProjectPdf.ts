@@ -321,7 +321,7 @@ export async function buildProjectPdf(
     font,
     fontBold,
     logoImage,
-    projectTitle: sanitizePdfText(project.title || "Project"),
+    projectTitle: sanitizePdfText(project.title || "Record"),
     clientName: sanitizePdfText(project.client_name || "Not set"),
     clientEmail: sanitizePdfText(project.client_email || "Not set"),
     dateRangeText: sanitizePdfText(getDateRange(sortedProofs, sortedApprovals)),
@@ -337,13 +337,13 @@ export async function buildProjectPdf(
     pdf,
     font,
     fontBold,
-    project.title || "Project",
+    project.title || "Record",
     pageNumber,
     { reportMode, timelineHash }
   );
   let y = PAGE_HEIGHT - MARGIN - 64;
 
-  page.drawText("Project Timeline", {
+  page.drawText("Timeline", {
     x: MARGIN,
     y,
     size: 18,
@@ -490,14 +490,14 @@ export async function buildProjectPdf(
           pdf,
           font,
           fontBold,
-          project.title || "Project",
+          project.title || "Record",
           pageNumber,
           { reportMode, timelineHash }
         );
 
         y = PAGE_HEIGHT - MARGIN - 64;
 
-        page.drawText("Project Timeline", {
+        page.drawText("Timeline", {
           x: MARGIN,
           y,
           size: 18,
@@ -555,7 +555,7 @@ export async function buildProjectPdf(
           14
         );
 
-        const baselineBadgeText = "Baseline Estimate";
+        const baselineBadgeText = "Original Estimate";
         const baselineBadgeSize = 9;
         const baselineBadgePadX = 8;
         const baselineBadgePadY = 5;
@@ -947,13 +947,13 @@ export async function buildProjectPdf(
         pdf,
         font,
         fontBold,
-        project.title || "Project",
+        project.title || "Record",
         pageNumber,
         { reportMode, timelineHash }
       );
       y = PAGE_HEIGHT - MARGIN - 64;
 
-      page.drawText("Project Timeline", {
+      page.drawText("Timeline", {
         x: MARGIN,
         y,
         size: 18,
@@ -1050,7 +1050,7 @@ export async function buildProjectPdf(
 
     let cursorY = top - 82;
 
-    page.drawText("Project Note", {
+    page.drawText("Note", {
       x: cardX + 22,
       y: cursorY,
       size: 9.5,
@@ -1212,7 +1212,7 @@ export async function buildProjectPdf(
       pdf,
       font,
       fontBold,
-      project.title || "Project",
+      project.title || "Record",
       pageNumber,
       { reportMode, timelineHash }
     );
@@ -1298,7 +1298,7 @@ export async function buildProjectPdf(
             pdf,
             font,
             fontBold,
-            project.title || "Project",
+            project.title || "Record",
             pageNumber,
             { reportMode, timelineHash }
           );
@@ -1355,7 +1355,7 @@ export async function buildProjectPdf(
       pdf,
       font,
       fontBold,
-      project.title || "Project",
+      project.title || "Record",
       pageNumber,
       { reportMode, timelineHash }
     );
@@ -1371,7 +1371,7 @@ export async function buildProjectPdf(
 
     y -= 26;
 
-    page.drawText("Record of official client email changes for this project.", {
+    page.drawText("Record of official client email changes.", {
       x: MARGIN,
       y,
       size: 10.5,
@@ -1382,7 +1382,7 @@ export async function buildProjectPdf(
     y -= 28;
 
     if (sortedContactEvents.length === 0) {
-      page.drawText("No client communication changes recorded for this project.", {
+      page.drawText("No client communication changes recorded.", {
         x: MARGIN,
         y,
         size: 11,
@@ -1412,7 +1412,7 @@ export async function buildProjectPdf(
             pdf,
             font,
             fontBold,
-            project.title || "Project",
+            project.title || "Record",
             pageNumber,
             { reportMode, timelineHash }
           );
@@ -1428,7 +1428,7 @@ export async function buildProjectPdf(
 
           y -= 26;
 
-          page.drawText("Record of official client email changes for this project.", {
+          page.drawText("Record of official client email changes.", {
             x: MARGIN,
             y,
             size: 10.5,
@@ -1509,7 +1509,7 @@ export async function buildProjectPdf(
         pdf,
         font,
         fontBold,
-        project.title || "Project",
+        project.title || "Record",
         pageNumber,
         { reportMode, timelineHash }
       );
@@ -1535,7 +1535,7 @@ export async function buildProjectPdf(
 
     y -= 26;
 
-    page.drawText("Record of sent project updates and delivery outcomes.", {
+    page.drawText("Record of sent updates and delivery outcomes.", {
       x: MARGIN,
       y,
       size: 10.5,
@@ -1546,7 +1546,7 @@ export async function buildProjectPdf(
     y -= 28;
 
     if (sortedDeliveries.length === 0) {
-      page.drawText("No delivery history available for this project.", {
+      page.drawText("No delivery history available.", {
         x: MARGIN,
         y,
         size: 11,
@@ -1580,7 +1580,7 @@ export async function buildProjectPdf(
             pdf,
             font,
             fontBold,
-            project.title || "Project",
+            project.title || "Record",
             pageNumber,
             { reportMode, timelineHash }
           );
@@ -1596,7 +1596,7 @@ export async function buildProjectPdf(
 
           y -= 26;
 
-          page.drawText("Record of sent project updates and delivery outcomes.", {
+          page.drawText("Record of sent updates and delivery outcomes.", {
             x: MARGIN,
             y,
             size: 10.5,
@@ -1693,7 +1693,7 @@ export async function buildProjectPdf(
         pdf,
         font,
         fontBold,
-        project.title || "Project",
+        project.title || "Record",
         pageNumber,
         { reportMode, timelineHash }
       );
@@ -1709,7 +1709,7 @@ export async function buildProjectPdf(
       y -= 26;
     }
 
-    page.drawText("Project View Record", {
+    page.drawText("View Record", {
       x: MARGIN,
       y,
       size: 18,
@@ -1719,7 +1719,7 @@ export async function buildProjectPdf(
 
     y -= 26;
 
-    page.drawText("Record of secure share-link views for this project.", {
+    page.drawText("Record of secure share-link views.", {
       x: MARGIN,
       y,
       size: 10.5,
@@ -1730,7 +1730,7 @@ export async function buildProjectPdf(
     y -= 28;
 
     if (sortedShareViews.length === 0) {
-      page.drawText("No project views recorded for this project.", {
+      page.drawText("No views recorded.", {
         x: MARGIN,
         y,
         size: 11,
@@ -1755,13 +1755,13 @@ export async function buildProjectPdf(
             pdf,
             font,
             fontBold,
-            project.title || "Project",
+            project.title || "Record",
             pageNumber,
             { reportMode, timelineHash }
           );
           y = PAGE_HEIGHT - MARGIN - 64;
 
-          page.drawText("Project View Record", {
+          page.drawText("View Record", {
             x: MARGIN,
             y,
             size: 18,
@@ -1771,7 +1771,7 @@ export async function buildProjectPdf(
 
           y -= 26;
 
-          page.drawText("Record of secure share-link views for this project.", {
+          page.drawText("Record of secure share-link views.", {
             x: MARGIN,
             y,
             size: 10.5,
@@ -1812,7 +1812,7 @@ export async function buildProjectPdf(
           color: COLORS.muted,
         });
 
-        page.drawText("Project timeline accessed via secure share link", {
+        page.drawText("Timeline accessed via secure share link", {
           x: cardX + 16,
           y: y - 56,
           size: 10.5,
@@ -1876,7 +1876,7 @@ export async function buildProjectPdf(
         supabase,
         font,
         fontBold,
-        projectTitle: project.title || "Project",
+        projectTitle: project.title || "Record",
         timelineHash,
         exhibits: pdfExhibits,
       });
@@ -1884,7 +1884,7 @@ export async function buildProjectPdf(
   }
 
   const pdfBuffer = await pdf.save();
-  const safeTitle = sanitizePdfFilename(project.title || "Leeward_Project").slice(0, 80);
+  const safeTitle = sanitizePdfFilename(project.title || "Leeward_Record").slice(0, 80);
   const filename = `Leeward_${safeTitle}.pdf`;
 
   return { pdfBuffer, filename };
@@ -1967,7 +1967,7 @@ function addCoverPage(opts: {
   page.drawText(
     reportMode === "dispute"
       ? "Dispute Documentation Package"
-      : "Professional Project Record",
+      : "Professional Record",
     {
       x: MARGIN,
       y: PAGE_HEIGHT - 104,
@@ -1977,11 +1977,11 @@ function addCoverPage(opts: {
     }
   );
 
-  const coverTitle = sanitizePdfText(projectTitle || "Project");
+  const coverTitle = sanitizePdfText(projectTitle || "Record");
   const coverSubtitle = sanitizePdfText(
     reportMode === "dispute"
-      ? "Chronological record of project activity captured during the course of work. Entries, approvals, attachments, delivery history, and access records are preserved to reflect their original state. Entries and approvals are finalized at the time of sending and remain unchanged in the project record."
-      : "Documented timeline of project entries, photos, and attached files."
+      ? "Chronological record of activity captured during the course of work. Entries, approvals, attachments, delivery history, and access records are preserved to reflect their original state. Entries and approvals are finalized at the time of sending and remain unchanged in the record."
+      : "Documented timeline of entries, photos, and attached files."
   );
 
   const coverTitleLines = wrapParagraphs(coverTitle, fontBold, 27, CONTENT_WIDTH);
@@ -2031,7 +2031,7 @@ function addCoverPage(opts: {
       color: COLORS.softBlue,
     });
 
-    page.drawText("Official Project Record", {
+    page.drawText("Official Record", {
       x: recordX + 18,
       y: recordY + recordH - 24,
       size: 12,
@@ -2106,7 +2106,7 @@ function addCoverPage(opts: {
     });
 
     const recordIntegrityLines = wrapParagraphs(
-      "Entries and approvals are finalized at the time of sending and remain unchanged in the project record.",
+      "Entries and approvals are finalized at the time of sending and remain unchanged in the record.",
       font,
       9.5,
       recordW - 68
@@ -2127,7 +2127,7 @@ function addCoverPage(opts: {
     }
 
     const timezoneNoteLines = wrapParagraphs(
-      "Times shown as recorded in the project record.",
+      "Times shown as recorded in the record.",
       font,
       9.5,
       recordW - 68
@@ -2174,7 +2174,7 @@ function addCoverPage(opts: {
     color: COLORS.soft,
   });
 
-  page.drawText("Project Summary", {
+  page.drawText("Record Summary", {
     x: panelX + 18,
     y: panelY + panelH - 27,
     size: 12,
@@ -2779,7 +2779,7 @@ async function appendPdfExhibits(opts: {
     coverY -= 48;
 
     const descriptionLines = wrapParagraphs(
-      "This exhibit contains the complete PDF document uploaded to the project record. The filename, date, and associated timeline record identify where the document appears in the chronological project history. The following pages are reproduced from the original uploaded file without modification.",
+      "This exhibit contains the complete PDF document uploaded to the record. The filename, date, and associated timeline record identify where the document appears in the chronological history. The following pages are reproduced from the original uploaded file without modification.",
       font,
       10.5,
       CONTENT_WIDTH
@@ -3126,7 +3126,7 @@ function sanitizePdfText(input: string) {
 }
 
 function sanitizePdfFilename(name: string) {
-  return String(name || "Leeward_Project").replace(/[^\w\-]+/g, "_");
+  return String(name || "Leeward_Record").replace(/[^\w\-]+/g, "_");
 }
 
 function formatDevice(ua?: string | null) {

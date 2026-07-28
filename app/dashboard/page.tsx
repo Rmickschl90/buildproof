@@ -1641,7 +1641,7 @@ export default function DashboardPage() {
 
   async function handleLogPayment() {
     if (!selectedProject) {
-      setLogPaymentStatus("Select a project first.");
+      setLogPaymentStatus("Select a record first.");
       return;
     }
 
@@ -2554,7 +2554,7 @@ export default function DashboardPage() {
         setOfflineProofs([]);
         setOfflineApprovals([]);
         setNewProjectTitle("");
-        setStatus("Project saved offline ✅ — will sync when connected.");
+        setStatus("Record saved offline ✅ — will sync when connected.");
         scrollBackToOnboarding(500);
         window.dispatchEvent(new CustomEvent("buildproof-data-changed"));
         return;
@@ -2595,7 +2595,7 @@ export default function DashboardPage() {
     const next = renameTitle.trim();
 
     if (!next) {
-      setStatus("Project name can’t be empty.");
+      setStatus("Record name can’t be empty.");
       return;
     }
 
@@ -2658,7 +2658,7 @@ export default function DashboardPage() {
         });
 
         setStatus(
-          "Project renamed offline ✅ — will sync when connected."
+          "Record renamed offline ✅ — will sync when connected."
         );
 
         renameInputRef.current?.blur();
@@ -2708,7 +2708,7 @@ export default function DashboardPage() {
         project: updatedProject,
       });
 
-      setStatus("Project renamed ✅");
+      setStatus("Record renamed ✅");
 
       renameInputRef.current?.blur();
       setRenaming(false);
@@ -2727,7 +2727,7 @@ export default function DashboardPage() {
   async function archiveProject() {
     if (!selectedProject || !userId) return;
 
-    const ok = window.confirm("Archive this project? You can view it in Archived.");
+    const ok = window.confirm("Archive this record? You can view it in Archived.");
     if (!ok) return;
 
     try {
@@ -2738,7 +2738,7 @@ export default function DashboardPage() {
 
       if (error) throw error;
 
-      setStatus("Project archived ✅");
+      setStatus("Record archived ✅");
 
       setProjects((list) => list.filter((p) => p.id !== selectedProject.id));
       setSelectedProjectWithTrace(null, "archiveProject");
@@ -2819,7 +2819,7 @@ export default function DashboardPage() {
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
 
-      const safeTitle = (selectedProject.title || "Leeward_Project").replace(/[^\w\-]+/g, "_");
+      const safeTitle = (selectedProject.title || "Leeward_Record").replace(/[^\w\-]+/g, "_");
 
       const a = document.createElement("a");
       a.href = url;
@@ -2839,7 +2839,7 @@ export default function DashboardPage() {
     if (!selectedProject) return;
 
     const confirmed = window.confirm(
-      "Export dispute package?\n\nThis includes the project timeline, attachments, and delivery history."
+      "Export dispute package?\n\nThis includes the timeline, attachments, and delivery history."
     );
 
     if (!confirmed) return;
@@ -2848,7 +2848,7 @@ export default function DashboardPage() {
       setStatus("Preparing dispute package...");
       const token = await getAccessToken();
 
-      const safeTitle = (selectedProject.title || "Leeward_Project").replace(
+      const safeTitle = (selectedProject.title || "Leeward_Record").replace(
         /[^\w\-]+/g,
         "_"
       );
@@ -2908,7 +2908,7 @@ export default function DashboardPage() {
   // ---------------- ENTRIES ----------------
   async function addProof() {
     if (!selectedProject) {
-      setProofStatus("Select a project first.");
+      setProofStatus("Select a record first.");
       return;
     }
 
@@ -3053,7 +3053,7 @@ export default function DashboardPage() {
     if (!selectedProject) return;
 
     const ok = window.confirm(
-      "Archive this entry?\n\nArchived entries are hidden from the normal timeline but remain in the project record."
+      "Archive this entry?\n\nArchived entries are hidden from the normal timeline but remain in the record."
     );
     if (!ok) return;
 
@@ -3664,7 +3664,7 @@ export default function DashboardPage() {
     setOnboardingComplete(true);
 
     setOnboardingCongrats(
-      "🎉 First update sent. Your project timeline is now live and ready to use."
+      "🎉 First update sent. Your timeline is now live and ready to use."
     );
 
     window.localStorage.setItem("Leeward_onboarding_complete", "true");
@@ -4216,7 +4216,7 @@ export default function DashboardPage() {
                 setShowDeliveryHistory(true);
                 setIsSendMode(false);
 
-                setSendSuccessMessage("Your project timeline and PDF were sent successfully.");
+                setSendSuccessMessage("Your timeline and PDF were sent successfully.");
 
                 setTimeout(() => {
                   setSendSuccessMessage("");
@@ -4241,21 +4241,38 @@ export default function DashboardPage() {
                 transition: "all 0.25s ease",
               }}
             >
-              <div
-                className="row"
-                style={{ alignItems: "center", flexWrap: "wrap", rowGap: 4 }}
-              >
-                <div style={{ fontWeight: 800 }}>Projects</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <div
+                  style={{
+                    fontSize: 20,
+                    fontWeight: 800,
+                    letterSpacing: -0.015,
+                    color: "var(--text)",
+                  }}
+                >
+                  Records
+                </div>
 
                 <div
                   style={{
                     display: "flex",
-                    gap: 10,
+                    flexWrap: "wrap",
+                    gap: 8,
+                    rowGap: 4,
                     alignItems: "center",
                     fontSize: 11,
                     color: "var(--muted)",
                   }}
                 >
+                  <span
+                    style={{
+                      fontWeight: 800,
+                      letterSpacing: 1,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Original Estimate
+                  </span>
                   <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     <span
                       style={{
@@ -4298,7 +4315,7 @@ export default function DashboardPage() {
               <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                 <input
                   className="input"
-                  placeholder="Search projects or clients..."
+                  placeholder="Search records or clients..."
                   value={projectSearch}
                   onChange={(e) => setProjectSearch(e.target.value)}
                   style={{ flex: 1, minWidth: 0, height: 38, fontSize: 14 }}
@@ -4313,8 +4330,8 @@ export default function DashboardPage() {
                       <button
                         className="btn"
                         onClick={() => setProjectFilterMenuOpen((v) => !v)}
-                        title="Filter & sort projects"
-                        aria-label="Filter & sort projects"
+                        title="Filter & sort records"
+                        aria-label="Filter & sort records"
                         style={{
                           height: 38,
                           width: 38,
@@ -4498,7 +4515,7 @@ export default function DashboardPage() {
                   style={{ width: "100%", fontWeight: 700 }}
                   onClick={() => setIsNewProjectModalOpen(true)}
                 >
-                  + New Project
+                  + New Record
                 </button>
               </div>
 
@@ -4568,7 +4585,7 @@ export default function DashboardPage() {
                           refreshOfflineProofs(cached.project.id);
                           refreshOfflineApprovals(cached.project.id);
                         } else {
-                          setStatus("Project not available offline yet.");
+                          setStatus("Record not available offline yet.");
                           return;
                         }
                       } else {
@@ -4683,7 +4700,7 @@ export default function DashboardPage() {
                       marginBottom: 4,
                     }}
                   >
-                    Project
+                    Record
                   </div>
 
                   <div
@@ -4697,7 +4714,7 @@ export default function DashboardPage() {
                       wordBreak: "break-word",
                     }}
                   >
-                    {selectedProject.title || "Project"}
+                    {selectedProject.title || "Record"}
                   </div>
                 </div>
 
@@ -4719,7 +4736,7 @@ export default function DashboardPage() {
                   <button
                     className="btn"
                     onClick={closeProjectView}
-                    title="Close project view"
+                    title="Close record view"
                   >
                     Close
                   </button>
@@ -4730,7 +4747,7 @@ export default function DashboardPage() {
                         id="approval-menu"
                         className="btn"
                         onClick={() => setProjectMenuOpen((v) => !v)}
-                        title="Project actions"
+                        title="Actions"
                         style={{
                           boxShadow:
                             highlightTarget === "approval-menu"
@@ -4772,7 +4789,7 @@ export default function DashboardPage() {
                                   setProjectNotesOpen(true);
                                 }}
                               >
-                                Project Notes
+                                Notes
                               </button>
 
                               <button
@@ -4783,7 +4800,7 @@ export default function DashboardPage() {
                                   setRenameTitle(selectedProject.title || "");
                                 }}
                               >
-                                Rename project
+                                Rename
                               </button>
 
                               <button
@@ -4807,20 +4824,20 @@ export default function DashboardPage() {
                                 style={{ width: "100%" }}
                                 onClick={archiveProject}
                               >
-                                Archive project
+                                Archive
                               </button>
                             </>
                           ) : (
                             <div style={{ display: "grid", gap: 8 }}>
                               <div className="sub" style={{ opacity: 0.75 }}>
-                                Project name
+                                Record name
                               </div>
 
                               <textarea
                                 ref={renameInputRef as any}
                                 value={renameTitle}
                                 onChange={(e) => setRenameTitle(e.target.value)}
-                                placeholder="Project name"
+                                placeholder="Record name"
                                 style={{
                                   width: "100%",
                                   fontSize: 16,
@@ -5016,7 +5033,7 @@ export default function DashboardPage() {
 
                   <input
                     className="input"
-                    placeholder="Project address..."
+                    placeholder="Address..."
                     value={projectAddressDraft}
                     onChange={(e) => setProjectAddressDraft(e.target.value)}
                   />
@@ -5229,7 +5246,7 @@ export default function DashboardPage() {
                   {estimateSummary.pendingCount > 0
                     ? ` · ${estimateSummary.pendingCount} pending (not yet included)`
                     : ""}
-                  {!estimateSummary.baseline ? " · no baseline estimate yet" : ""}
+                  {!estimateSummary.baseline ? " · no original estimate yet" : ""}
                 </div>
 
                 <div
@@ -5302,7 +5319,7 @@ export default function DashboardPage() {
               </div>
 
               <p className="sub" style={{ opacity: 0.75, marginBottom: 14 }}>
-                Baseline estimate and change orders for this project. The Share Invoice button above
+                Original estimate and additional charges for this record. The Share Invoice button above
                 gives the client a live link showing the running total, itemized line items, and the
                 same approval feed below.
               </p>
@@ -5319,7 +5336,7 @@ export default function DashboardPage() {
                       marginBottom: 8,
                     }}
                   >
-                    Baseline Estimate
+                    Original Estimate
                   </div>
 
                   <ApprovalCard
@@ -5392,7 +5409,7 @@ export default function DashboardPage() {
               otherDraftApprovals.length === 0 &&
               otherFinalizedApprovals.length === 0 ? (
                 <p className="sub" style={{ opacity: 0.6, marginTop: 4 }}>
-                  No estimate or change orders yet. Tap the + button to create one.
+                  No estimate or additional charges yet. Tap the + button to create one.
                 </p>
               ) : null}
 
@@ -5777,7 +5794,7 @@ export default function DashboardPage() {
                         display: "inline-block",
                       }}
                     >
-                      Project Timeline
+                      Timeline
                     </div>
                   </div>
 
@@ -6383,7 +6400,7 @@ export default function DashboardPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ fontWeight: 600 }}>
-              Project Notes
+              Notes
             </div>
 
             <div
@@ -6399,7 +6416,7 @@ export default function DashboardPage() {
               className="textarea"
               value={projectNotesDraft}
               onChange={(e) => scheduleProjectNotesSave(e.target.value)}
-              placeholder="Write notes for this project..."
+              placeholder="Write notes for this record..."
               style={{
                 minHeight: 220,
                 fontSize: 14,

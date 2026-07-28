@@ -80,7 +80,7 @@ export default function NewProjectModal({ open, onClose, onCreate }: Props) {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="New project"
+      aria-label="New record"
       style={{
         position: "fixed",
         inset: 0,
@@ -116,7 +116,7 @@ export default function NewProjectModal({ open, onClose, onCreate }: Props) {
           }}
         >
           <div style={{ width: 32 }} />
-          <div style={{ fontWeight: 800, fontSize: 17 }}>New project</div>
+          <div style={{ fontWeight: 800, fontSize: 17 }}>New record</div>
           <button
             className="btn"
             onClick={onClose}
@@ -137,7 +137,7 @@ export default function NewProjectModal({ open, onClose, onCreate }: Props) {
 
         <div style={{ display: "grid", gap: 6 }}>
           <label className="sub" style={{ fontWeight: 700, opacity: 0.85 }}>
-            Project name
+            Record name
           </label>
           <input
             id="new-project-modal-title"
@@ -190,7 +190,7 @@ export default function NewProjectModal({ open, onClose, onCreate }: Props) {
         </div>
 
         <div className="notice">
-          You can add an estimate, client details, and photos once the project's created.
+          You can add an estimate, client details, and photos once the record's created.
         </div>
 
         <button
@@ -199,7 +199,7 @@ export default function NewProjectModal({ open, onClose, onCreate }: Props) {
           onClick={handleCreate}
           style={{ width: "100%", fontWeight: 800, padding: "14px 12px" }}
         >
-          {submitting ? "Creating..." : "Create project"}
+          {submitting ? "Creating..." : "Create record"}
         </button>
       </div>
     </div>

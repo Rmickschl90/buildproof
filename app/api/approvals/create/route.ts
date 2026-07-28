@@ -215,7 +215,7 @@ export async function POST(req: Request) {
 
       if (activeExistingBaseline) {
         return NextResponse.json(
-          { error: "This project already has an active baseline estimate." },
+          { error: "This record already has an active original estimate." },
           { status: 409 }
         );
       }

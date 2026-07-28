@@ -43,13 +43,13 @@ export default function OnboardingWizard({
 
   if (projectCount === 0) {
     title = "Welcome to Leeward";
-    message = "Start by creating your first project.";
-    buttonLabel = "Create Project";
+    message = "Start by creating your first record.";
+    buttonLabel = "Create Record";
     buttonAction = onCreateProject;
   } else if (!hasSelectedProject) {
-    title = "Open your first project";
-    message = "Select a project to start building the timeline.";
-    buttonLabel = "Open First Project";
+    title = "Open your first record";
+    message = "Select a record to start building the timeline.";
+    buttonLabel = "Open First Record";
     buttonAction = onOpenFirstProject;
   } else if (!hasClientEmail) {
     title = "Add client info";
@@ -57,7 +57,7 @@ export default function OnboardingWizard({
     buttonLabel = "Add Client Info";
     buttonAction = onAddClientInfo;
   } else if (!hasBaselineEstimate) {
-    title = "Create your baseline estimate";
+    title = "Create your original estimate";
     message =
       "Set up your starting estimate on the Estimate tab. You can add additional charges later, and clients can view a live running total.";
     buttonLabel = "Create Estimate";
@@ -69,7 +69,7 @@ export default function OnboardingWizard({
     buttonAction = onAddFiles;
   } else if (entryCount === 0) {
     title = "Great! Now add your first entry.";
-    message = "Entries keep a timeline of project updates.";
+    message = "Entries keep a timeline of record updates.";
     buttonLabel = "Add First Entry";
     buttonAction = onAddFirstEntry;
   } else {

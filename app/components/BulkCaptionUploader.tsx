@@ -139,7 +139,7 @@ export default function BulkCaptionUploader({ open, onClose, onSave }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="row">
-          <div style={{ fontWeight: 850 }}>Add to Project Journal</div>
+          <div style={{ fontWeight: 850 }}>Add to Journal</div>
           <button className="btn" onClick={onClose}>
             Close
           </button>

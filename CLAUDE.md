@@ -1211,3 +1211,59 @@ Implementation Plan.md in the Brain vault.
 Not yet done: staging deploy, and a real offline→online reconnect
 click-through of the payment outbox/flush path (code is written and
 wired in, not yet behaviorally exercised offline).
+
+### "Project" → "Record" rename, cross-audience terminology (2026-07-27)
+
+Sanctioned copy-only rename, following the same pattern as the Change
+Order/Bidding/Won pass done earlier the same session (see Cross-Audience
+Terminology Pass doc in the Brain vault). Ryan flagged that "Project" and
+"Baseline Estimate" don't read naturally for landlords/property managers
+using the app, and after discussion (Property → Location → Record) landed
+on "Record" as the universal noun — matches what the dispute-PDF already
+called itself in several places, doesn't imply a fixed physical address,
+and resolves the New Record modal's name/address field redundancy for
+free. Full rationale and decision log: Current Implement/Project to Record
+Rename - Full Inventory and Plan.md in the Brain vault.
+
+Copy-only per this repo's established discipline: no DB columns, stored
+enum values, function/prop names, or internal state values changed —
+`projects` table, `projectId`, `selectedProject`, `getRecipientSource()`'s
+`"project"|"custom"` return values, the `"projects"|"account"` tab-state
+strings, etc. all untouched. Only rendered strings changed, across 13
+files: `app/dashboard/page.tsx` (eyebrow label, actions menu, rename
+mode, Timeline/Estimate headings, list heading, search/filter placeholders
+and tooltips, status toasts, confirm dialogs, onboarding/send-success
+messages, Estimate subtitle, PDF filename fallback, Notes modal),
+`OnboardingWizard.tsx`, `NewProjectModal.tsx`, `SendUpdatePack.tsx`,
+`ApprovalComposer.tsx`, `app/share/[token]/page.tsx` (including the
+`?invoice=1` mode), `app/archived/page.tsx`,
+`app/archived/entries/page.tsx`, `BulkCaptionUploader.tsx`,
+`app/api/send/email/route.ts` (client-facing email subject/body/filename),
+`lib/pdf/buildProjectPdf.ts` (hand-edited per a "drop the now-redundant
+Project adjective rather than insert Record" rule — the PDF already used
+"Record" as a noun in several places, e.g. "Official Project Record" →
+"Official Record", not "Official Project Record" → "Official Record
+Record"), `ApprovalCard.tsx`, and the two approval-conflict API error
+messages in `app/api/approvals/create/route.ts` /
+`app/api/approvals/update/route.ts`. Folded in the same session: "Baseline
+Estimate" → "Original Estimate" (4 spots already decided in the
+terminology-pass doc, plus several more found during this pass's grep
+sweep — an onboarding step title, a dashboard Estimate-tab caption, the
+invoice share-page subtitle, and the two API error messages above).
+
+Explicitly out of scope, deferred: `app/help/page.tsx` (~35 instances,
+folds into the already-planned Help content review) and the marketing
+website.
+
+`npm run build` passed. Behaviorally verified live on
+`leeward-staging-internal` (not just grepped): dashboard record list
+("Records" heading, "+ New Record", search placeholder), onboarding
+wizard ("Open your first record" / "Open First Record"), a record's mini-
+header (RECORD eyebrow, Actions menu → Notes/Rename/Download PDF/Export
+dispute package/Archive, rename mode's "Record name" label), the Estimate
+tab (subtitle, "Original Estimate" badge, "Additional Charge" type label),
+the invoice share page (`?invoice=1` — banner, subtitle, "Original
+Estimate" badge), the regular share/journal page ("VERIFIED JOURNAL",
+updated subtitle), and the Archived Records page (heading, empty state,
+count string) — all confirmed showing the new copy on a live deploy, not
+just present in source.

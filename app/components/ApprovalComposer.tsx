@@ -1420,7 +1420,7 @@ export default function ApprovalComposer({
                 marginTop: 6,
               }}
             >
-              Sending to a different email than project client
+              Sending to a different email than record client
             </div>
           )}
 
@@ -1470,7 +1470,7 @@ export default function ApprovalComposer({
                   setIsBaseline(e.target.checked);
                 }}
               />
-              This is the baseline estimate for this project
+              This is the original estimate for this record
             </label>
 
             <div style={{ fontSize: 13, fontWeight: 700 }}>Line Items</div>
