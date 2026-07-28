@@ -1398,3 +1398,40 @@ pages, no "REFERENCE" text) — confirming Documents genuinely never
 leaks into the standard-mode PDF or any client-facing surface.
 
 NOT YET deployed to production. NOT YET applied to production Supabase.
+
+### Trial length: 14 days -> 30 days (2026-07-28)
+
+Ryan's call: 14 days didn't give enough time to decide whether to pay for
+Leeward. Confirmed via Stripe's own docs before touching anything that
+trial length is controlled entirely by the `subscription_data[trial_period_
+days]` param sent when a Checkout Session is created - there is no separate
+Price/Product-level trial setting in Stripe's dashboard that this needs to
+match or that could override it, so no Stripe-side configuration was
+required, only code.
+
+Changed the literal `"14"` -> `"30"` in the three places that create Stripe
+Checkout Sessions: `app/api/billing/checkout/route.ts` (individual,
+gated on `isTrialEligible`), `app/api/billing/team-checkout/route.ts`
+(existing-org-owner team upgrade, gated on `isTrialEligible`), and
+`app/api/billing/team-signup-checkout/route.ts` (brand-new team signup,
+unconditional - always trial-eligible by construction). Also swept for
+and fixed every other now-stale "14-day"/"14 days" user-facing string:
+one in `app/dashboard/page.tsx` (Upgrade-to-Team button subtitle) and five
+in `app/subscribe/page.tsx` (Plan Choice subtitle, both plan-card
+captions, the Team naming-step subtitle, and the Individual trial-start
+heading).
+
+`npm run build` passed. Committed and pushed to `estimate-nav-phase-1`
+(`1a5fd0c2`). Deployed to `leeward-staging-internal` and behaviorally
+verified with a real Stripe test-mode Checkout Session (not just code
+review): deleted the test account's `user_subscriptions` row on staging
+to restore trial eligibility, called `/api/billing/checkout` directly for
+a real access token, and opened the returned Stripe-hosted Checkout page -
+it read "30 days free - Then $29.00 per month starting August 27, 2026,"
+exactly 30 days from the test date, confirming Stripe is computing the
+trial directly off the param this change now sends. Checkout was
+abandoned intentionally (no card entered, nothing charged) - the test
+account's `user_subscriptions` row was left deleted afterward as a result,
+not restored.
+
+NOT YET deployed to production.

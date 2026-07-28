@@ -2840,3 +2840,19 @@ Migration applied to `leeward-staging-internal` only (deliberately staging-first
 
 ## Result
 Documents tab is fully built and behaviorally verified end-to-end on `leeward-staging-internal`. NOT YET deployed to production; NOT YET applied to production Supabase.
+
+---
+
+# TRIAL LENGTH EXTENDED 14 -> 30 DAYS — 2026-07-28
+
+## Objective
+Ryan's call: 14 days wasn't enough time for a prospective customer to decide whether to pay for Leeward. Before changing anything, confirmed via Stripe's own documentation that trial length for a Checkout Session is governed entirely by the `subscription_data[trial_period_days]` param sent at session-creation time — there is no separate Price/Product-level trial default in Stripe's dashboard that this needs to match or that could override it. So this was a pure code change, no Stripe dashboard config required.
+
+## Fix
+Changed the literal `"14"` -> `"30"` in all three places a Stripe Checkout Session is created: `app/api/billing/checkout/route.ts` (individual plan), `app/api/billing/team-checkout/route.ts` (existing org owner upgrading to Team), and `app/api/billing/team-signup-checkout/route.ts` (brand-new Team signup). Swept for and fixed every other stale "14-day"/"14 days" user-facing string to match: one in `app/dashboard/page.tsx` (Upgrade-to-Team subtitle), five in `app/subscribe/page.tsx` (Plan Choice subtitle, both plan-card captions, Team naming-step subtitle, Individual trial-start heading).
+
+## Verification (staging, `leeward-staging-internal`, real Stripe test-mode Checkout Session)
+`npm run build` passed. Committed/pushed to `estimate-nav-phase-1` (`1a5fd0c2`), deployed to `leeward-staging-internal`. Deleted the test account's (`rmickschl23@gmail.com`) `user_subscriptions` row on staging to restore trial eligibility (any existing row, regardless of status, makes `isTrialEligible` false), called `/api/billing/checkout` directly with a real access token, and opened the returned Stripe-hosted Checkout Session page — it read "30 days free - Then $29.00 per month starting August 27, 2026," exactly 30 days from the test date, confirming Stripe computed the trial directly from the updated param. Checkout was abandoned intentionally (no card entered, nothing charged) — the test account's `user_subscriptions` row was left deleted as a result, not restored.
+
+## Result
+Trial length is now 30 days across all three checkout paths and all user-facing copy, verified against a real Stripe test-mode session, not just code review. NOT YET deployed to production.
