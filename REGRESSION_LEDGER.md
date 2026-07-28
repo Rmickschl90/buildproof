@@ -2856,3 +2856,27 @@ Changed the literal `"14"` -> `"30"` in all three places a Stripe Checkout Sessi
 
 ## Result
 Trial length is now 30 days across all three checkout paths and all user-facing copy, verified against a real Stripe test-mode session, not just code review. NOT YET deployed to production.
+
+---
+
+# FULL REGRESSION PASS ON `estimate-nav-phase-1` — 2026-07-28
+
+## Objective
+Before promoting this large, multi-feature branch (Team Accounts, Estimate/Invoice, Dark Mode, Record rename, Payments, Documents, 30-day trial) to production, ran a real end-to-end regression pass across every system touched this cycle, on `leeward-staging-internal`, using a real signed-in account and real API calls rather than code review.
+
+## Verified (all via real browser session against staging, real data, not simulated)
+- **Offline/send/reconnect**: added an entry online, added a second entry with `navigator.onLine` forced false (real offline queue path, not a mock) - queued entry showed "Pending Sync"; flipped back online, the app's real reconnect flow (interval-detected) flushed it automatically to "Draft"; ran Send Update - both drafts finalized correctly, delivery status updated. Confirms the offline outbox/flush/send pipeline is unaffected by this cycle's work.
+- **Estimate tab**: Current Total, Paid/Balance Due, Original Estimate/Additional Charges sections all render correctly with real data (1 approved, 2 pending).
+- **Payments**: logged a real $250 payment via the modal, confirmed it appeared and the Paid total updated live; deleted it, confirmed the total reverted correctly.
+- **Documents tab**: uploaded a real file, confirmed the file-type thumbnail badge, toggled "Include in dispute packet" on, confirmed persistence across reload.
+- **PDF export, both modes**: called `/api/export/pdf` directly (bypassing a UI freeze encountered mid-session, root-caused as browser/tab flakiness, not a server bug - endpoint returned 200 in under a second both times) for both `reportMode: "standard"` and `"dispute"`, then extracted real text via `pdf.js`. Standard mode correctly excludes Payments and Reference Documents. Dispute mode correctly includes the Reference Documents section (uploaded file, opted-in), a full Payment Summary (Contract Total/Paid to Date/Balance Due) plus itemized payment log, and the Original Estimate badge.
+- **Team Accounts**: confirmed the "Upgrade to Team" modal still renders correctly with the updated 30-day trial copy - not a full org-creation re-test (out of scope for a smoke check; Team Accounts code was untouched this cycle).
+- **Dark mode**: toggled Light/Dark live across the dashboard shell, Records list (with colored status stripes and the "ORIGINAL ESTIMATE" legend), Estimate tab, and Documents tab - no invisible text or unstyled elements found in either theme.
+- **Record rename correctness**: confirmed via extracted PDF text and the share/invoice pages - no leftover bare "Project" strings in any app-generated copy (the one match found was a project's own user-entered title, which legitimately contains the word).
+- **Share/invoice page**: both the regular journal view and `?invoice=1` mode render correctly with live data (Current Total, Paid, Balance Due, Original Estimate badge, no draft leakage).
+
+## Self-caught testing error (not an app bug)
+Mid-pass, a set of direct API checks (bypassing the UI PDF-export freeze) initially appeared to show Payments and one Reference Document missing from the dispute PDF. Investigated rather than assumed a regression: the project ID used had been grabbed from a stale URL earlier in the session and pointed at a *different*, older test project that happened to share the exact same name/client ("Staging QA Test Project" / "Ryan QA Staging") from a prior session's testing. Confirmed via `localStorage`'s `Leeward_last_open_project_id` and cross-checking Timeline entries. Re-ran against the correct project ID and every check passed. No code fix needed - flagging only as a reminder that duplicate-named test projects from past sessions are still sitting in staging and can cause this exact confusion again.
+
+## Result
+No regressions found across any of the systems touched this cycle. Branch `estimate-nav-phase-1` is considered ready for the next step (Help section update, then production promotion) pending Ryan's go-ahead.
