@@ -4307,6 +4307,19 @@ export default function DashboardPage() {
                   gap: 8,
                   alignItems: "stretch",
                   flexShrink: 0,
+                  // Keeps this column flush against the right edge even when
+                  // the row's flex-wrap drops it onto its own line -- without
+                  // this, `justify-content: space-between` on `.row` only
+                  // right-aligns it while it shares a line with the logo;
+                  // once wrapped (narrow phones, ~320-360px), a single
+                  // flex item on its own line collapses to flex-start
+                  // (left), which broke the Account dropdown's `right: 0`
+                  // positioning below -- the menu rendered mostly/fully
+                  // off-screen to the left. marginLeft: auto keeps this
+                  // column right-anchored in both the wrapped and
+                  // unwrapped case, so the dropdown's right:0 anchor stays
+                  // valid regardless of viewport width.
+                  marginLeft: "auto",
                 }}
               >
                 {billingSource === "organization" ? (
