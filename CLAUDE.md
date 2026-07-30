@@ -1118,9 +1118,25 @@ pulsing. Committed and pushed to `estimate-nav-phase-1` as `28eb5a43`.
 is complete**: once dark mode, Team Accounts, and the Estimate/Invoice
 UI are all finished, the in-app Help section needs a content
 review/update pass to cover Team Accounts and Estimate/Invoice
-features it doesn't currently mention. Separately, and later still,
-the marketing website will need a similar review/update pass. Neither
-should be started now — both are "later, once this work is complete."
+features it doesn't currently mention.
+
+**Marketing website pass: DONE (2026-07-29).** Deployed to production
+(`getleeward.com`) on branch `marketing-site-overhaul-2026-07`, commit
+`5bedb7c`. Copy broadened from contractor-only framing to explicitly
+name contractors, subcontractors, landlords, and property managers
+side by side throughout (hero line, all feature cards, pricing
+captions), matching the Record rename below. Feature list now covers
+Estimates & Change Orders, Payment Tracking, Reference Document Vault,
+and Team Accounts — all previously unmentioned. Real screenshots
+replaced placeholder/mismatched ones, including catching and fixing a
+real data-integrity bug in the invoice screenshot itself (an
+unapproved baseline coexisting with an approved change order — a
+logically impossible real-world sequence) before it shipped; full
+detail in `buildproof-site/SITE_REGRESSION_LEDGER.md` and the Brain
+vault's `Marketing/Marketing Site Status.md`. Verified live via direct
+fetch of the production URL post-deploy, not just the deploy tool's
+success output. The in-app Help content pass above remains NOT
+started.
 
 ### Related new initiative: Dark Mode / Theme System (planning, 2026-07-26)
 

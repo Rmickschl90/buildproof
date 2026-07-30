@@ -534,6 +534,37 @@ export default function DashboardPage() {
   const [showAttachmentStep, setShowAttachmentStep] = useState(false);
   const [dashboardReady, setDashboardReady] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
+  const [dismissedOnboardingSteps, setDismissedOnboardingSteps] = useState<
+    string[]
+  >([]);
+
+  function dismissOnboardingStep(stepKey: string) {
+    setDismissedOnboardingSteps((prev) => {
+      if (prev.includes(stepKey)) return prev;
+      const next = [...prev, stepKey];
+      try {
+        window.localStorage.setItem(
+          "Leeward_onboarding_dismissed_steps",
+          JSON.stringify(next)
+        );
+      } catch {
+        // ignore storage failures (private browsing, quota, etc.)
+      }
+      return next;
+    });
+  }
+
+  function markOnboardingResolvedSilently() {
+    setOnboardingComplete((current) => {
+      if (current) return current;
+      try {
+        window.localStorage.setItem("Leeward_onboarding_complete", "true");
+      } catch {
+        // ignore storage failures
+      }
+      return true;
+    });
+  }
   function cacheProjectSnapshot(args: {
     project?: Project | null;
     proofs?: Proof[];
@@ -709,6 +740,17 @@ export default function DashboardPage() {
           if (done === "true") {
             setOnboardingComplete(true);
           }
+          try {
+            const dismissedRaw = window.localStorage.getItem(
+              "Leeward_onboarding_dismissed_steps"
+            );
+            if (dismissedRaw) {
+              const parsed = JSON.parse(dismissedRaw);
+              if (Array.isArray(parsed)) setDismissedOnboardingSteps(parsed);
+            }
+          } catch {
+            // ignore malformed/missing storage
+          }
 
           return;
         }
@@ -789,6 +831,17 @@ export default function DashboardPage() {
         const done = window.localStorage.getItem("Leeward_onboarding_complete");
         if (done === "true") {
           setOnboardingComplete(true);
+        }
+        try {
+          const dismissedRaw = window.localStorage.getItem(
+            "Leeward_onboarding_dismissed_steps"
+          );
+          if (dismissedRaw) {
+            const parsed = JSON.parse(dismissedRaw);
+            if (Array.isArray(parsed)) setDismissedOnboardingSteps(parsed);
+          }
+        } catch {
+          // ignore malformed/missing storage
         }
       } finally {
         setDashboardReady(true);
@@ -4447,6 +4500,9 @@ export default function DashboardPage() {
               hasBaselineEstimate={!!estimateSummary.baseline}
               showAttachmentStep={showAttachmentStep}
               isCompleted={onboardingComplete}
+              dismissedSteps={dismissedOnboardingSteps}
+              onDismissStep={dismissOnboardingStep}
+              onAllStepsResolved={markOnboardingResolvedSilently}
               onCreateProject={handleCreateProjectClick}
               onOpenFirstProject={handleOpenFirstProject}
               onAddFirstEntry={handleAddFirstEntryClick}

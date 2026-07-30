@@ -2880,3 +2880,134 @@ Mid-pass, a set of direct API checks (bypassing the UI PDF-export freeze) initia
 
 ## Result
 No regressions found across any of the systems touched this cycle. Branch `estimate-nav-phase-1` is considered ready for the next step (Help section update, then production promotion) pending Ryan's go-ahead.
+
+---
+
+# PRODUCTION PROMOTION OF `estimate-nav-phase-1` — 2026-07-28
+
+## Objective
+Promote the full `estimate-nav-phase-1` branch (Team Accounts already live since 2026-07-23; this promotion adds the nav overhaul, Estimate/Change Order/Invoice system, Dark Mode, Record rename, Payments, Documents tab, updated Help section, and the 30-day trial) from staging-only to production (`app.getleeward.com`), following the careful multi-step sequence documented under the 2026-07-19/20 rollback incident above.
+
+## Steps taken
+1. Applied the one remaining pending migration (`20260728120000_project_documents.sql`) to production Supabase (`uzuzwhzilhakewtbtzxh`) via the SQL Editor, with the same explicit `grant all on table public.project_documents to postgres, anon, authenticated, service_role;` this repo's Phase 6 gotcha requires. Verified via a combined `information_schema.columns` / `role_table_grants` / `pg_class` query: `column_count: 10, grant_count: 28, pg_class_count: 1` - matching the exact values staging showed when this migration was applied there.
+2. Re-verified (not assumed from docs) which Vercel project actually serves `app.getleeward.com` via `vercel project ls`: confirmed `buildproof-staging` -> `app.getleeward.com` (production), `leeward-staging-internal` (real staging), `buildproof-site` -> `getleeward.com` (marketing).
+3. Confirmed clean git tree on `estimate-nav-phase-1`, captured pre-deploy `HEAD` (`c798e18d3d87dd091c1c4f24926e9c92f0a38ad4`).
+4. Deployed via `vercel deploy --project buildproof-staging --prod` (the explicit `--project` flag pattern used to recover from the earlier rollback incident, rather than relying on the ambient `.vercel` link). Result: `Ready in 50s`, `Aliased https://app.getleeward.com`.
+5. Verified the deployed commit via the Vercel dashboard's Source panel (CLI `vercel inspect` output was truncated before showing git metadata) - confirmed `c798e18` on branch `estimate-nav-phase-1`, matching the captured pre-deploy SHA exactly, aliased to `app.getleeward.com`, `Environment: Production (Current)`.
+
+## Found and fixed during live production verification (same session)
+While doing the post-deploy live click-through on `app.getleeward.com` itself (see next section), the empty Records-list state read "No matching projects. Try searching by client name/email/phone." - a leftover from before the Record rename that the original rename pass's grep sweep missed, because it only checked JSX text nodes (`>...Project...<`), not string literals passed to `setStatus()`/empty-state conditionals. This is also the reason the "Record rename correctness" check in the regression pass immediately above (which checked PDF text and share-page copy only) didn't catch it - the bug was specific to the dashboard's own Records list and status toasts, surfaces that pass didn't check.
+
+Grepped every renamed file for the same pattern (quoted string literals containing "project", not just JSX text) and found 5 more misses, all in `app/dashboard/page.tsx`, all status toasts a user sees during normal use:
+- `"No matching projects. Try searching..."` -> `"No matching records. Try searching..."`
+- `"Saving project..."` -> `"Saving record..."`
+- `e?.message || "Offline project save failed"` -> `"Offline record save failed"`
+- `` `Add project failed: ${error.message}` `` -> `` `Add record failed: ...` ``
+- `"Saving project name..."` -> `"Saving record name..."`
+- `"Archiving project..."` -> `"Archiving record..."`
+
+Checked every other renamed file (OnboardingWizard, NewProjectModal, SendUpdatePack, ApprovalComposer, share page, archived pages, ApprovalCard, BulkCaptionUploader) for the same string-literal pattern - all clean, no further misses found.
+
+`npm run build` passed. Committed (`5c480f22`) and pushed to `estimate-nav-phase-1`. Deployed staging-first per this repo's standing rule (`vercel deploy --project leeward-staging-internal --prod`), spot-checked live on `leeward-staging-internal.vercel.app` (triggered the empty-state via a nonsense search term - confirmed "No matching records..." renders correctly), then promoted to production the same explicit-project-flag way as the main promotion (`vercel deploy --project buildproof-staging --prod`), and re-verified via the Vercel dashboard Source panel: commit `5c480f2`, branch `estimate-nav-phase-1`, `app.getleeward.com`, `Environment: Production (Current)`.
+
+## Live production click-through (post-deploy)
+Signed in as `rmickschl23+prodteam1@gmail.com` directly on `app.getleeward.com/dashboard` (already-authenticated production session). Confirmed on first load: dark mode rendering correctly, "Records" heading, "+ New Record" button, "ORIGINAL ESTIMATE" status legend with Pending/Approved/Declined dots - all new copy and layout live and correct on production, not just staging.
+
+## Result
+Production (`app.getleeward.com`) now serves the same code, commit-for-commit, as `leeward-staging-internal`, including the Record-rename completeness fix found during this verification pass itself. Migration applied and double-verified. Deployment commit double-verified via the Vercel dashboard, not just CLI text.
+
+---
+
+# ACCOUNT DROPDOWN OFF-SCREEN ON MOBILE — FIXED — 2026-07-28
+
+## Objective
+Work through the outstanding bug punch-list (per Ryan's instruction, in order, marketing site and email deliverability saved for last). First item: the previously-flagged "Account dropdown off-screen on mobile" bug (open since an earlier session, never root-caused).
+
+## Root cause
+`app/dashboard/page.tsx`'s header row (`className="row"`, which uses `justify-content: space-between` per `app/globals.css`) has `flexWrap: "wrap"` applied inline. On narrow phone widths (~320-360px, where "Upgrade" + "Account" don't fit beside the logo), the button column wraps onto its own line. `space-between` only right-aligns items while they share a line with something else to space against - a single flex item alone on a wrapped line collapses to flex-start (left) instead. The Account dropdown panel is positioned `right: 0` relative to its immediate anchor (a tight `position: relative` div wrapping just the Account button), which assumed the anchor would always sit near the screen's right edge. Once wrapped, the anchor sits at the far left instead, so the dropdown (240px wide, `right: 0`) rendered mostly or fully off-screen to the left - confirmed visually via a genuine 320px-wide iframe (real independent viewport, not just a resized window - `resize_window` was tried first but doesn't affect the actual rendered viewport size in this environment) against `leeward-staging-internal`.
+
+## Fix
+Added `marginLeft: "auto"` to the button-column div (`app/dashboard/page.tsx`, the flex column wrapping the Upgrade/Team button + the Account button/dropdown). This keeps the column flush against the container's right edge whether it shares a line with the logo or wraps onto its own line, since an auto margin on a flex item consumes all remaining space on its own line regardless of wrap state - preserving the dropdown's existing `right: 0` assumption in both cases rather than needing to touch the dropdown's own positioning logic.
+
+## Verification
+`npm run build` passed. Committed (`74f0f563`) and pushed to `estimate-nav-phase-1`. Deployed to `leeward-staging-internal` and re-tested at the exact width that reproduced the bug (320px, via a real iframe-based independent viewport) - Account button now stays right-anchored on its own wrapped line, and the dropdown renders fully on-screen and legible. Also spot-checked at 390px (common phone width) - unaffected, still correct. Promoted to production (`vercel deploy --project buildproof-staging --prod`) and confirmed via the Vercel dashboard Source panel: commit `74f0f56`, branch `estimate-nav-phase-1`, aliased to `app.getleeward.com`, matching the pre-deploy `git rev-parse HEAD` exactly.
+
+## Result
+Bug closed and shipped to production. First item on the current punch-list; regression pass on offline send/reconnect is next.
+
+---
+
+# OFFLINE SEND/RECONNECT REGRESSION PASS (POST FAILED-SEND FIX) — 2026-07-28
+
+## Objective
+Second item on the current punch-list: genuinely exercise the offline send outbox's failure-classification, retry-cap, and dismiss UI (added 2026-07-27, tracked as tasks #122-124) end-to-end on `leeward-staging-internal`, plus confirm the core success path (offline queue -> reconnect flush -> finalized send) still works correctly after that fix. This task had been left `in_progress` without ever actually being run.
+
+## Test 1: permanent-looking failure that doesn't match the pattern list
+Created a real test record ("Send Regression Test") with client email deliberately set to `not-a-real-address` (no @, syntactically invalid). Added a real Timeline entry, clicked Send Update. Server correctly rejected with "Invalid toEmail" - but this exact message does NOT match any of `isLikelyPermanentSendError()`'s substring patterns (checked: "invalid toemail" does not contain "invalid email" as a substring, since "to" sits between the two words). This is a genuine, if narrow, gap in the pattern list - flagging it, not fixing it, since the design's own stated intent is that the attempt-cap is the deliberate backstop for exactly cases the pattern match misses.
+
+Verified the backstop actually works: read the record directly from IndexedDB (`buildproof-offline` / `send_outbox`) across 6 dispatches of the real `buildproof-run-reconnect-flow` event (the same event `OfflineReconnectBootstrap.tsx` fires on genuine reconnect) using 2.5s gaps to let each flush attempt complete:
+- Attempts 1 -> 5: `status: "pending"` each time (retrying, as expected since it's not pattern-matched as permanent)
+- Attempt 6 (`syncAttemptCount` hit 6, `>= MAX_SEND_ATTEMPTS` of 5): `status: "failed"` - correctly stopped
+- 7th dispatch: record stayed at `status: "failed"`, `attempts: 6` - unchanged, confirming `getFlushableOfflineSendRecords()` correctly excludes terminal `"failed"` records and this can no longer loop forever
+
+Reloaded the page and confirmed the UI layer: "⚠ 1 update couldn't be sent / To not-a-real-address: Invalid toEmail / Retry / Dismiss" rendered correctly (survives a real page reload, not just in-memory state). Clicked Dismiss - banner disappeared and the IndexedDB record count went to 0, confirming Dismiss is a real, permanent removal, not cosmetic.
+
+## Test 2: core success path unaffected
+Fixed the test record's client email to a real address, then genuinely forced `navigator.onLine = false` (real offline code path) and added a second Timeline entry - correctly showed "Pending Sync". Flipped back online and dispatched the real reconnect event - the queued entry correctly auto-flushed to "Draft". Ran a real Send Update (approved and sent to Ryan's own inbox per his explicit go-ahead) - both entries flipped from "Draft" to "Finalized", confirming a genuine send occurred (not a cooldown-guard reuse of a prior job).
+
+## Result
+The 2026-07-27 failed-send fix is confirmed working exactly as designed: the retry cap is a real, effective backstop even when the pattern-match classifier misses a message (flagged as a minor future improvement, not blocking), Dismiss genuinely removes the record, and the core offline queue -> reconnect -> flush -> finalize pipeline is unaffected by the change. Task #125 closed.
+
+---
+
+# DARK MODE SLICE 6 — FULL LIGHT/DARK QA PASS — 2026-07-28
+
+## Objective
+Third item on the current punch-list: a genuine visual QA sweep of both themes across every major surface, closing out the dark-mode initiative's final outstanding slice (previous slices covered token infrastructure, the toggle, and migrating individual components one at a time - this slice is the full-app confirmation pass that was never actually run end-to-end).
+
+## Surfaces checked in both themes on `leeward-staging-internal`
+Dashboard shell (logo, Upgrade/Account buttons, "Signed in as"), Account dropdown (Appearance toggle, Help, Manage Billing, Logout), Records list (search, filter, colored status stripes, ORIGINAL ESTIMATE legend), record mini-header (RECORD eyebrow, Close/Actions), Timeline tab (entries, Finalized/Draft badges), Estimate tab (Current Total, Paid/Balance Due, Original Estimate badge, Payments section), Documents tab (upload button, explanatory copy), New Record modal, Archived Records page. All rendered correctly in both light and dark - no invisible text, unstyled elements, or contrast issues found in any of them.
+
+## Confirmed as intentional, not a bug
+`/help` was checked with the app's theme preference forced to `"dark"` via `localStorage['leeward-theme']` - the page renders in its own fixed light styling regardless, matching this file's own documented note that the Help page was deliberately left out of every prior dark-mode migration pass (content-coverage rewrite only, no visual conversion attempted). Confirmed this doesn't look broken (no invisible text, no mismatched dark shell around light content) - it's a consistent, fully-light page, just not theme-reactive. Left as-is per the existing scope decision; a future dark-mode pass for this page would be a separate, explicitly-scoped task.
+
+## Result
+No dark/light regressions found anywhere in this sweep. Dark Mode Slice 6 is complete - the initiative (token infrastructure -> toggle -> component migration -> full QA pass) is now fully closed out. Task #68 closed.
+
+---
+
+# SHARE PAGE HYDRATION WARNING — INVESTIGATED, NOT REPRODUCIBLE — 2026-07-28
+
+## Objective
+Fourth item on the current punch-list: investigate a previously-flagged React hydration warning on the share page, which had never actually been root-caused.
+
+## Investigation
+Read `app/share/[token]/page.tsx` in full: it is a pure Server Component (no `"use client"` directive, uses `supabaseServer` and `next/headers` directly, `export const dynamic = "force-dynamic"`). Grepped the entire `app/share` directory for `"use client"` - zero matches. This means nothing in the share page's own component tree hydrates on the client at all; classic React hydration mismatches (server-rendered markup disagreeing with the client's first render) require a Client Component to actually hydrate, so the page's own code is not a structurally plausible source of a hydration warning as currently written.
+
+Did find one real, if narrow, latent risk while reading `formatDate()`/`formatShortDate()` (lines 143-184): `formatShortDate` calls `.toLocaleDateString(undefined, {...})` and `formatDate`'s fallback branch (when no `timezoneOffsetMinutes` is available) calls `.toLocaleString()` with no locale/timezone argument - both depend on the runtive's default locale and timezone, which can differ between a Node.js server process and a browser. This is a generically real hydration-mismatch pattern in Next.js apps, but only actually fires if a Client Component reformats the same ISO string differently after mount - and there isn't one here, since the whole tree is server-only.
+
+## Reproduction attempt
+Created a real, live share link on `leeward-staging-internal` (`/api/share/create` for the "Send Regression Test" record) and loaded it fresh (full reload, not client navigation) in a brand-new tab, for both the regular journal view and `?invoice=1` mode. Captured console output both times - zero messages of any kind. Confirmed the console-capture tooling itself was working correctly via a `console.error`/`console.warn` sentinel test that was captured immediately after.
+
+## Result
+Not reproducible in the current deployed state, on either share-page mode. Most likely explanation: either a prior change (possibly the Record-rename pass, which touched this exact file) incidentally resolved whatever caused it, or the original warning was a dev-only artifact (e.g. React Strict Mode double-invocation noise in local `next dev`) that never applied to the deployed build. No code change made, since there's nothing currently reproducible to fix and speculatively "fixing" the locale/timezone calls above (a real but currently-inert risk) isn't warranted without a live warning to confirm against. Flagging the `toLocaleDateString(undefined, ...)` / bare `toLocaleString()` calls as worth pinning to an explicit locale/timezone defensively if this resurfaces. Task #92 closed as investigated/not reproducible.
+
+---
+
+# MOBILE VIEWPORT SWEEP (360px) — VERIFIED CLEAN — 2026-07-28
+
+## Objective
+Fifth item on the punch-list: verify mobile/phone rendering beyond the already-fixed Account dropdown bug, and check Play Store status.
+
+## Method
+Real browser viewport testing via an injected `<iframe>` (fixed 360x740px) pointed at `leeward-staging-internal.vercel.app`, since `resize_window` doesn't reliably change the actual rendered CSS viewport in this environment. This is the same technique used to originally reproduce and verify the Account dropdown off-screen fix (task #120).
+
+## Surfaces checked at 360px
+- Record detail view (Timeline tab): Record header, Client card, filter/search, entry cards - all render cleanly, no overflow.
+- Send Update modal: title, delivery email field, "Include archived entries" checkbox, Send button, Delivery Status section - all wrap correctly, no clipping.
+- Estimate tab: Current Total / Paid / Balance Due stat card, onboarding "Create Estimate" prompt, floating "+" FAB - all fit within the 360px width.
+- Documents tab: "+ Upload Document" button and description text wrap correctly, no overflow.
+- New Record modal: Record name / Address / Client name / email / phone fields, disclaimer note, and "Create record" button all render cleanly with no clipping or horizontal scroll.
+
+## Result
+No new mobile-overflow bugs found across any of these surfaces at 360px - the previously-fixed Account dropdown bug (task #120) appears to have been the only real mobile-layout defect in this area. Play Store status: not independently checked (no Google Play Console access available to this session) - per CLAUDE.md, the app is documented as LIVE on Google Play, and this cycle's changes (Team Accounts, Dark Mode, Estimate/Invoice, Payments, Documents, Record rename) are all web-only, served through the Capacitor WebView wrapper with no bundled native UI, so no new Android release is required for any of it - confirmed via docs, not via Play Console itself. Task #106 closed.
