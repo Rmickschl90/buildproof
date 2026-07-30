@@ -4383,16 +4383,6 @@ export default function DashboardPage() {
                   marginLeft: "auto",
                 }}
               >
-                {billingSource === "organization" ? (
-                  <button className="btn headerActionBtn" onClick={openMembersPanel}>
-                    {orgContext?.role === "owner" ? "Invite Team" : "Team"}
-                  </button>
-                ) : (
-                  <button className="btn headerActionBtn" onClick={openUpgradePanel}>
-                    Upgrade
-                  </button>
-                )}
-
                 <div style={{ position: "relative" }} ref={accountMenuRef}>
                   <button
                     className="btn headerActionBtn"
@@ -4434,6 +4424,24 @@ export default function DashboardPage() {
                         <br />
                         <b style={{ color: "var(--text)" }}>{userEmail}</b>
                       </div>
+
+                      {billingSource === "organization" ? (
+                        <button
+                          className="btn"
+                          style={{ width: "100%" }}
+                          onClick={openMembersPanel}
+                        >
+                          {orgContext?.role === "owner" ? "Invite Team" : "Team"}
+                        </button>
+                      ) : (
+                        <button
+                          className="btn"
+                          style={{ width: "100%" }}
+                          onClick={openUpgradePanel}
+                        >
+                          Upgrade
+                        </button>
+                      )}
 
                       <ThemeToggle />
 
