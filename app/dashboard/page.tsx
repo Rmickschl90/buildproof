@@ -518,7 +518,7 @@ export default function DashboardPage() {
   // mirroring the Timeline tab's single search box + filter icon button
   // pattern instead of separate search/sort/Archived controls.
   const [projectBidStatusFilter, setProjectBidStatusFilter] = useState<
-    "all" | "bidding" | "won" | "declined"
+    "all" | "bidding" | "won" | "declined" | "none"
   >("all");
   const [projectFilterMenuOpen, setProjectFilterMenuOpen] = useState(false);
   const projectFilterMenuRef = useRef<HTMLDivElement | null>(null);
@@ -4096,7 +4096,9 @@ export default function DashboardPage() {
       });
     }
 
-    if (projectBidStatusFilter !== "all") {
+    if (projectBidStatusFilter === "none") {
+      list = list.filter((p) => !projectBidStatus[p.id]);
+    } else if (projectBidStatusFilter !== "all") {
       list = list.filter((p) => projectBidStatus[p.id] === projectBidStatusFilter);
     }
 
@@ -4814,6 +4816,7 @@ export default function DashboardPage() {
                               { key: "bidding", label: "Pending" },
                               { key: "won", label: "Approved" },
                               { key: "declined", label: "Declined" },
+                              { key: "none", label: "No Estimate" },
                             ] as const
                           ).map((opt) => (
                             <button
