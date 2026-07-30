@@ -4335,7 +4335,10 @@ export default function DashboardPage() {
       <div className="container">
         <div className="shell">
           <div className="card">
-            <div className="row" style={{ flexWrap: "wrap", rowGap: 10 }}>
+            <div
+              className="row"
+              style={{ flexWrap: "wrap", rowGap: 10, alignItems: "flex-start" }}
+            >
               <div style={{ display: "flex", alignItems: "center" }}>
                 {/* The logo PNG has a baked-in white background (not
                     transparent), so on a dark theme it reads as a stray
