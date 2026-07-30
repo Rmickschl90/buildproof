@@ -4336,7 +4336,7 @@ export default function DashboardPage() {
         <div className="shell">
           <div className="card">
             <div className="row" style={{ flexWrap: "wrap", rowGap: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ display: "flex", alignItems: "center" }}>
                 {/* The logo PNG has a baked-in white background (not
                     transparent), so on a dark theme it reads as a stray
                     white rectangle unless it's deliberately framed as a
@@ -4350,7 +4350,6 @@ export default function DashboardPage() {
                     display: "flex",
                     alignItems: "center",
                     lineHeight: 0,
-                    flexShrink: 0,
                   }}
                 >
                   <img
@@ -4359,19 +4358,13 @@ export default function DashboardPage() {
                     className="dashboardLogo"
                   />
                 </div>
-
-                <p className="sub" style={{ margin: 0 }}>
-                  Signed in as
-                  <br />
-                  <b>{userEmail}</b>
-                </p>
               </div>
               <div
                 style={{
                   display: "flex",
                   flexDirection: "column",
-                  gap: 8,
-                  alignItems: "stretch",
+                  gap: 6,
+                  alignItems: "flex-end",
                   flexShrink: 0,
                   // Keeps this column flush against the right edge even when
                   // the row's flex-wrap drops it onto its own line -- without
@@ -4388,15 +4381,16 @@ export default function DashboardPage() {
                   marginLeft: "auto",
                 }}
               >
-                {billingSource === "organization" ? (
-                  <button className="btn headerActionBtn" onClick={openMembersPanel}>
-                    {orgContext?.role === "owner" ? "Invite Team" : "Team"}
-                  </button>
-                ) : (
-                  <button className="btn headerActionBtn" onClick={openUpgradePanel}>
-                    Upgrade
-                  </button>
-                )}
+                <div style={{ display: "flex", gap: 8 }}>
+                  {billingSource === "organization" ? (
+                    <button className="btn headerActionBtn" onClick={openMembersPanel}>
+                      {orgContext?.role === "owner" ? "Invite Team" : "Team"}
+                    </button>
+                  ) : (
+                    <button className="btn headerActionBtn" onClick={openUpgradePanel}>
+                      Upgrade
+                    </button>
+                  )}
 
                 <div style={{ position: "relative" }} ref={accountMenuRef}>
                   <button
@@ -4472,6 +4466,13 @@ export default function DashboardPage() {
                     </div>
                   ) : null}
                 </div>
+                </div>
+
+                <p className="sub" style={{ margin: 0, textAlign: "right" }}>
+                  Signed in as
+                  <br />
+                  <b>{userEmail}</b>
+                </p>
               </div>
             </div>
 
