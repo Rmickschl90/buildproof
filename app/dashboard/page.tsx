@@ -4336,7 +4336,7 @@ export default function DashboardPage() {
         <div className="shell">
           <div className="card">
             <div className="row" style={{ flexWrap: "wrap", rowGap: 10 }}>
-              <div style={{ display: "flex", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                 {/* The logo PNG has a baked-in white background (not
                     transparent), so on a dark theme it reads as a stray
                     white rectangle unless it's deliberately framed as a
@@ -4350,6 +4350,7 @@ export default function DashboardPage() {
                     display: "flex",
                     alignItems: "center",
                     lineHeight: 0,
+                    flexShrink: 0,
                   }}
                 >
                   <img
@@ -4358,6 +4359,12 @@ export default function DashboardPage() {
                     className="dashboardLogo"
                   />
                 </div>
+
+                <p className="sub" style={{ margin: 0 }}>
+                  Signed in as
+                  <br />
+                  <b>{userEmail}</b>
+                </p>
               </div>
               <div
                 style={{
@@ -4467,11 +4474,6 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
-
-            <p className="sub">
-              Signed in as <b>{userEmail}</b>
-            </p>
-
 
             {status && (
               <div ref={statusRef} className="notice">
