@@ -385,10 +385,24 @@ a:hover {
 }
 
 
+/* Header logo + action buttons (2026-07-30): the app's `.card`/`.shell`
+   are a narrow, fixed-ish single column (~440-460px) at every viewport
+   width, not just on real phones -- so sizing these purely off a
+   max-width:480px media query was wrong. At the old 84px logo height (a
+   ~251px-wide logo image) plus the Upgrade + Account buttons sitting side
+   by side, the header row didn't fit in the card at ANY width (desktop
+   included) and silently wrapped. Both rules below are now unconditional
+   (not mobile-gated) so the header fits beside the button row everywhere,
+   matching the card's real, always-narrow width. */
 .dashboardLogo {
-  height: 84px;
+  height: 68px;
   width: auto;
   display: block;
+}
+
+.headerActionBtn {
+  padding: 7px 10px;
+  font-size: 13px;
 }
 
 /* --- Mobile comfort --- */
@@ -407,29 +421,6 @@ a:hover {
 
   .btn {
     padding: 11px 12px;
-  }
-
-  /* Mobile header fix (2026-07-27): at the full 84px height the logo's
-     intrinsic width left no room beside the Upgrade/Team + Account button
-     column on real narrow phone viewports, forcing the header's flex row to
-     wrap (logo on top, buttons stacked below) instead of staying side-by-side.
-     Shrinking the logo here frees enough width for both to sit on one line.
-     60px (not 44px, the first pass) leaves the logo filling the white chip
-     properly -- 44px left it looking small/adrift in the chip's padding --
-     while still comfortably fitting beside the button column at real phone
-     widths (~342px available content width vs. ~200px needed at this size). */
-  .dashboardLogo {
-    height: 68px;
-  }
-
-  /* Shrinking the Upgrade/Team + Account buttons specifically (not .btn
-     globally -- that class is used all over the app) frees more width for
-     the logo above, and stops the buttons from visually outscaling it. Only
-     applied to these two header-row buttons via headerActionBtn, not the
-     buttons inside the Account dropdown itself. */
-  .headerActionBtn {
-    padding: 7px 10px;
-    font-size: 13px;
   }
 }
 
