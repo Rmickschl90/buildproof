@@ -4032,6 +4032,12 @@ export default function DashboardPage() {
     return bits.length ? bits.join(" • ") : "No client saved";
   }, [selectedProject]);
 
+  const clientDirectionsUrl = useMemo(() => {
+    const address = selectedProject?.project_address?.trim();
+    if (!address) return null;
+    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
+  }, [selectedProject]);
+
   const filteredProjects = useMemo<Project[]>(() => {
     const q = cleanText(projectSearch);
 
@@ -5348,13 +5354,49 @@ export default function DashboardPage() {
                 </div>
 
                 {!clientEditing ? (
-                  <button
-                    className="btn"
-                    style={{ flexShrink: 0 }}
-                    onClick={() => setClientEditing(true)}
-                  >
-                    Edit
-                  </button>
+                  <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                    {clientDirectionsUrl ? (
+                      <a
+                        href={clientDirectionsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn"
+                        title="Get directions"
+                        aria-label="Get directions to this address"
+                        style={{
+                          height: 38,
+                          width: 38,
+                          padding: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                          <circle cx="12" cy="10" r="3" />
+                        </svg>
+                      </a>
+                    ) : null}
+
+                    <button
+                      className="btn"
+                      style={{ flexShrink: 0 }}
+                      onClick={() => setClientEditing(true)}
+                    >
+                      Edit
+                    </button>
+                  </div>
                 ) : null}
               </div>
 
