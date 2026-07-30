@@ -393,9 +393,18 @@ a:hover {
    by side, the header row didn't fit in the card at ANY width (desktop
    included) and silently wrapped. Both rules below are now unconditional
    (not mobile-gated) so the header fits beside the button row everywhere,
-   matching the card's real, always-narrow width. */
+   matching the card's real, always-narrow width.
+
+   Height bumped 68px -> 76px (2026-07-30, same session): with "Signed in
+   as {email}" moved out of this row entirely (now shown inside the
+   Account dropdown instead, see dashboard/page.tsx), the button column
+   shrank to a single button-height line, leaving the header looking
+   sparse/imbalanced next to the shorter logo. Grown to fill that space --
+   confirmed via getBoundingClientRect (not eyeballed) that the row still
+   has comfortable slack before wrapping at the card's narrowest measured
+   width. */
 .dashboardLogo {
-  height: 68px;
+  height: 76px;
   width: auto;
   display: block;
 }

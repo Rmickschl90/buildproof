@@ -4337,7 +4337,7 @@ export default function DashboardPage() {
           <div className="card">
             <div
               className="row"
-              style={{ flexWrap: "wrap", rowGap: 10, alignItems: "flex-start" }}
+              style={{ flexWrap: "wrap", rowGap: 10, alignItems: "center" }}
             >
               <div style={{ display: "flex", alignItems: "center" }}>
                 {/* The logo PNG has a baked-in white background (not
@@ -4365,11 +4365,10 @@ export default function DashboardPage() {
               <div
                 style={{
                   display: "flex",
-                  flexDirection: "column",
-                  gap: 6,
-                  alignItems: "flex-end",
+                  gap: 8,
+                  alignItems: "center",
                   flexShrink: 0,
-                  // Keeps this column flush against the right edge even when
+                  // Keeps this row flush against the right edge even when
                   // the row's flex-wrap drops it onto its own line -- without
                   // this, `justify-content: space-between` on `.row` only
                   // right-aligns it while it shares a line with the logo;
@@ -4378,22 +4377,21 @@ export default function DashboardPage() {
                   // (left), which broke the Account dropdown's `right: 0`
                   // positioning below -- the menu rendered mostly/fully
                   // off-screen to the left. marginLeft: auto keeps this
-                  // column right-anchored in both the wrapped and
+                  // row right-anchored in both the wrapped and
                   // unwrapped case, so the dropdown's right:0 anchor stays
                   // valid regardless of viewport width.
                   marginLeft: "auto",
                 }}
               >
-                <div style={{ display: "flex", gap: 8 }}>
-                  {billingSource === "organization" ? (
-                    <button className="btn headerActionBtn" onClick={openMembersPanel}>
-                      {orgContext?.role === "owner" ? "Invite Team" : "Team"}
-                    </button>
-                  ) : (
-                    <button className="btn headerActionBtn" onClick={openUpgradePanel}>
-                      Upgrade
-                    </button>
-                  )}
+                {billingSource === "organization" ? (
+                  <button className="btn headerActionBtn" onClick={openMembersPanel}>
+                    {orgContext?.role === "owner" ? "Invite Team" : "Team"}
+                  </button>
+                ) : (
+                  <button className="btn headerActionBtn" onClick={openUpgradePanel}>
+                    Upgrade
+                  </button>
+                )}
 
                 <div style={{ position: "relative" }} ref={accountMenuRef}>
                   <button
@@ -4424,6 +4422,19 @@ export default function DashboardPage() {
                         boxSizing: "border-box",
                       }}
                     >
+                      <div
+                        className="sub"
+                        style={{
+                          padding: "2px 4px 8px",
+                          borderBottom: "1px solid var(--borderStrong)",
+                          marginBottom: 2,
+                        }}
+                      >
+                        Signed in as
+                        <br />
+                        <b style={{ color: "var(--text)" }}>{userEmail}</b>
+                      </div>
+
                       <ThemeToggle />
 
                       <button
@@ -4469,13 +4480,6 @@ export default function DashboardPage() {
                     </div>
                   ) : null}
                 </div>
-                </div>
-
-                <p className="sub" style={{ margin: 0, textAlign: "right" }}>
-                  Signed in as
-                  <br />
-                  <b>{userEmail}</b>
-                </p>
               </div>
             </div>
 
