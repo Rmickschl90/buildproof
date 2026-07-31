@@ -6450,7 +6450,7 @@ export default function DashboardPage() {
                 style={{
                   position: "fixed",
                   right: 20,
-                  bottom: 24,
+                  bottom: "calc(env(safe-area-inset-bottom) + 44px)",
                   zIndex: 40,
                   width: 56,
                   height: 56,
@@ -6490,7 +6490,7 @@ export default function DashboardPage() {
                 style={{
                   position: "fixed",
                   right: 20,
-                  bottom: 24,
+                  bottom: "calc(env(safe-area-inset-bottom) + 44px)",
                   zIndex: 40,
                   width: 56,
                   height: 56,
