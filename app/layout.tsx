@@ -1,3 +1,4 @@
+import type { Viewport } from "next";
 import "./globals.css";
 import OfflineSendBootstrap from "@/app/components/OfflineSendBootstrap";
 import OfflineAttachmentBootstrap from "@/app/components/OfflineAttachmentBootstrap";
@@ -17,6 +18,18 @@ export const metadata = {
   },
 };
 
+// Next.js App Router has a dedicated viewport export specifically so it
+// doesn't also inject its own default <meta name="viewport"> tag (which
+// would lack viewportFit: "cover" and silently zero out every
+// env(safe-area-inset-*) value in CSS, regardless of what globals.css says).
+// A hand-written <meta> tag in <head> risked exactly that duplicate-tag
+// conflict -- this is the officially supported way to set it once.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -25,10 +38,6 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1, viewport-fit=cover"
-        />
         {/* Applies the stored (or system) theme before first paint, so
             there's no flash of the wrong theme on load -- must run as a raw
             script before any JS bundle, including lib/theme.ts itself. */}
