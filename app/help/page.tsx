@@ -5,9 +5,8 @@ export default function HelpPage() {
         <main
             style={{
                 minHeight: "100vh",
-                background:
-                    "linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%)",
-                color: "#0f172a",
+                background: "var(--bg)",
+                color: "var(--text)",
                 padding: "24px 16px 48px",
             }}
         >
@@ -25,7 +24,7 @@ export default function HelpPage() {
                         style={{
                             display: "inline-flex",
                             marginBottom: 16,
-                            color: "#2563eb",
+                            color: "var(--accentText)",
                             fontWeight: 800,
                             textDecoration: "none",
                         }}
@@ -50,7 +49,7 @@ export default function HelpPage() {
                     <p
                         style={{
                             margin: "12px 0 0",
-                            color: "#475569",
+                            color: "rgba(var(--text-rgb), 0.72)",
                             fontSize: 16,
                             lineHeight: 1.6,
                             maxWidth: 760,
@@ -140,7 +139,7 @@ export default function HelpPage() {
                     <p
                         style={{
                             margin: "0 0 16px",
-                            color: "#475569",
+                            color: "rgba(var(--text-rgb), 0.72)",
                             fontSize: 15,
                             lineHeight: 1.7,
                         }}
@@ -160,7 +159,7 @@ export default function HelpPage() {
                         }}
                     >
                         <ComparisonCard
-                            dotColor="#16a34a"
+                            dotColor="rgb(var(--success-rgb))"
                             title="Live Record Timeline"
                             items={[
                                 "Shared using the Share Link on the Send page",
@@ -173,7 +172,7 @@ export default function HelpPage() {
                         />
 
                         <ComparisonCard
-                            dotColor="#2563eb"
+                            dotColor="rgb(var(--accent-rgb))"
                             title="Sent Update Snapshot"
                             items={[
                                 "Created automatically when an update is sent",
@@ -526,7 +525,7 @@ function HelpCard({
                 style={{
                     display: "grid",
                     gap: 10,
-                    color: "#475569",
+                    color: "rgba(var(--text-rgb), 0.72)",
                     fontSize: 15,
                     lineHeight: 1.65,
                 }}
@@ -549,8 +548,8 @@ function ComparisonCard({
     return (
         <article
             style={{
-                background: "#f8fafc",
-                border: "1px solid #e2e8f0",
+                background: "var(--surfaceAlt2)",
+                border: "1px solid var(--border)",
                 borderRadius: 16,
                 padding: 20,
             }}
@@ -588,7 +587,7 @@ function ComparisonCard({
                 style={{
                     margin: 0,
                     paddingLeft: 18,
-                    color: "#475569",
+                    color: "rgba(var(--text-rgb), 0.72)",
                     display: "grid",
                     gap: 10,
                     lineHeight: 1.7,
@@ -630,7 +629,7 @@ function WorkflowRow({
                     {index !== items.length - 1 && (
                         <span
                             style={{
-                                color: "#94a3b8",
+                                color: "var(--muted)",
                                 fontWeight: 900,
                             }}
                         >
@@ -653,8 +652,8 @@ function RecordItem({
     return (
         <div
             style={{
-                background: "#f8fafc",
-                border: "1px solid #e2e8f0",
+                background: "var(--surfaceAlt2)",
+                border: "1px solid var(--border)",
                 borderRadius: 14,
                 padding: 12,
             }}
@@ -669,19 +668,19 @@ function RecordItem({
 function getPillStyle(color: "yellow" | "green" | "blue"): React.CSSProperties {
     const styles = {
         yellow: {
-            background: "#fffbeb",
-            color: "#b45309",
-            border: "1px solid #fde68a",
+            background: "rgba(var(--warning-rgb), 0.12)",
+            color: "var(--warningTextAlt)",
+            border: "1px solid rgba(var(--warning-rgb), 0.35)",
         },
         green: {
-            background: "#f0fdf4",
-            color: "#15803d",
-            border: "1px solid #bbf7d0",
+            background: "rgba(var(--success-rgb), 0.12)",
+            color: "var(--successText)",
+            border: "1px solid rgba(var(--success-rgb), 0.35)",
         },
         blue: {
-            background: "#eff6ff",
-            color: "#1d4ed8",
-            border: "1px solid #bfdbfe",
+            background: "rgba(var(--accent-rgb), 0.12)",
+            color: "var(--accentText)",
+            border: "1px solid rgba(var(--accent-rgb), 0.35)",
         },
     };
 
@@ -695,26 +694,26 @@ function getPillStyle(color: "yellow" | "green" | "blue"): React.CSSProperties {
 }
 
 const panelStyle: React.CSSProperties = {
-    background: "#ffffff",
-    border: "1px solid #e5e7eb",
+    background: "var(--card)",
+    border: "1px solid var(--border)",
     borderRadius: 18,
     padding: 22,
-    boxShadow: "0 10px 30px rgba(15, 23, 42, 0.06)",
+    boxShadow: "var(--shadow)",
 };
 
 const cardStyle: React.CSSProperties = {
-    background: "#ffffff",
-    border: "1px solid #e5e7eb",
+    background: "var(--card)",
+    border: "1px solid var(--border)",
     borderRadius: 18,
     padding: 20,
-    boxShadow: "0 10px 24px rgba(15, 23, 42, 0.05)",
+    boxShadow: "var(--shadow)",
 };
 
 const eyebrowStyle: React.CSSProperties = {
     margin: "0 0 8px",
     fontSize: 13,
     fontWeight: 900,
-    color: "#2563eb",
+    color: "var(--accentText)",
     letterSpacing: "0.08em",
     textTransform: "uppercase",
 };
