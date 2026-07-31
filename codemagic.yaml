@@ -12,14 +12,10 @@ workflows:
         distribution_type: app_store
         bundle_identifier: com.linquelabs.leewardapp
       vars:
-        XCODE_WORKSPACE: "App.xcworkspace"
+        XCODE_PROJECT: "App.xcodeproj"
         XCODE_SCHEME: "App"
       xcode: latest
-      cocoapods: default
     scripts:
-      - name: Install CocoaPods dependencies
-        script: |
-          cd ios/App && pod install
       - name: Set up code signing settings on Xcode project
         script: |
           xcode-project use-profiles
@@ -27,7 +23,7 @@ workflows:
         script: |
           cd ios/App
           xcode-project build-ipa \
-            --workspace "$XCODE_WORKSPACE" \
+            --project "$XCODE_PROJECT" \
             --scheme "$XCODE_SCHEME"
     artifacts:
       - ios/App/build/ios/ipa/*.ipa
