@@ -1,0 +1,50 @@
+workflows:
+  ios-workflow:
+    name: Leeward iOS Workflow
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      # This name must exactly match the App Store Connect API key name
+      # you add under Codemagic Team settings > Developer Portal > Manage keys.
+      app_store_connect: leeward_appstore
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.linquelabs.leeward
+      vars:
+        XCODE_WORKSPACE: "App.xcworkspace"
+        XCODE_SCHEME: "App"
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios/App && pod install
+      - name: Set up code signing settings on Xcode project
+        script: |
+          xcode-project use-profiles
+      - name: Build ipa for distribution
+        script: |
+          cd ios/App
+          xcode-project build-ipa \
+            --workspace "$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - ios/App/build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      email:
+        recipients:
+          - rmickschl23@gmail.com
+        notify:
+          success: true
+          failure: true
+      app_store_connect:
+        auth: integration
+        # Flip this to true once the App Store Connect app record exists
+        # (create it manually first — Codemagic docs recommend this) and
+        # you're ready for builds to reach TestFlight testers automatically.
+        submit_to_testflight: false
+        # Leave false until we're actually ready for a public App Store
+        # release — this is a separate, later step.
+        submit_to_app_store: false
