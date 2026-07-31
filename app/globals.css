@@ -131,6 +131,14 @@ body {
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* viewport-fit=cover lets the WebView draw under the iOS status bar /
+     notch / home indicator; these insets push content back below/above
+     those areas. env() resolves to 0 on platforms without a notch (web,
+     Android), so this is safe everywhere, not just iOS. */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 a {
