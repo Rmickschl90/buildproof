@@ -15,7 +15,14 @@ workflows:
         XCODE_PROJECT: "App.xcodeproj"
         XCODE_SCHEME: "App"
       xcode: latest
+      node: latest
     scripts:
+      - name: Install npm dependencies
+        script: |
+          npm install
+      - name: Copy web assets and generate native config files
+        script: |
+          npx cap copy ios
       - name: Set up code signing settings on Xcode project
         script: |
           xcode-project use-profiles
