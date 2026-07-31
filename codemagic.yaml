@@ -26,6 +26,16 @@ workflows:
       - name: Set up code signing settings on Xcode project
         script: |
           xcode-project use-profiles
+      - name: Bump build number
+        script: |
+          # Apple rejects an upload whose CFBundleVersion (build number)
+          # isn't strictly higher than the last one it received. The repo
+          # always has CURRENT_PROJECT_VERSION committed as a fixed
+          # placeholder, so stamp in Codemagic's own auto-incrementing
+          # $BUILD_NUMBER here at build time -- never committed back,
+          # every fresh build run gets a fresh, higher number automatically.
+          cd ios/App
+          sed -i '' -E "s/CURRENT_PROJECT_VERSION = [0-9]+;/CURRENT_PROJECT_VERSION = $BUILD_NUMBER;/g" App.xcodeproj/project.pbxproj
       - name: Build ipa for distribution
         script: |
           cd ios/App
