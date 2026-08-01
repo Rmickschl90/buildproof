@@ -19,7 +19,7 @@ export async function generateMetadata(props: {
     (Array.isArray(invoiceRaw) && (invoiceRaw.includes("1") || invoiceRaw.includes("true")));
 
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
-  const logoUrl = appUrl ? `${appUrl}/buildproof-logo.png` : "/buildproof-logo.png";
+  const logoUrl = appUrl ? `${appUrl}/Leeward-Logo-Approved-Concept.png` : "/Leeward-Logo-Approved-Concept.png";
 
   let title = isInvoiceMode ? "Leeward Invoice" : "Leeward Journal";
 
