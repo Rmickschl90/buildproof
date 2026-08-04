@@ -33,7 +33,7 @@ function formatDate(value: string | null) {
 
 export default async function ApprovalPage({ params }: Props) {
     const { token } = await params;
-    const { approval, error } = await getApprovalByToken(token);
+    const { approval, projectTaxRate, error } = await getApprovalByToken(token);
 
     return (
         <div
@@ -184,6 +184,12 @@ export default async function ApprovalPage({ params }: Props) {
                                                     .toFixed(2)}
                                             </span>
                                         </div>
+
+                                        {projectTaxRate != null ? (
+                                            <div style={{ fontSize: 12, color: "#64748b" }}>
+                                                + Tax ({projectTaxRate}%) applied to the record&rsquo;s final total
+                                            </div>
+                                        ) : null}
                                     </div>
                                 </div>
                             ) : approval.cost_delta !== null ? (

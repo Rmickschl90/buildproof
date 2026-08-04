@@ -18,6 +18,11 @@ export async function POST(req: Request) {
     const includeArchived = Boolean(body?.includeArchived);
     const reportMode =
       body?.reportMode === "dispute" ? "dispute" : "standard";
+    const exportTimezoneOffsetMinutes =
+      typeof body?.exportTimezoneOffsetMinutes === "number" &&
+      !Number.isNaN(body.exportTimezoneOffsetMinutes)
+        ? body.exportTimezoneOffsetMinutes
+        : null;
 
     if (!projectId) {
       return NextResponse.json({ error: "Missing projectId" }, { status: 400 });
@@ -151,6 +156,7 @@ export async function POST(req: Request) {
     id,
     approval_request_id,
     decision,
+    responded_at,
     ip_address,
     user_agent
   `)
@@ -287,6 +293,7 @@ export async function POST(req: Request) {
       timelineHash,
       supabase: supabaseServer,
       reportMode,
+      fallbackTimezoneOffsetMinutes: exportTimezoneOffsetMinutes,
     });
 
     const copied = Uint8Array.from(pdfBuffer);

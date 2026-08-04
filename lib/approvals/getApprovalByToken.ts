@@ -42,5 +42,15 @@ export async function getApprovalByToken(rawToken: string) {
     return { approval: null, error: "This approval request is no longer available." };
   }
 
-  return { approval, error: null };
+  // Record-level tax rate (see 20260803120000_project_tax_rate.sql) -- fetched
+  // so the client-facing review page can disclose that tax applies on top of
+  // this approval's own (pre-tax) Total, same disclosure shown in-app and in
+  // the emailed request. Best-effort: a failed lookup just omits the note.
+  const { data: project } = await supabaseServer
+    .from("projects")
+    .select("tax_rate")
+    .eq("id", approval.project_id)
+    .maybeSingle();
+
+  return { approval, projectTaxRate: project?.tax_rate ?? null, error: null };
 }

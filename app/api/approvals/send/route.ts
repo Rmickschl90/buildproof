@@ -183,6 +183,19 @@ export async function POST(req: Request) {
                 })
                 : [];
 
+        // Record-level tax rate (see 20260803120000_project_tax_rate.sql) --
+        // fetched here so the emailed Total can disclose that tax applies on
+        // top, same disclosure shown in-app (ApprovalCard) and in the PDF
+        // approval cards. Best-effort: a failed/missing lookup just omits
+        // the disclosure rather than blocking the send.
+        const { data: taxRateProject } = await supabaseServer
+            .from("projects")
+            .select("tax_rate")
+            .eq("id", approval.project_id)
+            .maybeSingle();
+
+        const taxRate = taxRateProject?.tax_rate ?? null;
+
         const hasLineItems =
             Array.isArray(approval.line_items) && approval.line_items.length > 0;
 
@@ -203,6 +216,9 @@ export async function POST(req: Request) {
                         ).toFixed(2)}`
                 ),
                 `Total: $${lineItemsTotal.toFixed(2)}`,
+                ...(taxRate != null
+                    ? [`(+ Tax (${taxRate}%) applied to the record's final total)`]
+                    : []),
             ]
             : [];
 
@@ -293,6 +309,10 @@ export async function POST(req: Request) {
               <span>Total</span>
               <span>$${escapeHtml(lineItemsTotal.toFixed(2))}</span>
             </div>
+            ${taxRate != null
+                    ? `<div style="margin-top:4px;font-size:12px;color:#64748b;">+ Tax (${escapeHtml(String(taxRate))}%) applied to the record's final total</div>`
+                    : ""
+                }
           </div>
         `
                 : ""

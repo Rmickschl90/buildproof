@@ -159,6 +159,24 @@ export type BuildProjectPdfArgs = {
   timelineHash?: string | null;
   supabase: any;
   reportMode?: "standard" | "dispute";
+  // Last-resort fallback for the export-time header/footer timestamps
+  // ("Exported:" / "Generated ..."), NOT for any timeline event -- those
+  // always use their own stored created_timezone_offset_minutes. Normally
+  // projectDisplayTimezoneOffsetMinutes (derived below from the record's
+  // own proofs/approvals) is a good proxy for "the exporting contractor's
+  // timezone," since the jobsite and the person exporting are usually the
+  // same. But a record whose proofs/approvals ALL predate the timezone-
+  // capture feature (or were seeded out-of-band) has none to derive from,
+  // and formatDateTime()'s own fallback then silently renders in whatever
+  // timezone the server process happens to run in (UTC on Vercel) with no
+  // indication -- this was the root cause of a real bug found 2026-08-03
+  // (dispute PDF header showed raw UTC, ~5hrs off from the contractor's
+  // actual local export time). Callers with a live browser at export time
+  // (see exportProjectPdf()/exportDisputePackage() in dashboard/page.tsx)
+  // pass the browser's own current timezone offset here as a best-effort
+  // fallback -- correct for "when I exported this," even though it can't
+  // retroactively recover the true jobsite-local time for old entries.
+  fallbackTimezoneOffsetMinutes?: number | null;
 };
 
 const PAGE_SIZE: [number, number] = [612, 792]; // Letter
@@ -208,6 +226,7 @@ export async function buildProjectPdf(
     timelineHash = null,
     supabase,
     reportMode = "standard",
+    fallbackTimezoneOffsetMinutes = null,
   } = args;
 
   // Subtotal/Tax/Total/Paid/Balance Due -- mirrors the dashboard Estimate
@@ -286,7 +305,14 @@ export async function buildProjectPdf(
         typeof a.created_timezone_offset_minutes === "number" &&
         !Number.isNaN(a.created_timezone_offset_minutes)
     )?.created_timezone_offset_minutes ??
-    null;
+    // Last resort: the exporting browser's own current timezone offset, if
+    // the caller had one to send (see fallbackTimezoneOffsetMinutes above).
+    // Only reached when literally none of this record's proofs/approvals
+    // carry timezone data.
+    (typeof fallbackTimezoneOffsetMinutes === "number" &&
+    !Number.isNaN(fallbackTimezoneOffsetMinutes)
+      ? fallbackTimezoneOffsetMinutes
+      : null);
 
   const timelineItems = [
     ...sortedProofs.map((proof) => ({
@@ -489,8 +515,11 @@ export async function buildProjectPdf(
       const attachmentHeight =
         approvalAttachments.length > 0 ? approvalAttachments.length * 14 + 38 : 0;
 
+      // +14 extra when a record-level tax rate is set, to fit the
+      // "+ Tax (X%)..." disclosure line drawn below the Total (see taxRate,
+      // computed once above from project.tax_rate for the whole PDF).
       const lineItemsHeight = hasLineItems
-        ? approval.line_items!.length * 14 + 46
+        ? approval.line_items!.length * 14 + 46 + (taxRate != null ? 14 : 0)
         : 0;
 
       const approvalPreviewBoxW = 120;
@@ -786,6 +815,21 @@ export async function buildProjectPdf(
         });
 
         detailY -= 16;
+
+        if (taxRate != null) {
+          page.drawText(
+            `+ Tax (${taxRate}%) applied to the record's final total`,
+            {
+              x: cardX + 22,
+              y: detailY,
+              size: 8.5,
+              font,
+              color: COLORS.muted,
+            }
+          );
+
+          detailY -= 14;
+        }
       }
 
       if (disputeEvidenceLines.length > 0) {

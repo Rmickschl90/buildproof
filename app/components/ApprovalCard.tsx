@@ -52,6 +52,13 @@ type Props = {
   approval: Approval;
   onUpdated?: () => void | Promise<void>;
   onEdit?: (approval: Approval) => void;
+  // Record-level tax rate (see 20260803120000_project_tax_rate.sql), passed
+  // down so a per-approval Total can disclose that tax is applied on top --
+  // this Total is the approval's own pre-tax figure (tax applies once to
+  // the record's whole running total, not per approval). Optional/nullable
+  // so callers that don't have it yet (or records with no rate set) render
+  // exactly as before.
+  taxRate?: number | null;
 };
 
 function formatApprovalType(value: string) {
@@ -152,7 +159,7 @@ function getStatusLabel(status: ApprovalStatus) {
   return "Pending";
 }
 
-export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
+export default function ApprovalCard({ approval, onUpdated, onEdit, taxRate }: Props) {
   const colors = getStatusColors(approval.status);
   const isArchived = !!approval.archived_at;
   const [isOpen, setIsOpen] = useState(false);
@@ -663,6 +670,12 @@ export default function ApprovalCard({ approval, onUpdated, onEdit }: Props) {
                         .reduce((sum, li) => sum + (Number(li.line_total) || 0), 0)
                         .toFixed(2)}
                     </div>
+
+                    {taxRate != null ? (
+                      <div className="sub" style={{ opacity: 0.65, fontSize: 12 }}>
+                        + Tax ({taxRate}%) applied to the record's final total
+                      </div>
+                    ) : null}
                   </div>
                 ) : approval.cost_delta !== null ? (
                   <div className="sub" style={{ opacity: 0.85 }}>

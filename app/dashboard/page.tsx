@@ -3202,6 +3202,12 @@ export default function DashboardPage() {
         },
         body: JSON.stringify({
           projectId: selectedProject.id,
+          // Best-effort fallback for the export-time header only, used when
+          // this record has no timeline events carrying their own timezone
+          // (see fallbackTimezoneOffsetMinutes in buildProjectPdf.ts) --
+          // fixes a real bug where such records showed the export header in
+          // raw server UTC instead of the exporting contractor's local time.
+          exportTimezoneOffsetMinutes: new Date().getTimezoneOffset(),
         }),
       });
 
@@ -3274,6 +3280,8 @@ export default function DashboardPage() {
         body: JSON.stringify({
           projectId: selectedProject.id,
           reportMode: "dispute",
+          // See exportProjectPdf() above for why this is sent.
+          exportTimezoneOffsetMinutes: new Date().getTimezoneOffset(),
         }),
       });
 
@@ -6047,6 +6055,7 @@ export default function DashboardPage() {
                   <ApprovalCard
                     key={estimateSummary.baseline.id}
                     approval={estimateSummary.baseline}
+                    taxRate={estimateSummary.taxRate}
                     onUpdated={async () => {
                       await loadApprovals(selectedProject.id);
                     }}
@@ -6084,6 +6093,7 @@ export default function DashboardPage() {
                     <ApprovalCard
                       key={approval.id}
                       approval={approval}
+                      taxRate={estimateSummary.taxRate}
                       onUpdated={async () => {
                         await loadApprovals(selectedProject.id);
                       }}
@@ -6102,6 +6112,7 @@ export default function DashboardPage() {
                     <ApprovalCard
                       key={approval.id}
                       approval={approval}
+                      taxRate={estimateSummary.taxRate}
                       onUpdated={async () => {
                         await loadApprovals(selectedProject.id);
                       }}
