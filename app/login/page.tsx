@@ -60,6 +60,27 @@ export default function Login() {
     return !!message && /abort/i.test(message);
   }
 
+  // Diagnostics only, added 2026-08-04 alongside this fix, ahead of ad
+  // traffic starting: fire-and-forget, best-effort ping so we have real
+  // production data on how often this abort race actually fires, since so
+  // far it's only been observed a handful of times manually. Deliberately
+  // does NOT await, and is wrapped so it can never throw -- must never
+  // slow down or interfere with the hard navigation this runs alongside.
+  // See app/api/diagnostics/login-abort/route.ts.
+  function reportAbortRace(location: "mount" | "verify", message: string | undefined) {
+    try {
+      const redirectedFrom = new URLSearchParams(window.location.search).get("redirectedFrom");
+      fetch("/api/diagnostics/login-abort", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ location, message, redirectedFrom }),
+        keepalive: true,
+      }).catch(() => {});
+    } catch {
+      // Never let diagnostics reporting affect the actual recovery path.
+    }
+  }
+
   function hardNavigateToSigningIn() {
     const redirectedFrom = new URLSearchParams(window.location.search).get("redirectedFrom");
     window.location.href = redirectedFrom
@@ -118,6 +139,7 @@ export default function Login() {
         // comment above for the full root-cause writeup and why an in-page
         // retry can't fix this -- only a fresh page load can.
         if (!cancelled && isAbortRace(e?.message)) {
+          reportAbortRace("mount", e?.message);
           hardNavigateToSigningIn();
           return;
         }
@@ -209,6 +231,7 @@ export default function Login() {
       // to recover in-page. Scoped to this specific abort signature so a
       // real wrong/expired code still shows an immediate, specific error.
       if (isAbortRace(err?.message)) {
+        reportAbortRace("verify", err?.message);
         hardNavigateToSigningIn();
         return;
       }
