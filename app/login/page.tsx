@@ -85,6 +85,7 @@ export default function Login() {
 
   async function handleSendCode(e: React.FormEvent) {
     e.preventDefault();
+    if (busy) return;
     setMessage("");
 
     const clean = email.trim().toLowerCase();
@@ -120,6 +121,7 @@ export default function Login() {
 
   async function handleVerifyCode(e: React.FormEvent) {
     e.preventDefault();
+    if (busy) return;
     setMessage("");
 
     const cleanEmail = email.trim().toLowerCase();
@@ -141,6 +143,28 @@ export default function Login() {
       await establishServerSession();
       router.replace(getRedirectTarget());
     } catch (err: any) {
+      // Found 2026-08-04, verified by repeating the full send/receive/enter
+      // flow three times in a row: supabase-js's internal auth lock can
+      // throw a generic "signal is aborted without reason" AbortError from
+      // verifyOtp() even when the code was genuinely valid and a real
+      // session was established server-side -- the client-side promise
+      // just got aborted before it could resolve cleanly, leaving the UI
+      // showing a scary/misleading error while the user is actually signed
+      // in. Before surfacing an error, check whether we're actually
+      // authenticated now; only show the error if we genuinely aren't
+      // (e.g. a truly wrong/expired code), so a user doesn't see this and
+      // give up right after successfully signing in.
+      try {
+        const { data: check } = await supabase.auth.getSession();
+        if (check?.session) {
+          await establishServerSession();
+          router.replace(getRedirectTarget());
+          return;
+        }
+      } catch {
+        // fall through to showing the original error below
+      }
+
       setMessage(`Error: ${err?.message ?? "Code verification failed"}`);
     } finally {
       setBusy(false);
