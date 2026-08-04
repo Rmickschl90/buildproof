@@ -151,8 +151,58 @@ export default function Login() {
     <div className="container">
       <div className="shell">
         <div className="card">
-          <h1 className="h1">Login</h1>
-          <p className="sub">We'll email you a sign-in code for Leeward.</p>
+          {/* Fixes a real conversion gap found 2026-08-04: visitors coming
+              from the marketing site's "Get Started" CTA landed on a bare
+              page titled "Login" with no logo, no confirmation this was
+              still Leeward, and no restatement of the 30-day trial they'd
+              just been promised seconds earlier -- a plausible silent
+              killer for ad-driven traffic (0 of ~120 site visits converted
+              to a signup). Logo + welcoming headline + trial/price recap
+              added below; the email-code mechanism itself is unchanged.
+              Copy is intentionally generic enough to work for both a
+              brand-new visitor and a returning customer signing back in,
+              since this route serves both. Pricing here ($29/mo Individual,
+              $69/mo Team) mirrors app/subscribe/page.tsx -- keep both in
+              sync if prices ever change. */}
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: 12,
+              padding: "3px 6px",
+              display: "inline-flex",
+              alignItems: "center",
+              lineHeight: 0,
+              marginBottom: 16,
+            }}
+          >
+            <img
+              src="/Leeward-Logo-Approved-Concept.png"
+              alt="Leeward"
+              style={{ height: 28, width: "auto", display: "block" }}
+            />
+          </div>
+
+          <h1 className="h1">Welcome to Leeward</h1>
+          <p className="sub">
+            Sign in or create your account below — we'll email you a
+            one-time code, no password needed.
+          </p>
+
+          <div
+            className="sub"
+            style={{
+              marginTop: 12,
+              padding: "10px 12px",
+              borderRadius: 10,
+              background: "rgba(var(--accent-rgb),0.08)",
+              border: "1px solid rgba(var(--accent-rgb),0.18)",
+              fontSize: 13,
+            }}
+          >
+            New here? You'll start with a free 30-day trial — no charge
+            today. Individual is $29/month after your trial, or Team is
+            $69/month for up to 5 users. Cancel anytime.
+          </div>
 
           {!codeSent ? (
             <form onSubmit={handleSendCode} style={{ marginTop: 12, display: "grid", gap: 10 }}>
@@ -218,6 +268,12 @@ export default function Login() {
 
           <div className="sub" style={{ marginTop: 10 }}>
             Tip: enter the newest code from your email.
+          </div>
+
+          <div style={{ marginTop: 14 }}>
+            <a href="https://getleeward.com" className="sub" style={{ textDecoration: "underline" }}>
+              &larr; Back to getleeward.com
+            </a>
           </div>
         </div>
       </div>
