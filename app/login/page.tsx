@@ -32,53 +32,39 @@ export default function Login() {
   }
 
   // Found 2026-08-04, reproduced a second time on production the same day
-  // even with a 4-attempt/400ms polling retry loop in place: that loop's
-  // ~1.6s total window still wasn't enough on at least one real production
-  // abort -- confirmed via manual /dashboard navigation immediately after,
-  // which showed a genuinely signed-in session while the UI was still
-  // showing the abort error. Polling getSession() on a fixed schedule is
-  // fundamentally guessing at timing. This replaces that guess with an
-  // event-driven wait: subscribe to onAuthStateChange (fires the moment
-  // supabase-js's internal lock actually finishes writing the session,
-  // whenever that happens -- not on our schedule) alongside an immediate
-  // check and a final timeout re-check as a safety net, so recovery isn't
-  // bounded by an arbitrary small number of fixed-interval polls.
-  function waitForRealSession(timeoutMs: number): Promise<boolean> {
-    return new Promise((resolve) => {
-      let settled = false;
+  // even with a 4-attempt/400ms polling retry loop in place, and then a
+  // THIRD time with an event-driven onAuthStateChange-based wait in place
+  // too -- both still showed the error while a real session genuinely
+  // existed (confirmed each time via manual /dashboard navigation in the
+  // same tab, which worked instantly). The common thread: every one of
+  // those fixes tried to keep using supabase-js's client instance on the
+  // ALREADY-LOADED /login page. The working signal every time was a fresh
+  // full navigation. Root cause theory: supabase-js's internal
+  // navigator.locks-based auth mutex gets wedged after the abort -- the
+  // lock from the original aborted call is never cleanly released, so
+  // every subsequent call on this same page (polling OR event listeners)
+  // that needs that same lock hangs or fails too, even though the real
+  // session is sitting in storage the whole time. A page reload gets a
+  // brand-new lock manager scope and a brand-new supabase-js client, which
+  // reads storage cleanly.
+  //
+  // Fix: on this specific abort, stop trying to recover in-page. Hard-
+  // navigate to /auth/finish/signing-in instead, which already has its own
+  // battle-tested access-token polling loop (waitForAccessToken(), up to
+  // 6s) running against a FRESH client on a freshly-loaded page -- and
+  // falls back to /login on its own if there's genuinely no session. Only
+  // takes this path for the specific abort signature, so a real wrong/
+  // expired code still shows an immediate, specific error instead of a
+  // silent multi-second redirect.
+  function isAbortRace(message: string | undefined) {
+    return !!message && /abort/i.test(message);
+  }
 
-      const finish = (result: boolean) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        subscription.unsubscribe();
-        resolve(result);
-      };
-
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (session) finish(true);
-      });
-
-      const timer = setTimeout(() => {
-        supabase.auth
-          .getSession()
-          .then(({ data }) => finish(!!data?.session))
-          .catch(() => finish(false));
-      }, timeoutMs);
-
-      // Also check immediately in case the session already landed in
-      // storage before we finished subscribing.
-      supabase.auth
-        .getSession()
-        .then(({ data }) => {
-          if (data?.session) finish(true);
-        })
-        .catch(() => {
-          // ignore -- the listener and timeout fallback still cover us
-        });
-    });
+  function hardNavigateToSigningIn() {
+    const redirectedFrom = new URLSearchParams(window.location.search).get("redirectedFrom");
+    window.location.href = redirectedFrom
+      ? `/auth/finish/signing-in?redirectedFrom=${encodeURIComponent(redirectedFrom)}`
+      : "/auth/finish/signing-in";
   }
 
   useEffect(() => {
@@ -122,24 +108,20 @@ export default function Login() {
         const err = new URLSearchParams(window.location.search).get("error");
         if (err && !cancelled) setMessage(`Error: ${err}`);
       } catch (e: any) {
-        // Found 2026-08-04, same session as the handleVerifyCode abort fix:
-        // this mount-time getSession() call can hit the exact same
-        // supabase-js internal-lock "signal is aborted without reason"
-        // abort as verifyOtp() -- confirmed live on production by loading
-        // /login with a genuinely valid existing session already in
-        // storage and landing on this catch instead of being redirected.
-        // Previously this just showed a scary error and stranded an
-        // already-signed-in user on the login page. Reuse the same
-        // event-driven recovery instead of giving up immediately.
-        const recovered = await waitForRealSession(8000);
-        if (!cancelled) {
-          if (recovered) {
-            await establishServerSession();
-            router.replace(getRedirectTarget());
-            return;
-          }
-          setMessage(`Error: ${e?.message ?? "Login error"}`);
+        // Found 2026-08-04, same underlying bug as the handleVerifyCode
+        // abort race: this mount-time getSession() call can hit the exact
+        // same supabase-js internal-lock abort -- confirmed live on
+        // production by loading /login with a genuinely valid existing
+        // session already in storage and landing on this catch instead of
+        // being redirected. Previously this just showed a scary error and
+        // stranded an already-signed-in user. See hardNavigateToSigningIn's
+        // comment above for the full root-cause writeup and why an in-page
+        // retry can't fix this -- only a fresh page load can.
+        if (!cancelled && isAbortRace(e?.message)) {
+          hardNavigateToSigningIn();
+          return;
         }
+        if (!cancelled) setMessage(`Error: ${e?.message ?? "Login error"}`);
       }
     }
 
@@ -211,39 +193,23 @@ export default function Login() {
       router.replace(getRedirectTarget());
     } catch (err: any) {
       // Found 2026-08-04, verified by repeating the full send/receive/enter
-      // flow three times in a row: supabase-js's internal auth lock can
-      // throw a generic "signal is aborted without reason" AbortError from
-      // verifyOtp() even when the code was genuinely valid and a real
-      // session was established server-side -- the client-side promise
-      // just got aborted before it could resolve cleanly, leaving the UI
-      // showing a scary/misleading error while the user is actually signed
-      // in. Before surfacing an error, check whether we're actually
-      // authenticated now; only show the error if we genuinely aren't
-      // (e.g. a truly wrong/expired code), so a user doesn't see this and
-      // give up right after successfully signing in.
-      //
-      // Updated 2026-08-04 (same day, re-verification on production): a
-      // single immediate getSession() check isn't always enough -- caught a
-      // real case where the underlying sign-in had genuinely succeeded
-      // (confirmed by manually loading /dashboard right after) but the
-      // fallback still showed the error, because getSession() reads from
-      // local storage and the aborted lock's session write hadn't landed
-      // there yet at the exact moment we checked.
-      //
-      // Updated again 2026-08-04 (second production re-verification, same
-      // day): even a 4-attempt/400ms fixed-interval retry loop wasn't
-      // always enough -- reproduced again on production with that loop in
-      // place, again confirmed via manual /dashboard navigation that the
-      // session was genuinely real. Fixed-interval polling was still just
-      // guessing at timing. Replaced with waitForRealSession(), which
-      // reacts to the actual onAuthStateChange event the moment
-      // supabase-js's internal lock finishes writing the session, with a
-      // generous 8s ceiling as a safety net rather than a handful of short
-      // polls.
-      const recovered = await waitForRealSession(8000);
-      if (recovered) {
-        await establishServerSession();
-        router.replace(getRedirectTarget());
+      // flow three times in a row, then reproduced twice more the same day
+      // against two different in-page recovery attempts (a fixed-interval
+      // retry loop, then an onAuthStateChange-based event-driven wait) --
+      // both still showed this error while a real session genuinely
+      // existed server-side, confirmed each time via manual /dashboard
+      // navigation in the same tab succeeding instantly. See
+      // hardNavigateToSigningIn's comment above for the full root-cause
+      // writeup: supabase-js's internal auth lock appears to get wedged on
+      // this page after the abort, so no in-page client-side check can
+      // ever reliably recover -- only a fresh page load can. Hard-navigate
+      // to /auth/finish/signing-in, which polls for the access token on a
+      // brand-new client and falls back to /login itself if there's
+      // genuinely no session, rather than trying (and repeatedly failing)
+      // to recover in-page. Scoped to this specific abort signature so a
+      // real wrong/expired code still shows an immediate, specific error.
+      if (isAbortRace(err?.message)) {
+        hardNavigateToSigningIn();
         return;
       }
 
