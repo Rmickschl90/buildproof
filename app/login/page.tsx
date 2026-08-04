@@ -154,15 +154,31 @@ export default function Login() {
       // authenticated now; only show the error if we genuinely aren't
       // (e.g. a truly wrong/expired code), so a user doesn't see this and
       // give up right after successfully signing in.
-      try {
-        const { data: check } = await supabase.auth.getSession();
-        if (check?.session) {
-          await establishServerSession();
-          router.replace(getRedirectTarget());
-          return;
+      //
+      // Updated 2026-08-04 (same day, re-verification on production): a
+      // single immediate getSession() check isn't always enough -- caught a
+      // real case where the underlying sign-in had genuinely succeeded
+      // (confirmed by manually loading /dashboard right after) but the
+      // fallback still showed the error, because getSession() reads from
+      // local storage and the aborted lock's session write hadn't landed
+      // there yet at the exact moment we checked. Retrying a few times with
+      // a short delay closes that race instead of giving up on the first
+      // read.
+      for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+          const { data: check } = await supabase.auth.getSession();
+          if (check?.session) {
+            await establishServerSession();
+            router.replace(getRedirectTarget());
+            return;
+          }
+        } catch {
+          // fall through to retry/backoff below
         }
-      } catch {
-        // fall through to showing the original error below
+
+        if (attempt < 3) {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+        }
       }
 
       setMessage(`Error: ${err?.message ?? "Code verification failed"}`);
