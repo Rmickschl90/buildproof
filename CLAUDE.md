@@ -22,7 +22,7 @@ There is no lint script and no test suite configured in this repo — do not ass
 
 Native shells live in `android/` and `ios/` (Capacitor-generated Android Studio / Xcode projects). They are built/run through Android Studio / Xcode, not npm scripts. After changing web code that the native shell depends on, sync with `npx cap sync`.
 
-Deploys go through Vercel (`vercel --prod`). The local repo is linked to a specific Vercel project via `.vercel/project.json` — verify which project (staging vs production) is currently linked before deploying; see "Deployment flow" below.
+Deploys go through Vercel (`vercel --prod`). **Note (confirmed 2026-07-31): this repo's Vercel CLI links via `.vercel/repo.json`, not `.vercel/project.json`** — `project.json` does not exist here and checking for it will always fail with "path not found," which has caused repeated confusion/wasted turns across sessions. To verify which project is linked before deploying, run `Get-Content .vercel\repo.json` (or `type .vercel\repo.json`) — it's a JSON object with a `projects` array; check the `name` field (e.g. `leeward-staging-internal`) and `id`. If `.vercel/` doesn't exist yet at all, run `vercel link` first (choose the team scope, "Link to existing project," and type the exact project name — do NOT let it default/guess, since `buildproof-staging` despite its name is real production, not staging). See "Deployment flow" below for which project is which.
 
 ## Architecture
 
@@ -1451,3 +1451,110 @@ account's `user_subscriptions` row was left deleted afterward as a result,
 not restored.
 
 NOT YET deployed to production.
+
+## Fixed (with active monitoring): Login OTP Abort-Race Bug + Diagnostics (2026-08-04)
+
+Real production bug, found and fixed the same day Meta ad traffic was
+about to start driving new signups through `/login` — treated as
+highest priority, "number 1," all other work paused until resolved.
+
+### The bug
+`app/login/page.tsx`'s OTP sign-in flow (`supabase.auth.verifyOtp()`
+in `handleVerifyCode`, and a plain `supabase.auth.getSession()` check
+in the mount-time `useEffect`) could throw a generic `AbortError`
+("signal is aborted without reason") even though the underlying
+sign-in had genuinely succeeded server-side and a real session token
+was already sitting in localStorage. Confirmed multiple times by
+manually navigating to `/dashboard` in the same tab immediately after
+the error and finding the user was, in fact, signed in.
+
+Root cause theory (not provable from application code alone, since
+this is inside a third-party library's internals, but consistent with
+every observation): supabase-js's internal `navigator.locks`-based
+auth mutex gets wedged after the abort — the lock from the original
+call is never cleanly released, so every subsequent call on that same
+already-loaded page that needs the same lock (polling OR
+`onAuthStateChange` event listeners) also hangs or fails, even though
+the real session is sitting in storage the whole time. Only a genuine
+fresh page navigation reliably recovers, because it gets a brand-new
+lock-manager scope and a brand-new supabase-js client instance.
+
+### Three fix iterations (only the third actually worked)
+1. Fixed-interval retry loop (4 attempts / 400ms) after the abort —
+   reproduced the same error on production stress-testing; window was
+   too short and, per the root-cause theory above, couldn't have
+   worked regardless of window length since it was still polling the
+   same wedged lock on the same page.
+2. Event-driven `onAuthStateChange`-based wait
+   (`waitForRealSession()`) — also reproduced live on production.
+   Confirms the issue isn't polling-interval-specific: no in-page
+   recovery strategy on the already-loaded page works once the lock is
+   wedged.
+3. **Hard navigation (the fix that shipped and is live)**: on this
+   specific abort signature (`isAbortRace()`, a regex match for
+   `/abort/i` against the error message), both call sites now call
+   `hardNavigateToSigningIn()`, which does a real
+   `window.location.href` navigation to `/auth/finish/signing-in`
+   (preserving `redirectedFrom`) instead of trying to recover in
+   place. That page already had its own independent, previously
+   battle-tested `waitForAccessToken()` polling loop (up to 6s) running
+   against a brand-new client on a freshly-loaded page, with its own
+   fallback to `/login` if there's genuinely no session. Scoped to
+   this specific abort signature only, so a real wrong/expired code
+   still shows an immediate, specific error instead of a silent
+   multi-second redirect.
+
+### Verification performed
+Stress-tested repeatedly on production (`app.getleeward.com`), not
+just staging, per the explicit "verify EVERY time" bar this bug was
+held to. In one clean single-tab cycle: an already-signed-in session
+hitting `/login` redirected straight to `/dashboard` with no error
+(exercises the mount-time abort path); a full logout → send code →
+enter code → verify cycle landed cleanly on `/dashboard` with the real
+record list, no error, no stall, in about 3 seconds (exercises the
+`verifyOtp` abort path). One transient false alarm during testing — a
+16-second stall on `/auth/finish/signing-in` past its own 6s
+timeout — was root-caused to stale test tabs left open against the
+same origin (likely contending for the same browser-level lock
+resource), not a bug in the fix itself; closing them and re-running in
+a single clean tab resolved it immediately. Ryan separately confirmed
+a real-world pass outside this testing: signed in via Safari on
+`getleeward.com` with an existing account, no snag.
+
+**Explicitly not claimed as "provably bulletproof."** No in-page
+detection of a third-party library's internal lock state can be proven
+exhaustive, and all verification so far has been via desktop Chrome
+automation plus one real Safari session — mobile Safari/Chrome under
+real flaky-network ad-traffic conditions (the highest-risk untested
+surface, and where lock/timing races are typically more common) has
+not been separately stress-tested yet. Treat this as the current
+known-good state under active monitoring, not a closed issue.
+
+### Diagnostics added (non-invasive, does not touch the recovery logic)
+Added the same day, once Ryan confirmed it wouldn't touch the verified
+login flow: a new route, `app/api/diagnostics/login-abort/route.ts`,
+logs to Vercel's function logs whenever the abort race actually fires
+in production (timestamp, which catch site — `"mount"` or `"verify"`
+— the raw error message, `redirectedFrom`, and user agent). Wired into
+`app/login/page.tsx` via a `reportAbortRace()` call placed immediately
+before each existing `hardNavigateToSigningIn()` call. Deliberately
+fire-and-forget: `fetch(..., { keepalive: true })`, never awaited,
+wrapped in try/catch so it can never throw back into the login flow or
+delay the actual navigation. This exists purely so there's real
+production data (frequency, browser/device clustering) on how often
+this fires instead of relying on manual spot-checks, especially while
+ad-driven signup traffic ramps up. To check it: `vercel logs
+app.getleeward.com --project buildproof-staging`, grep for
+`login-abort-race`.
+
+### Still open, flagged as follow-up priority (discussed, not yet done)
+Real mobile device testing (Safari iOS, Chrome Android, ideally on
+cellular rather than wifi, where timing is worse) — the biggest actual
+coverage gap given ad traffic is mobile-heavy and this session's
+automated testing was desktop-Chrome-only. A confirmed-fast rollback
+plan to the pre-fix commit, kept ready rather than worked out live
+under pressure if a real user does get stuck. Both were raised with
+Ryan as the highest-leverage next steps and treated as a standing
+priority above the ad-campaign follow-up tasks, given "I don't have
+much time left" — but neither has been executed yet as of this
+writing.
