@@ -31,6 +31,56 @@ export default function Login() {
     return redirectedFrom || "/auth/finish/signing-in";
   }
 
+  // Found 2026-08-04, reproduced a second time on production the same day
+  // even with a 4-attempt/400ms polling retry loop in place: that loop's
+  // ~1.6s total window still wasn't enough on at least one real production
+  // abort -- confirmed via manual /dashboard navigation immediately after,
+  // which showed a genuinely signed-in session while the UI was still
+  // showing the abort error. Polling getSession() on a fixed schedule is
+  // fundamentally guessing at timing. This replaces that guess with an
+  // event-driven wait: subscribe to onAuthStateChange (fires the moment
+  // supabase-js's internal lock actually finishes writing the session,
+  // whenever that happens -- not on our schedule) alongside an immediate
+  // check and a final timeout re-check as a safety net, so recovery isn't
+  // bounded by an arbitrary small number of fixed-interval polls.
+  function waitForRealSession(timeoutMs: number): Promise<boolean> {
+    return new Promise((resolve) => {
+      let settled = false;
+
+      const finish = (result: boolean) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        subscription.unsubscribe();
+        resolve(result);
+      };
+
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (session) finish(true);
+      });
+
+      const timer = setTimeout(() => {
+        supabase.auth
+          .getSession()
+          .then(({ data }) => finish(!!data?.session))
+          .catch(() => finish(false));
+      }, timeoutMs);
+
+      // Also check immediately in case the session already landed in
+      // storage before we finished subscribing.
+      supabase.auth
+        .getSession()
+        .then(({ data }) => {
+          if (data?.session) finish(true);
+        })
+        .catch(() => {
+          // ignore -- the listener and timeout fallback still cover us
+        });
+    });
+  }
+
   useEffect(() => {
     let cancelled = false;
 
@@ -72,7 +122,24 @@ export default function Login() {
         const err = new URLSearchParams(window.location.search).get("error");
         if (err && !cancelled) setMessage(`Error: ${err}`);
       } catch (e: any) {
-        if (!cancelled) setMessage(`Error: ${e?.message ?? "Login error"}`);
+        // Found 2026-08-04, same session as the handleVerifyCode abort fix:
+        // this mount-time getSession() call can hit the exact same
+        // supabase-js internal-lock "signal is aborted without reason"
+        // abort as verifyOtp() -- confirmed live on production by loading
+        // /login with a genuinely valid existing session already in
+        // storage and landing on this catch instead of being redirected.
+        // Previously this just showed a scary error and stranded an
+        // already-signed-in user on the login page. Reuse the same
+        // event-driven recovery instead of giving up immediately.
+        const recovered = await waitForRealSession(8000);
+        if (!cancelled) {
+          if (recovered) {
+            await establishServerSession();
+            router.replace(getRedirectTarget());
+            return;
+          }
+          setMessage(`Error: ${e?.message ?? "Login error"}`);
+        }
       }
     }
 
@@ -161,24 +228,23 @@ export default function Login() {
       // (confirmed by manually loading /dashboard right after) but the
       // fallback still showed the error, because getSession() reads from
       // local storage and the aborted lock's session write hadn't landed
-      // there yet at the exact moment we checked. Retrying a few times with
-      // a short delay closes that race instead of giving up on the first
-      // read.
-      for (let attempt = 0; attempt < 4; attempt++) {
-        try {
-          const { data: check } = await supabase.auth.getSession();
-          if (check?.session) {
-            await establishServerSession();
-            router.replace(getRedirectTarget());
-            return;
-          }
-        } catch {
-          // fall through to retry/backoff below
-        }
-
-        if (attempt < 3) {
-          await new Promise((resolve) => setTimeout(resolve, 400));
-        }
+      // there yet at the exact moment we checked.
+      //
+      // Updated again 2026-08-04 (second production re-verification, same
+      // day): even a 4-attempt/400ms fixed-interval retry loop wasn't
+      // always enough -- reproduced again on production with that loop in
+      // place, again confirmed via manual /dashboard navigation that the
+      // session was genuinely real. Fixed-interval polling was still just
+      // guessing at timing. Replaced with waitForRealSession(), which
+      // reacts to the actual onAuthStateChange event the moment
+      // supabase-js's internal lock finishes writing the session, with a
+      // generous 8s ceiling as a safety net rather than a handful of short
+      // polls.
+      const recovered = await waitForRealSession(8000);
+      if (recovered) {
+        await establishServerSession();
+        router.replace(getRedirectTarget());
+        return;
       }
 
       setMessage(`Error: ${err?.message ?? "Code verification failed"}`);
