@@ -156,7 +156,7 @@ export async function POST(req: Request) {
     id,
     approval_request_id,
     decision,
-    responded_at,
+    created_at,
     ip_address,
     user_agent
   `)

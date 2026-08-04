@@ -92,9 +92,17 @@ export type ApprovalRow = {
 
 export type ApprovalResponseRow = {
   id: string;
-  approval_id?: string | null;
+  approval_request_id?: string | null;
   decision: string | null;
-  responded_at?: string | null;
+  // NOTE: the approval_responses table's timestamp column is created_at,
+  // not responded_at (confirmed directly against the DB schema
+  // 2026-08-03/04 -- a prior session added `responded_at` to this type and
+  // to the export/pdf select based on an untested code-review fix, which
+  // caused a real "column approval_responses.responded_at does not exist"
+  // error the first time the dispute export was actually run against it).
+  // approval_requests.responded_at is a separate, real column on a
+  // different table -- don't conflate the two.
+  created_at?: string | null;
   ip_address: string | null;
   user_agent: string | null;
 };
@@ -478,8 +486,8 @@ export async function buildProjectPdf(
       const latestResponse =
         approval.approval_responses && approval.approval_responses.length > 0
           ? [...approval.approval_responses].sort((a, b) => {
-            const aTime = new Date(a.responded_at || "").getTime();
-            const bTime = new Date(b.responded_at || "").getTime();
+            const aTime = new Date(a.created_at || "").getTime();
+            const bTime = new Date(b.created_at || "").getTime();
             return bTime - aTime;
           })[0]
           : null;
@@ -490,7 +498,7 @@ export async function buildProjectPdf(
             `Decision: ${sanitizePdfText(latestResponse.decision || "Unknown")}`,
             `Responded: ${sanitizePdfText(
               formatDateTime(
-                latestResponse.responded_at || "",
+                latestResponse.created_at || "",
                 approval.created_timezone_offset_minutes
               )
             )}`,
