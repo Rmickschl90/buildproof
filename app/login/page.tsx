@@ -208,35 +208,38 @@ export default function Login() {
       // App Review support only, added 2026-08-04: Apple's reviewer can't
       // receive a real emailed code for our demo account (it goes to the
       // developer's personal inbox), a common App Review stall for
-      // passwordless sign-in. If this is the exact demo account, ask the
-      // server whether the entered code matches the fixed reviewer code --
-      // if it does, the server mints a real, valid one-time code via
-      // Supabase's admin API (no email sent) and we verify with that
-      // instead. Any non-match (wrong code, feature not configured, etc.)
-      // silently falls through and verifies cleanEmail/cleanCode exactly as
-      // before, so a real emailed code -- or a genuinely wrong one -- still
-      // behaves exactly as it always has. Every other account is
-      // completely unaffected, since NEXT_PUBLIC_APP_REVIEW_DEMO_EMAIL only
-      // ever matches this one address.
-      if (
-        process.env.NEXT_PUBLIC_APP_REVIEW_DEMO_EMAIL &&
-        cleanEmail === process.env.NEXT_PUBLIC_APP_REVIEW_DEMO_EMAIL.trim().toLowerCase()
-      ) {
-        try {
-          const res = await fetch("/api/auth/review-demo-token", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: cleanEmail, code: cleanCode }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data?.match && data?.token) {
-              verifyToken = data.token;
-            }
+      // passwordless sign-in. Every verify attempt asks the server whether
+      // this email/code pair matches the one designated demo account + fixed
+      // reviewer code -- if it does, the server mints a real, valid one-time
+      // code via Supabase's admin API (no email sent) and we verify with
+      // that instead. Any non-match (wrong email, wrong code, feature not
+      // configured, server error, etc.) silently falls through and verifies
+      // cleanEmail/cleanCode exactly as before, so a real emailed code -- or
+      // a genuinely wrong one -- still behaves exactly as it always has for
+      // every account other than the one designated demo address.
+      //
+      // Deliberately NOT gated on a client-side/NEXT_PUBLIC_ env var check
+      // first (an earlier version of this fix was, and that var never got
+      // inlined into the production client bundle for reasons never fully
+      // root-caused -- see REGRESSION_LEDGER.md). Calling this endpoint
+      // unconditionally on every verify attempt removes that entire failure
+      // mode and also avoids ever shipping the demo email address into the
+      // client bundle. The extra round-trip is one fast serverless call and
+      // is invisible to real users, who always get match:false back.
+      try {
+        const res = await fetch("/api/auth/review-demo-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: cleanEmail, code: cleanCode }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.match && data?.token) {
+            verifyToken = data.token;
           }
-        } catch {
-          // Falls through to the real code below -- never blocks sign-in.
         }
+      } catch {
+        // Falls through to the real code below -- never blocks sign-in.
       }
 
       const { error } = await supabase.auth.verifyOtp({
