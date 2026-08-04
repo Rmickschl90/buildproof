@@ -203,9 +203,45 @@ export default function Login() {
     try {
       setBusy(true);
 
+      let verifyToken = cleanCode;
+
+      // App Review support only, added 2026-08-04: Apple's reviewer can't
+      // receive a real emailed code for our demo account (it goes to the
+      // developer's personal inbox), a common App Review stall for
+      // passwordless sign-in. If this is the exact demo account, ask the
+      // server whether the entered code matches the fixed reviewer code --
+      // if it does, the server mints a real, valid one-time code via
+      // Supabase's admin API (no email sent) and we verify with that
+      // instead. Any non-match (wrong code, feature not configured, etc.)
+      // silently falls through and verifies cleanEmail/cleanCode exactly as
+      // before, so a real emailed code -- or a genuinely wrong one -- still
+      // behaves exactly as it always has. Every other account is
+      // completely unaffected, since NEXT_PUBLIC_APP_REVIEW_DEMO_EMAIL only
+      // ever matches this one address.
+      if (
+        process.env.NEXT_PUBLIC_APP_REVIEW_DEMO_EMAIL &&
+        cleanEmail === process.env.NEXT_PUBLIC_APP_REVIEW_DEMO_EMAIL.trim().toLowerCase()
+      ) {
+        try {
+          const res = await fetch("/api/auth/review-demo-token", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: cleanEmail, code: cleanCode }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.match && data?.token) {
+              verifyToken = data.token;
+            }
+          }
+        } catch {
+          // Falls through to the real code below -- never blocks sign-in.
+        }
+      }
+
       const { error } = await supabase.auth.verifyOtp({
         email: cleanEmail,
-        token: cleanCode,
+        token: verifyToken,
         type: "email",
       });
 
