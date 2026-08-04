@@ -1558,3 +1558,142 @@ Ryan as the highest-leverage next steps and treated as a standing
 priority above the ad-campaign follow-up tasks, given "I don't have
 much time left" — but neither has been executed yet as of this
 writing.
+
+**Update (2026-08-04, later same day): first real mobile pass, done,
+and it's the highest-risk condition.** Ryan ran a real end-to-end
+login on Safari on iOS over cellular data (not wifi) — via
+`getleeward.com` → "Get Started" → real OTP code received and
+entered → `verifyOtp()` succeeded → landed cleanly on `/dashboard`,
+no abort error. This exercises the actual `verifyOtp()` catch site
+(`handleVerifyCode`), the original trigger site for this bug, not
+just the mount-time already-signed-in redirect path — on the exact
+device/browser/network combination flagged above as highest-risk.
+Cross-checked against Vercel: `get_runtime_errors` showed zero
+production errors over the prior 7 days, and runtime logs for the
+surrounding window (Hobby plan's 1h retention window) showed a clean
+`/login` → `/api/auth/session 200` → `/auth/finish/signing-in 200` →
+`/dashboard 200` sequence with no `login-abort-race` diagnostic hits.
+
+Narrows, doesn't close, the mobile gap: Chrome Android (any network)
+is still untested, and — flagged explicitly by Ryan — the Stripe
+checkout flow through to the app on a mobile device (a brand-new
+signup choosing a plan and completing payment on a phone) has not
+been verified. The rollback plan is still not written.
+
+**Update (2026-08-04, same session): rollback plan prepared and
+safety-checked, not yet live-drilled.** Full runbook:
+`09-Regression-Ledger/Production Rollback Runbook.md` in the Brain
+vault. Summary: confirmed via the Vercel MCP that the exact deployment
+currently aliased to `app.getleeward.com` is `dpl_4afFikp3jrwHzzXa7Gx6vPqsMKKc`,
+commit `1e989f1e449d2f40b2d169be4b6ecc83fe2bf518` — this is the anchor
+to redeploy from if a future change breaks login (must be kept current,
+not treated as permanent). Two methods documented: Vercel's own
+"Instant Rollback" (dashboard or `vercel rollback`), flagged as
+possibly unavailable since Vercel's docs state it's a Pro/Enterprise
+feature and this project is on Hobby — not confirmed either way; and
+the proven, plan-agnostic fallback of checking out the known-good
+commit into an isolated `git worktree` and running
+`vercel deploy --project buildproof-staging --prod`, the same method
+that recovered production during the 2026-07-19/20 incident. Verified
+locally without touching production: that commit checks out cleanly
+in an isolated worktree and genuinely contains the expected fix code
+(`isAbortRace`/`reportAbortRace`/`hardNavigateToSigningIn`, the
+diagnostics route). No real rollback was executed — production is
+healthy and deployment/alias routing is a protected system.
+
+## Fixed: App Review Demo-Account Login (2026-08-04)
+
+Found while the iOS App Store submission was stuck "Waiting for
+Review" and Ryan was on hold with Apple support: the submitted App
+Review Information Notes told the reviewer the demo account
+(`rmickschl23@gmail.com`) signs in via emailed OTP code same as any
+real user — but that code goes to Ryan's personal inbox, not anywhere
+the reviewer can see it. This is a well-known App Review
+stall/rejection pattern for passwordless/2FA sign-in flows and was
+flagged and fixed proactively, before Apple actually rejected on it.
+
+**Design.** `app/login/page.tsx`'s `handleVerifyCode` now always calls
+a new route, `app/api/auth/review-demo-token/route.ts`, on every verify
+attempt (not just for the demo account — see the two false starts
+below for why). The route compares the submitted email/code against
+two server-only env vars, `APP_REVIEW_DEMO_EMAIL` and
+`APP_REVIEW_DEMO_CODE` (never exposed to the client). On a match, it
+mints a real one-time code via Supabase's admin API
+(`auth.admin.generateLink`, which never sends an email — that's the
+whole point of using it here) and the page verifies with that code
+instead. Any non-match (wrong email, wrong code, vars unset, server
+error) returns `{ match: false }` and the page falls straight through
+to the normal `supabase.auth.verifyOtp()` path, completely unchanged.
+Narrowly scoped by construction: only ever matches the one designated
+demo email, every other account's login is byte-for-byte identical to
+before.
+
+**Two real bugs found and fixed getting this working, both worth
+remembering:**
+
+1. **First deploy: the client-side gate never fired.** The first
+version of this fix pre-checked `cleanEmail ===
+process.env.NEXT_PUBLIC_APP_REVIEW_DEMO_EMAIL` in the browser before
+calling the new route at all. Pulled the actual deployed JS bundle
+directly (via `fetch()` on the chunk URL + string/char-code
+inspection, not just source review) and confirmed the compiled code
+still contained a literal, un-inlined
+`process.env.NEXT_PUBLIC_APP_REVIEW_DEMO_EMAIL` property lookup —
+Next's build never substituted the real value in as a string literal,
+even though the env var had been added to Vercel beforehand. Root
+cause of *that* specific symptom was never fully pinned down (Next 16
++ Turbopack, build cache restored from a prior deployment, was the
+leading theory but unconfirmed). Rather than keep chasing it, the fix
+was redesigned to remove the dependency entirely: call the server
+route unconditionally on every attempt and let the server decide
+match/no-match using non-public env vars only. This is strictly
+better, not just a workaround — it also stops the demo email from
+ever shipping inside the public client bundle.
+
+2. **Second deploy: still 404 in production, root cause was much
+simpler.** After removing the client-side gate, the route was reached
+correctly (confirmed via live network trace) but returned 404 —
+meaning `APP_REVIEW_DEMO_EMAIL`/`APP_REVIEW_DEMO_CODE` weren't visible
+to the server at all. `vercel env ls production` revealed why: all
+three `vercel env add NAME production` commands had been run while the
+local `.vercel` folder was linked to `leeward-staging-internal` (the
+staging project), not `buildproof-staging` (the project that actually
+serves `app.getleeward.com`). `vercel env add` always targets whatever
+project the local folder is linked to — it has no `--project` flag the
+way `vercel deploy` does, so the earlier `vercel deploy --project
+buildproof-staging --prod` had been deploying the right code to the
+right place the whole time, while the vars silently landed on the
+wrong project. Fixed by temporarily relinking (`vercel link` →
+"Link to existing project" → typed `buildproof-staging` explicitly),
+re-adding all three vars there, redeploying, then relinking back to
+`leeward-staging-internal` to restore the normal local default. Worth
+remembering alongside the existing `buildproof-staging` vs
+`buildproof-kappa`/`leeward-staging-internal` naming-confusion history
+already documented elsewhere in this file — this is the same class of
+mistake (acting on the wrong Vercel project without an explicit,
+verified target) in a new spot (`vercel env add`, not `vercel deploy`
+or git auto-deploy).
+
+**Verification performed**, after the second (correct) deploy, live
+against production via Claude in Chrome — not just code review:
+a direct fetch of `/api/auth/review-demo-token` confirmed a wrong code
+for the demo email returns `401 {match:false}`, the correct fixed
+reviewer code for the demo email returns `200 {match:true}` with a real
+token, and the same correct code against a different (non-demo) email
+still returns `401 {match:false}` — confirming the narrow scope holds.
+Then ran the actual UI flow end-to-end: requested a real code, entered
+a deliberately wrong code first (got the normal "Token has expired or
+is invalid" error, proving the real-code path is completely
+untouched), then entered the fixed reviewer code
+(`72189138`) and landed cleanly on `/dashboard` with the real, full
+record list for the account — confirming the whole flow works, not
+just the API layer in isolation.
+
+**Apple App Review Notes updated (2026-08-04, same session):** edited
+directly in App Store Connect while the version sits "Waiting for
+Review" (which allows editing Notes without pulling the submission
+from review) to lead with the fixed reviewer code (`72189138`) instead
+of the old live-email-wait instructions, keeping the real emailed OTP
+documented as a fallback. Saved and confirmed persisted via a fresh
+page reload, not just the save button's own confirmation. This item is
+fully closed out.
