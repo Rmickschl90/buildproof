@@ -116,6 +116,7 @@ export async function GET(
         id: project.id,
         title: project.title,
         created_at: project.created_at,
+        tax_rate: project.tax_rate,
       },
       proofs: (proofs ?? []) as any,
       attachments: (attachments ?? []) as any,

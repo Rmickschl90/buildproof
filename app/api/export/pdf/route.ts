@@ -274,6 +274,7 @@ export async function POST(req: Request) {
         created_at: project.created_at,
         client_name: project.client_name,
         client_email: project.client_email,
+        tax_rate: project.tax_rate,
       },
       proofs: proofs ?? [],
       attachments: attachments ?? [],

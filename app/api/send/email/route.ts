@@ -340,7 +340,7 @@ export async function POST(req: Request) {
     });
 
     const { pdfBuffer, filename } = await buildProjectPdf({
-      project: { id: project.id, title: project.title, created_at: project.created_at },
+      project: { id: project.id, title: project.title, created_at: project.created_at, tax_rate: project.tax_rate },
       proofs: finalizedProofs,
       attachments: atts ?? [],
       approvals,
