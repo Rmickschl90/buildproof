@@ -199,9 +199,10 @@ export default function Login() {
               fontSize: 13,
             }}
           >
-            New here? You'll start with a free 30-day trial — no charge
-            today. Individual is $29/month after your trial, or Team is
-            $69/month for up to 5 users. Cancel anytime.
+            New here? Enjoy peace of mind knowing we've got the paper trail
+            and your back. Start with a free 30-day trial — no charge
+            today. After that: $29/month for Individual, or $69/month for
+            Team (up to 5 users). Cancel anytime.
           </div>
 
           {!codeSent ? (
