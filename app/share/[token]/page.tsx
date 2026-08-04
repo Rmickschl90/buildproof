@@ -289,7 +289,7 @@ export default async function SharePage(props: {
 
   const { data: project, error: projectErr } = await supabaseServer
     .from("projects")
-    .select("id,title,created_at")
+    .select("id,title,created_at,tax_rate")
     .eq("id", projectId)
     .single();
 
@@ -492,16 +492,25 @@ export default async function SharePage(props: {
   // reach this page at all (excluded by the query above), so no separate
   // pending-exclusion check is needed here the way the dashboard needs one.
   const hasBaseline = approvals.some((a) => a.is_baseline);
-  const currentTotal = approvals.reduce((sum, a) => {
+  const subtotal = approvals.reduce((sum, a) => {
     if (a.status !== "approved") return sum;
     return sum + approvalValue(a);
   }, 0);
 
+  // Tax -- mirrors the dashboard Estimate tab's calculation exactly: a
+  // single rate set on the record (project.tax_rate, nullable), applied to
+  // the whole Subtotal. Null/unset behaves identically to before tax
+  // support existed (currentTotal === subtotal).
+  const taxRate = project.tax_rate ?? null;
+  const taxAmount =
+    taxRate != null ? Math.round(subtotal * (taxRate / 100) * 100) / 100 : 0;
+  const currentTotal = subtotal + taxAmount;
+
   // Paid / Balance Due -- invoice mode only, summary figures only (no
   // itemized payment list on this client-facing surface, per the confirmed
   // design decision in "Project Payments - Implementation Plan.md"). Total
-  // (currentTotal above) is unaffected by payments -- Balance Due is simply
-  // Total minus whatever's been logged as paid.
+  // (currentTotal above, tax-inclusive) is unaffected by payments -- Balance
+  // Due is simply Total minus whatever's been logged as paid.
   let paidTotal = 0;
 
   if (isInvoiceMode) {
@@ -1467,6 +1476,28 @@ export default async function SharePage(props: {
               <div className="k">Attachments</div>
               <div className="v">{totalAttachments}</div>
             </div>
+            {hasBaseline && taxRate != null ? (
+              <div className="stat">
+                <div className="k">Subtotal</div>
+                <div className="v">
+                  {subtotal.toLocaleString("en-US", {
+                    style: "currency",
+                    currency: "USD",
+                  })}
+                </div>
+              </div>
+            ) : null}
+            {hasBaseline && taxRate != null ? (
+              <div className="stat">
+                <div className="k">Tax ({taxRate}%)</div>
+                <div className="v">
+                  {taxAmount.toLocaleString("en-US", {
+                    style: "currency",
+                    currency: "USD",
+                  })}
+                </div>
+              </div>
+            ) : null}
             {hasBaseline ? (
               <div className="stat">
                 <div className="k">Current Total</div>

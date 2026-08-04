@@ -25,7 +25,7 @@ export async function POST(req: Request) {
 
     const { data: project, error: projectErr } = await supabaseServer
       .from("projects")
-      .select("id,title,created_at,client_name,client_email")
+      .select("id,title,created_at,client_name,client_email,tax_rate")
       .eq("id", projectId)
       .single();
 

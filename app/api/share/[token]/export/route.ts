@@ -49,7 +49,7 @@ export async function GET(
     // 2) Fetch project
     const { data: project, error: projectErr } = await supabaseServer
       .from("projects")
-      .select("id,title,created_at")
+      .select("id,title,created_at,tax_rate")
       .eq("id", projectId)
       .single();
 

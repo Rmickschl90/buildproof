@@ -10,6 +10,7 @@ export type ProjectRow = {
   created_at?: string;
   client_name?: string | null;
   client_email?: string | null;
+  tax_rate?: number | null;
 };
 
 export type ProofRow = {
@@ -209,11 +210,14 @@ export async function buildProjectPdf(
     reportMode = "standard",
   } = args;
 
-  // Paid/Balance Due -- mirrors the dashboard Estimate tab's and the invoice
-  // share page's Total calculation exactly (baseline + approved change
-  // orders; pending/draft never included), so the dispute packet's numbers
-  // always agree with what the contractor and client already see elsewhere.
-  const projectTotal = (approvals ?? []).reduce((sum, a) => {
+  // Subtotal/Tax/Total/Paid/Balance Due -- mirrors the dashboard Estimate
+  // tab's and the invoice share page's calculation exactly (baseline +
+  // approved change orders; pending/draft never included), so the dispute
+  // packet's numbers always agree with what the contractor and client
+  // already see elsewhere. taxRate comes from the record itself (nullable
+  // -- see the 20260803120000_project_tax_rate.sql migration); null behaves
+  // identically to before tax support existed (projectTotal === subtotal).
+  const subtotal = (approvals ?? []).reduce((sum, a) => {
     if (a.status !== "approved") return sum;
     const hasLineItems = Array.isArray(a.line_items) && a.line_items.length > 0;
     const value = hasLineItems
@@ -221,6 +225,11 @@ export async function buildProjectPdf(
       : Number(a.cost_delta) || 0;
     return sum + value;
   }, 0);
+
+  const taxRate = project.tax_rate ?? null;
+  const taxAmount =
+    taxRate != null ? Math.round(subtotal * (taxRate / 100) * 100) / 100 : 0;
+  const projectTotal = subtotal + taxAmount;
 
   const paidTotal = (payments ?? []).reduce(
     (sum, p) => sum + (Number(p.amount) || 0),
@@ -1260,11 +1269,20 @@ export async function buildProjectPdf(
 
     y -= 34;
 
-    const summaryRows: Array<[string, string]> = [
-      ["Contract Total", `$${projectTotal.toFixed(2)}`],
-      ["Paid to Date", `$${paidTotal.toFixed(2)}`],
-      ["Balance Due", `$${balanceDue.toFixed(2)}`],
-    ];
+    const summaryRows: Array<[string, string]> =
+      taxRate != null
+        ? [
+            ["Subtotal", `$${subtotal.toFixed(2)}`],
+            [`Tax (${taxRate}%)`, `$${taxAmount.toFixed(2)}`],
+            ["Contract Total", `$${projectTotal.toFixed(2)}`],
+            ["Paid to Date", `$${paidTotal.toFixed(2)}`],
+            ["Balance Due", `$${balanceDue.toFixed(2)}`],
+          ]
+        : [
+            ["Contract Total", `$${projectTotal.toFixed(2)}`],
+            ["Paid to Date", `$${paidTotal.toFixed(2)}`],
+            ["Balance Due", `$${balanceDue.toFixed(2)}`],
+          ];
 
     for (const [label, value] of summaryRows) {
       page.drawText(label, {

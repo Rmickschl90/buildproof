@@ -77,6 +77,7 @@ type Project = {
   private_notes?: string | null;
   archived_at?: string | null;
   created_at?: string | null;
+  tax_rate?: number | null;
 };
 
 type Proof = {
@@ -479,6 +480,14 @@ export default function DashboardPage() {
   const [clientEmailDraft, setClientEmailDraft] = useState("");
   const [clientPhoneDraft, setClientPhoneDraft] = useState("");
   const [projectAddressDraft, setProjectAddressDraft] = useState("");
+
+  // ---- Tax rate (Estimate tab) ----
+  // Online-only for v1, same deliberate scope-down as the Documents tab --
+  // a rarely-edited single field doesn't justify a new offline outbox/flush
+  // pair. Saved directly via supabase.from("projects").update(...), same
+  // RLS-backed pattern as rename/client-info edits above.
+  const [taxRateEditing, setTaxRateEditing] = useState(false);
+  const [taxRateDraft, setTaxRateDraft] = useState("");
 
   // ---- Project notes ----
   // ---- Project notes ----
@@ -3058,6 +3067,57 @@ export default function DashboardPage() {
     setRenameTitle(selectedProject?.title || "");
   }
 
+  async function saveTaxRate() {
+    if (!selectedProject) return;
+
+    const trimmed = taxRateDraft.trim();
+    let nextRate: number | null = null;
+
+    if (trimmed !== "") {
+      const parsed = Number(trimmed);
+      if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+        setStatus("Tax rate must be a number between 0 and 100.");
+        return;
+      }
+      nextRate = Math.round(parsed * 100) / 100;
+    }
+
+    if (!navigator.onLine) {
+      setStatus("Tax rate can only be changed while online.");
+      return;
+    }
+
+    try {
+      setStatus("Saving tax rate...");
+
+      const { error } = await supabase
+        .from("projects")
+        .update({ tax_rate: nextRate })
+        .eq("id", selectedProject.id);
+
+      if (error) throw error;
+
+      const updatedProject = { ...selectedProject, tax_rate: nextRate };
+      setSelectedProjectWithTrace(updatedProject, "tax rate save");
+      setProjects((list) =>
+        list.map((p) => (p.id === selectedProject.id ? { ...p, tax_rate: nextRate } : p))
+      );
+      cacheProjectSnapshot({ project: updatedProject });
+
+      setStatus("Tax rate saved ✅");
+      setTaxRateEditing(false);
+    } catch (e: any) {
+      setStatus(e?.message ?? "Failed to save tax rate");
+    }
+  }
+
+  function cancelTaxRateEdit() {
+    setTaxRateEditing(false);
+    setTaxRateDraft(
+      selectedProject?.tax_rate != null ? String(selectedProject.tax_rate) : ""
+    );
+  }
+
   async function archiveProject() {
     if (!selectedProject || !userId) return;
 
@@ -4309,6 +4369,11 @@ export default function DashboardPage() {
   const estimateSummary = useMemo(() => {
     const baseline = visibleApprovals.find((a) => a.is_baseline);
 
+    // approvedTotal is the pre-tax Subtotal (baseline + approved change
+    // orders) -- unchanged from before tax support existed. taxRate comes
+    // from the record itself (set once, applies to the whole total -- see
+    // the 20260803120000_project_tax_rate.sql migration). taxAmount/
+    // totalWithTax are derived, not stored.
     const approvedTotal = visibleApprovals.reduce((sum, a) => {
       if (a.status !== "approved") return sum;
       return sum + approvalValue(a);
@@ -4322,8 +4387,21 @@ export default function DashboardPage() {
       (a) => a.status === "draft" || a.status === "pending"
     ).length;
 
-    return { baseline, approvedTotal, approvedCount, pendingCount };
-  }, [visibleApprovals]);
+    const taxRate = selectedProject?.tax_rate ?? null;
+    const taxAmount =
+      taxRate != null ? Math.round(approvedTotal * (taxRate / 100) * 100) / 100 : 0;
+    const totalWithTax = approvedTotal + taxAmount;
+
+    return {
+      baseline,
+      approvedTotal,
+      approvedCount,
+      pendingCount,
+      taxRate,
+      taxAmount,
+      totalWithTax,
+    };
+  }, [visibleApprovals, selectedProject?.tax_rate]);
 
   // Estimate tab: the baseline is pinned in its own section above everything
   // else (mirrors the client-facing invoice page's "Original Estimate" /
@@ -4341,19 +4419,23 @@ export default function DashboardPage() {
     );
   }, [approvals, estimateSummary.baseline]);
 
-  // Payments: Total never moves based on payments (estimateSummary.approvedTotal
-  // stays the gross contract value). Paid is the sum of logged payments; Balance
-  // Due is Total minus Paid. Per the confirmed design decision, this always
-  // nets against the gross Total, never a partial/remaining figure.
+  // Payments: Total never moves based on payments (estimateSummary.totalWithTax
+  // stays the gross contract value, tax included). Paid is the sum of logged
+  // payments; Balance Due is Total minus Paid. Per the confirmed design
+  // decision, this always nets against the gross Total, never a partial/
+  // remaining figure. Switched from approvedTotal (pre-tax Subtotal) to
+  // totalWithTax when tax support was added -- for any record with no
+  // tax_rate set, totalWithTax === approvedTotal, so this is a no-op for
+  // every existing record.
   const paymentsSummary = useMemo(() => {
     const paidTotal = payments.reduce(
       (sum, p) => sum + (Number(p.amount) || 0),
       0
     );
-    const balanceDue = estimateSummary.approvedTotal - paidTotal;
+    const balanceDue = estimateSummary.totalWithTax - paidTotal;
 
     return { paidTotal, balanceDue };
-  }, [payments, estimateSummary.approvedTotal]);
+  }, [payments, estimateSummary.totalWithTax]);
 
   if (!hasMounted) return null;
 
@@ -5783,7 +5865,7 @@ export default function DashboardPage() {
                 </div>
 
                 <div style={{ fontSize: 32, fontWeight: 900, color: "var(--text)" }}>
-                  {estimateSummary.approvedTotal.toLocaleString("en-US", {
+                  {estimateSummary.totalWithTax.toLocaleString("en-US", {
                     style: "currency",
                     currency: "USD",
                   })}
@@ -5796,6 +5878,81 @@ export default function DashboardPage() {
                     : ""}
                   {!estimateSummary.baseline ? " · no original estimate yet" : ""}
                 </div>
+
+                {estimateSummary.taxRate != null ? (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      fontSize: 13,
+                      color: "rgba(var(--text-rgb), 0.75)",
+                      display: "grid",
+                      gap: 2,
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", maxWidth: 220 }}>
+                      <span>Subtotal</span>
+                      <span>
+                        {estimateSummary.approvedTotal.toLocaleString("en-US", {
+                          style: "currency",
+                          currency: "USD",
+                        })}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", maxWidth: 220 }}>
+                      <span>Tax ({estimateSummary.taxRate}%)</span>
+                      <span>
+                        {estimateSummary.taxAmount.toLocaleString("en-US", {
+                          style: "currency",
+                          currency: "USD",
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                ) : null}
+
+                {taxRateEditing ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      marginTop: 10,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <input
+                      className="input"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.01}
+                      placeholder="Tax rate %"
+                      value={taxRateDraft}
+                      onChange={(e) => setTaxRateDraft(e.target.value)}
+                      style={{ width: 120 }}
+                      autoFocus
+                    />
+                    <button className="btn btnPrimary" onClick={saveTaxRate}>
+                      Save
+                    </button>
+                    <button className="btn" onClick={cancelTaxRateEdit}>
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    className="btn"
+                    style={{ marginTop: 10, width: "fit-content" }}
+                    onClick={() => {
+                      setTaxRateDraft(
+                        estimateSummary.taxRate != null ? String(estimateSummary.taxRate) : ""
+                      );
+                      setTaxRateEditing(true);
+                    }}
+                  >
+                    {estimateSummary.taxRate != null ? "Edit Tax Rate" : "+ Add Tax Rate"}
+                  </button>
+                )}
 
                 <div
                   style={{
