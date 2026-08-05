@@ -510,7 +510,9 @@ export default function DashboardPage() {
     return "draft";
   }
 
-  // ---- Global navigation (Projects / Account) ----
+  // ---- Global navigation (Records / Schedule / Account tab bar, 2026-08-04:
+  // replaces the old flat header buttons + Account dropdown -- see "Global
+  // Nav - Records-Schedule-Account Tab Bar - Implementation Plan.md" ----
   const [activeGlobalTab, setActiveGlobalTab] = useState<"projects" | "account" | "schedule">("projects");
 
   useEffect(() => {
@@ -560,12 +562,6 @@ export default function DashboardPage() {
   const [renameTitle, setRenameTitle] = useState("");
   const projectMenuRef = useRef<HTMLDivElement | null>(null);
   const renameInputRef = useRef<HTMLInputElement | null>(null);
-
-  // ---- Account menu (header dropdown -- Theme/Help/Manage Billing, replaces
-  // the old standalone "Account" tab now that the Projects/Account pill bar
-  // has been removed) ----
-  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-  const accountMenuRef = useRef<HTMLDivElement | null>(null);
 
   // ---- Entry action menu ----
   const [proofMenuOpenId, setProofMenuOpenId] = useState<number | string | null>(null);
@@ -1544,24 +1540,6 @@ export default function DashboardPage() {
       document.removeEventListener("touchstart", onDown);
     };
   }, [projectMenuOpen, selectedProject?.id]);
-
-  useEffect(() => {
-    if (!accountMenuOpen) return;
-
-    function onDown(e: MouseEvent | TouchEvent) {
-      const el = accountMenuRef.current;
-      const target = e.target as Node | null;
-      if (!el || !target) return;
-      if (!el.contains(target)) setAccountMenuOpen(false);
-    }
-
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("touchstart", onDown);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("touchstart", onDown);
-    };
-  }, [accountMenuOpen]);
 
   useEffect(() => {
     if (!entryFilterMenuOpen) return;
@@ -4774,143 +4752,76 @@ export default function DashboardPage() {
                   />
                 </div>
               </div>
-              <div
+            </div>
+
+            {/* Global Records / Schedule / Account tab bar (2026-08-04) --
+                replaces the old flat header buttons + Account dropdown. See
+                "Global Nav - Records-Schedule-Account Tab Bar -
+                Implementation Plan.md": reuses the exact per-record tab bar
+                pattern (Timeline/Estimate/Documents/Schedule below) which is
+                already proven to fit on mobile at 4 items, so 3 items here
+                fits comfortably. Switching tabs is itself the exit mechanism
+                for Schedule/Account -- no separate close/back control
+                needed. */}
+            <div
+              style={{
+                height: 1,
+                background: "var(--borderSoft)",
+                margin: "14px 0",
+              }}
+            />
+
+            <div
+              style={{
+                display: "flex",
+                gap: 4,
+                padding: 4,
+                borderRadius: 12,
+                background: "var(--surfaceSoft)",
+              }}
+            >
+              <button
+                className="btn"
+                onClick={() => setActiveGlobalTab("projects")}
                 style={{
-                  display: "flex",
-                  gap: 8,
-                  alignItems: "center",
-                  flexShrink: 0,
-                  // Keeps this row flush against the right edge even when
-                  // the row's flex-wrap drops it onto its own line -- without
-                  // this, `justify-content: space-between` on `.row` only
-                  // right-aligns it while it shares a line with the logo;
-                  // once wrapped (narrow phones, ~320-360px), a single
-                  // flex item on its own line collapses to flex-start
-                  // (left), which broke the Account dropdown's `right: 0`
-                  // positioning below -- the menu rendered mostly/fully
-                  // off-screen to the left. marginLeft: auto keeps this
-                  // row right-anchored in both the wrapped and
-                  // unwrapped case, so the dropdown's right:0 anchor stays
-                  // valid regardless of viewport width.
-                  marginLeft: "auto",
+                  flex: 1,
+                  background: activeGlobalTab === "projects" ? "var(--card)" : "transparent",
+                  color: activeGlobalTab === "projects" ? "var(--text)" : "var(--muted)",
+                  fontWeight: activeGlobalTab === "projects" ? 700 : 500,
+                  border: "none",
+                  boxShadow: activeGlobalTab === "projects" ? "var(--shadow)" : "none",
                 }}
               >
-                <button
-                  className="btn headerActionBtn"
-                  onClick={() =>
-                    setActiveGlobalTab((v) => (v === "schedule" ? "projects" : "schedule"))
-                  }
-                  title="Schedule"
-                >
-                  Schedule
-                </button>
-
-                <div style={{ position: "relative" }} ref={accountMenuRef}>
-                  <button
-                    className="btn headerActionBtn"
-                    onClick={() => setAccountMenuOpen((v) => !v)}
-                    title="Account"
-                    style={{ width: "100%" }}
-                  >
-                    Account
-                  </button>
-
-                  {accountMenuOpen ? (
-                    <div
-                      style={{
-                        position: "absolute",
-                        right: 0,
-                        top: 44,
-                        zIndex: 20,
-                        width: 240,
-                        maxWidth: "min(280px, calc(100vw - 24px))",
-                        border: "1px solid var(--borderStrong)",
-                        borderRadius: 14,
-                        background: "var(--card)",
-                        padding: 10,
-                        boxShadow: "var(--shadowSoft)",
-                        display: "grid",
-                        gap: 8,
-                        boxSizing: "border-box",
-                      }}
-                    >
-                      <div
-                        className="sub"
-                        style={{
-                          padding: "2px 4px 8px",
-                          borderBottom: "1px solid var(--borderStrong)",
-                          marginBottom: 2,
-                        }}
-                      >
-                        Signed in as
-                        <br />
-                        <b style={{ color: "var(--text)" }}>{userEmail}</b>
-                      </div>
-
-                      {billingSource === "organization" ? (
-                        <button
-                          className="btn"
-                          style={{ width: "100%" }}
-                          onClick={openMembersPanel}
-                        >
-                          {orgContext?.role === "owner" ? "Invite Team" : "Team"}
-                        </button>
-                      ) : (
-                        <button
-                          className="btn"
-                          style={{ width: "100%" }}
-                          onClick={openUpgradePanel}
-                        >
-                          Upgrade
-                        </button>
-                      )}
-
-                      <ThemeToggle />
-
-                      <button
-                        className="btn"
-                        style={{ width: "100%" }}
-                        onClick={() => router.push("/help")}
-                      >
-                        Help
-                      </button>
-
-                      <button
-                        className="btn"
-                        style={{ width: "100%" }}
-                        onClick={async () => {
-                          try {
-                            const token = await getAccessToken();
-
-                            const res = await fetch("/api/billing/portal", {
-                              method: "POST",
-                              headers: {
-                                Authorization: `Bearer ${token}`,
-                              },
-                            });
-
-                            const data = await res.json();
-
-                            if (!res.ok || !data?.url) {
-                              throw new Error(data?.error || "Unable to open billing portal.");
-                            }
-
-                            window.location.href = data.url;
-                          } catch (e: any) {
-                            setStatus(e?.message || "Unable to open billing portal.");
-                          }
-                        }}
-                      >
-                        Manage Billing
-                      </button>
-
-                      <button className="btn btnDanger" style={{ width: "100%" }} onClick={logout}>
-                        Logout
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
+                Records
+              </button>
+              <button
+                className="btn"
+                onClick={() => setActiveGlobalTab("schedule")}
+                style={{
+                  flex: 1,
+                  background: activeGlobalTab === "schedule" ? "var(--card)" : "transparent",
+                  color: activeGlobalTab === "schedule" ? "var(--text)" : "var(--muted)",
+                  fontWeight: activeGlobalTab === "schedule" ? 700 : 500,
+                  border: "none",
+                  boxShadow: activeGlobalTab === "schedule" ? "var(--shadow)" : "none",
+                }}
+              >
+                Schedule
+              </button>
+              <button
+                className="btn"
+                onClick={() => setActiveGlobalTab("account")}
+                style={{
+                  flex: 1,
+                  background: activeGlobalTab === "account" ? "var(--card)" : "transparent",
+                  color: activeGlobalTab === "account" ? "var(--text)" : "var(--muted)",
+                  fontWeight: activeGlobalTab === "account" ? 700 : 500,
+                  border: "none",
+                  boxShadow: activeGlobalTab === "account" ? "var(--shadow)" : "none",
+                }}
+              >
+                Account
+              </button>
             </div>
 
             {status && (
@@ -5197,6 +5108,70 @@ export default function DashboardPage() {
                     <p className="sub" style={{ opacity: 0.6 }}>No records match.</p>
                   ) : null}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeGlobalTab === "account" && (
+            <div className="card">
+              <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 4 }}>Account</div>
+              <div className="sub" style={{ marginBottom: 16 }}>
+                Signed in as <b style={{ color: "var(--text)" }}>{userEmail}</b>
+              </div>
+
+              <div style={{ display: "grid", gap: 10 }}>
+                {billingSource === "organization" ? (
+                  <button className="btn" style={{ width: "100%" }} onClick={openMembersPanel}>
+                    {orgContext?.role === "owner" ? "Invite Team" : "Team"}
+                  </button>
+                ) : (
+                  <button className="btn" style={{ width: "100%" }} onClick={openUpgradePanel}>
+                    Upgrade
+                  </button>
+                )}
+
+                <ThemeToggle />
+
+                <button
+                  className="btn"
+                  style={{ width: "100%" }}
+                  onClick={() => router.push("/help")}
+                >
+                  Help
+                </button>
+
+                <button
+                  className="btn"
+                  style={{ width: "100%" }}
+                  onClick={async () => {
+                    try {
+                      const token = await getAccessToken();
+
+                      const res = await fetch("/api/billing/portal", {
+                        method: "POST",
+                        headers: {
+                          Authorization: `Bearer ${token}`,
+                        },
+                      });
+
+                      const data = await res.json();
+
+                      if (!res.ok || !data?.url) {
+                        throw new Error(data?.error || "Unable to open billing portal.");
+                      }
+
+                      window.location.href = data.url;
+                    } catch (e: any) {
+                      setStatus(e?.message || "Unable to open billing portal.");
+                    }
+                  }}
+                >
+                  Manage Billing
+                </button>
+
+                <button className="btn btnDanger" style={{ width: "100%" }} onClick={logout}>
+                  Logout
+                </button>
               </div>
             </div>
           )}
