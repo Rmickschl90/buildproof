@@ -3003,6 +3003,16 @@ export default function DashboardPage() {
   }
 
   async function handleDeleteScheduleEvent(eventId: string, projectId: string) {
+    // 2026-08-04, per Ryan: this previously deleted immediately on click,
+    // no confirmation -- both the inline card Delete button and the Edit
+    // modal's Delete button call this same function, so adding the confirm
+    // here covers both in one place. Matches this app's existing pattern
+    // for other destructive actions (deleteEntry, archiveEntry,
+    // archiveProject, exportDisputePackage all use window.confirm the
+    // same way).
+    const ok = window.confirm("Delete this schedule event? This can't be undone.");
+    if (!ok) return;
+
     try {
       const token = await getAccessToken();
 
@@ -3021,6 +3031,15 @@ export default function DashboardPage() {
         console.error("Failed to delete event:", json?.error);
         return;
       }
+
+      // Close the Add/Edit modal here (after a confirmed, successful
+      // delete) rather than at the call site before this function even
+      // runs -- otherwise canceling the confirm dialog above would still
+      // leave the modal closed, as if the delete had gone through. Safe to
+      // call unconditionally: the inline card Delete button (the other
+      // caller of this function) doesn't have the modal open in the first
+      // place, so this is a no-op for that path.
+      setScheduleFormOpen(false);
 
       if (selectedProject && selectedProject.id === projectId) {
         await loadScheduleEvents(projectId);
@@ -7272,7 +7291,6 @@ export default function DashboardPage() {
                       className="btn"
                       style={{ flex: 1 }}
                       onClick={() => {
-                        setScheduleFormOpen(false);
                         void handleDeleteScheduleEvent(editingScheduleEventId, scheduleFormProjectId);
                       }}
                     >
