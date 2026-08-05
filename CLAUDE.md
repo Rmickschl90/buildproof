@@ -1558,3 +1558,167 @@ Ryan as the highest-leverage next steps and treated as a standing
 priority above the ad-campaign follow-up tasks, given "I don't have
 much time left" — but neither has been executed yet as of this
 writing.
+
+## Completed Build: Schedule and Calendar V1 (shipped to production 2026-08-05)
+
+Sanctioned scope addition during launch operations, following the same
+pattern as Team Accounts V1 and the Estimate/Invoice initiative:
+surfaced while discussing marketing/ads, design conversation captured
+in `Current Implement/Schedule and Calendar - Implementation Plan.md`
+in the Brain vault. Deliberately split into two phases: Phase 1
+(online-only CRUD + UI, built first to validate the actual flow) and
+Phase 2 (offline outbox/flush, deferred — see below).
+
+### What was built
+New `project_schedule_events` table (migration applied to both staging
+and production, RLS enabled, no `authenticated`-role policies — same
+server-route-only idiom as `project_payments`/`project_documents`,
+access gated entirely by `canUserAccessProject()`). Five routes under
+`app/api/schedule/*` (create, list, list-for-org, update, delete — no
+delete-and-relog requirement, unlike Payments, since schedule events
+carry no dispute/financial weight and are explicitly internal-only,
+never client-facing, never bundled into Send Update snapshots or the
+Export Dispute Package PDF).
+
+Dashboard UI: a fourth per-record tab (Timeline/Estimate/Documents/
+**Schedule**) listing that record's upcoming events, plus a global
+Calendar view — a real month grid (color-coded dots per event type +
+legend) with a detailed agenda list below, reached via a new top-level
+**Records / Calendar / Account** tab bar that replaced the old flat
+header-button row + Account dropdown (the same recurring mobile-fit
+problem documented in `app/globals.css`'s 2026-07-30 comment). Account
+is now a real gated view instead of a dropdown; the now-dead
+`accountMenuOpen` state and its click-outside effect were removed.
+Global tab initially shared the "Schedule" label with the per-record
+tab (confusing when both were visible on the same screen with a record
+open) — renamed to **Calendar** at the global level only, display-copy
+only, confirmed via a full audit that no other "Schedule"/"schedule"
+occurrence in the app (the unrelated Approvals "schedule impact" field)
+was affected.
+
+Staging polish pass (all behaviorally verified on
+`leeward-staging-internal` before promotion): logo sizing/centering in
+the new tab-bar header, Records tab always returning to the full
+record list (previously a no-op if already on that tab with a record
+open), a confirmation dialog before deleting a schedule event (fixed
+an ordering bug found along the way where the modal closed *before*
+the confirm, so canceling still looked like the event had been
+deleted), and event cards leading with date/time instead of type
+(type demoted to a small colored tag, since color already carries that
+signal).
+
+### Two real gaps found between the design doc and what Phase 1 shipped
+Ryan recalled the design doc's own stated intent and asked to verify:
+tapping an existing schedule event should offer a "view record" row
+that jumps to the source record (doc line 34), and tapping a day that
+already has events should open that day's events for viewing, not the
+add flow (doc line 31). Neither had actually been built — confirmed by
+re-reading the design doc, not just Ryan's memory. Fixed both
+(`ecf26587`): a new `openProjectFromScheduleEvent()` mirrors the
+Records list's own click-to-open behavior (save recent, select
+project, load proofs/approvals, update the URL, switch back to the
+Records tab), and a day with 2+ events opens a new day-events list
+modal instead of a dead click. Verified on staging via real Chrome
+sessions, including correctly diagnosing a user report that briefly
+looked like a bug: "View Record missing on mobile for one specific
+event" turned out to be the phone's own `selectedProject` already
+being that exact record (the deliberate hide condition working
+correctly), not a defect — confirmed by retesting and reasoning through
+the only condition that explained "every event except this one, only
+on this one device," then confirmed with Ryan.
+
+Follow-up, same day: Ryan asked for an explicit "add new" option even
+on days that already have an event, since the original 3-way branch
+(0 events → picker, exactly 1 → straight to Edit, 2+ → list modal)
+still gave single-event days no way to add a second. Simplified
+(`017212a3`) so every non-empty day opens the same day-events list
+modal, which always includes a "+ Add New Event" button carrying the
+tapped date through to the same record-picker flow an empty day uses.
+
+### Production promotion and verification (2026-08-05)
+Entire batch (global tab bar, Schedule/Calendar Phase 1, both fix
+commits above) promoted to `app.getleeward.com` via
+`vercel deploy --project buildproof-staging --prod`. Verified live
+via real Chrome sessions, not just "it deployed": created a real test
+event on the "Oakridge Bathroom Renovation" record, confirmed clicking
+its day-grid cell opens the day-events list (not straight to Edit)
+with a working "+ Add New Event" button, and confirmed "View Record →"
+inside the event's Edit modal correctly navigates to that record's
+Timeline. Test event cleaned up afterward directly via
+`execute_sql` against production rather than clicking through the
+UI's own delete-confirm flow — native `window.confirm()` dialogs
+freeze Chrome CDP automation (`Input.dispatchMouseEvent`/
+`dispatchKeyEvent` time out after 30s), a known tooling limitation
+from earlier verification passes in this same build, not a product
+bug.
+
+Calendar grid day cells are plain unstyled `<div>`s with inline
+`onClick`, not exposed distinctly to the Chrome extension's
+accessibility tree when both a grid cell and Upcoming-agenda text
+share the same day label (e.g. "Aug 3") — `find`/`read_page` cannot
+reliably locate the correct one. Worked around by querying the DOM
+directly (`document.querySelectorAll('div')`, filtering for the
+grid container by child count + numeric-text-child count) via the
+Chrome extension's JS-execution tool rather than pixel-coordinate
+clicking, which proved unreliable in earlier attempts on this feature.
+
+### Not yet done
+Phase 2 (offline outbox/flush pair, `lib/offlineScheduleOutbox.ts` /
+`offlineScheduleFlush.ts`, following the exact template already used by
+Payments) — deliberately deferred; Ryan wants to revisit "sooner
+rather than later" but nothing is scheduled yet. A "mobile edge case"
+Ryan flagged wanting to discuss once production was live has not yet
+been raised/described — still pending as of this writing.
+
+## Fixed: Archived Records Row Overflow on Mobile (2026-08-05)
+
+Real bug reported by Ryan via a phone screenshot on
+`leeward-staging-internal`: on the Archived Records page
+(`app/archived/page.tsx`), a record with a longer client name/email
+(e.g. "Hillcrest Roof Replacement" / Dale Overby /
+`doverby@overbypropertiesgroup.com`) showed its Restore button cut off
+at the screen edge (only "Res" visible) instead of the row's existing
+ellipsis-truncation rules kicking in.
+
+### Root cause (confirmed empirically, not just by reasoning)
+This environment's `resize_window` tool doesn't actually shrink the
+rendered CSS viewport below ~1065px in this sandbox, so the bug was
+reproduced instead via a same-origin `<iframe>` fixed at a real mobile
+width (~386px) pointed at the live staging page — the same technique
+this codebase has used before for mobile-viewport verification.
+Measured actual `getBoundingClientRect()` values: the row's right edge
+exceeded the iframe's own width by ~34px. Root cause: the per-record
+`.row` div had no `minWidth: 0`. Its title/client-info text divs
+already had `overflow: hidden` / `textOverflow: ellipsis` /
+`whiteSpace: nowrap`, but the `.row` itself — as a flex item of the
+column-direction `.list` container — had no min-width override, so
+its own min-content width (driven by the Restore button's
+non-shrinking `whiteSpace: nowrap` text) exceeded the available space,
+pushing the whole row past the viewport edge instead of letting the
+inner ellipsis rules engage. Confirmed the exact fix live in the DOM
+by patching `minWidth: 0` onto the row via the browser's JS console and
+re-measuring: overflow disappeared, ellipsis truncation engaged
+correctly.
+
+### Fix
+Added `minWidth: 0` to the row's style object (matching the same
+property already used one level down, on the row's own text-wrapper
+div) and `flexShrink: 0` on the Restore button, so the button is
+guaranteed to stay full-size while only the text truncates.
+Scope-checked `app/archived/entries/page.tsx` (Archived Entries) —
+different layout (CSS grid + a wrapping button row, no single-line
+ellipsis text) — confirmed not affected, no change made there.
+
+### Verification
+`tsc --noEmit` timed out again in this sandbox (the same recurring
+session-long resource issue noted throughout this file's other
+entries) — verified manually instead, since both added properties
+(`minWidth`, `flexShrink`, both numeric) are already-proven CSS-in-JS
+property types used elsewhere in this exact file. Deployed to
+production in the same batch as the Schedule/Calendar fixes above.
+Verified live on `app.getleeward.com` against the real longest-email
+archived record ("Sksksk" /
+`rmickschl23+tiralanderroracpunt@leads.com`) using the same
+iframe-based mobile-width DOM measurement technique: confirmed
+`minWidth: 0` present in the deployed code, row no longer overflows,
+Restore button fully on-screen.

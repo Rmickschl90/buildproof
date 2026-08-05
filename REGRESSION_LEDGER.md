@@ -3039,3 +3039,45 @@ Same day, once Ryan confirmed it wouldn't touch the verified login flow: new rou
 
 ## Result
 Fixed and deployed to production, verified repeatedly with zero gaps in this session's testing. Flagged as still-open follow-up, discussed with Ryan and prioritized above the ad-campaign tasks but not yet executed: real mobile device testing (Safari iOS, Chrome Android, cellular network) and a confirmed-fast rollback plan kept ready in case a real user hits this before mobile coverage exists.
+
+---
+
+# SCHEDULE AND CALENDAR V1 SHIPPED TO PRODUCTION — 2026-08-05
+
+## Objective
+Ship the Schedule/Calendar V1 feature (per-record Schedule tab, global Calendar month-grid view, new Records/Calendar/Account global tab bar) to production, then close out two real gaps between the original design doc and what Phase 1 actually built, found when Ryan asked to double check against the design doc.
+
+## What shipped
+`project_schedule_events` table + 5 API routes (`app/api/schedule/*`), per-record Schedule tab, global Calendar view, and the Records/Calendar/Account tab bar replacing the old header-button row + Account dropdown. Full detail in CLAUDE.md's "Completed Build: Schedule and Calendar V1" section.
+
+## Gaps found and fixed
+1. Design doc (`Schedule and Calendar - Implementation Plan.md`, line 34) specified a "view record" row on an event's Edit modal that jumps to the source record - never built in Phase 1. Fixed via `openProjectFromScheduleEvent()`, mirroring the Records list's own click-to-open behavior.
+2. Design doc (line 31) specified that tapping a day with existing events should open those events for viewing, not the add flow - Phase 1 shipped with this as a dead click. Fixed with a day-events list modal.
+3. Follow-up same day: Ryan wanted an explicit "add new" option even on days that already have an event (previously only empty days or 2+-event days offered anything useful; a single-event day skipped straight to Edit with no way to add a second). Simplified so every non-empty day opens the same list modal, always with a "+ Add New Event" button.
+
+## Verification
+All three fixes verified with real Chrome sessions on both `leeward-staging-internal` and, after promotion, `app.getleeward.com` directly: created a real test event on a real record, confirmed the day-grid click opens the list modal (not straight to Edit), confirmed "+ Add New Event" carries the tapped date through to the record picker, and confirmed "View Record ->" correctly navigates to the source record. Test event cleaned up via direct `execute_sql` against production afterward rather than through the UI's own delete-confirm flow, since native `window.confirm()` dialogs freeze Chrome CDP automation (`Input.dispatchMouseEvent`/`dispatchKeyEvent` time out after 30s) - a known tooling limitation, not a product bug.
+
+Also worth noting for future sessions: this environment's `resize_window` tool does not actually shrink the rendered CSS viewport below ~1065px here, and the calendar's day-grid cells are plain unstyled `<div>`s that `find`/`read_page` cannot reliably distinguish from same-labeled agenda-list text. Both were worked around via direct DOM queries through the Chrome extension's JS-execution tool rather than relying on the accessibility-tree tools or pixel-coordinate clicks.
+
+## Result
+Fully shipped and behaviorally verified on production. Phase 2 (offline outbox/flush) remains deliberately deferred - not scheduled. Full detail: CLAUDE.md's "Completed Build: Schedule and Calendar V1" section.
+
+---
+
+# ARCHIVED RECORDS ROW OVERFLOW ON MOBILE — FIXED — 2026-08-05
+
+## Objective
+Real bug reported by Ryan via a phone screenshot: on the Archived Records page (`app/archived/page.tsx`), a record with a longer client name/email showed its Restore button cut off at the screen edge (only "Res" visible) instead of the row's existing ellipsis-truncation rules kicking in.
+
+## Root cause
+Reproduced via a same-origin `<iframe>` fixed at a real mobile width (~386px), since this session's `resize_window` tool doesn't actually shrink the rendered viewport below ~1065px. Measured real `getBoundingClientRect()` values: the row's right edge exceeded the iframe's own width by ~34px. The per-record `.row` div had no `minWidth: 0` - its title/client-info text divs already had `overflow: hidden` / `textOverflow: ellipsis`, but `.row` itself, as a flex item of the column-direction `.list` container, had no min-width override, so its own min-content width (driven by the Restore button's non-shrinking text) exceeded available space, pushing the whole row past the viewport edge instead of letting the ellipsis rules engage. Confirmed the fix live in the DOM by patching `minWidth: 0` onto the row via the browser console and re-measuring before writing any code.
+
+## Fix
+Added `minWidth: 0` to the row's style (matching the same property already used one level down, on the row's own text-wrapper div) and `flexShrink: 0` on the Restore button. Scope-checked `app/archived/entries/page.tsx` (Archived Entries) - different layout, not affected, no change made there.
+
+## Verification
+`tsc --noEmit` timed out in this sandbox (recurring session issue) - verified manually, both added properties already-proven types in this exact file. Deployed to production same batch as the Schedule/Calendar fixes above. Verified live on `app.getleeward.com` against the real longest-email archived record ("Sksksk" / `rmickschl23+tiralanderroracpunt@leads.com`) using the same iframe-based mobile-width measurement technique: confirmed the fix is present in the deployed code and the row no longer overflows.
+
+## Result
+Fixed and verified on production. No other archived/list pages found with the same pattern during scope-check.
