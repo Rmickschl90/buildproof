@@ -420,12 +420,6 @@ export default function DashboardPage() {
   const [schedulePickerOpen, setSchedulePickerOpen] = useState(false);
   const [schedulePickerDate, setSchedulePickerDate] = useState<string | null>(null);
   const [schedulePickerSearch, setSchedulePickerSearch] = useState("");
-
-  useEffect(() => {
-    if (activeGlobalTab === "schedule") {
-      void loadGlobalScheduleEvents();
-    }
-  }, [activeGlobalTab]);
   const [documentUploadStatus, setDocumentUploadStatus] = useState<string | null>(null);
   // Files from a failed upload attempt, kept in memory only (never written to
   // IndexedDB/localStorage/a DB row) so Retry doesn't require re-picking the
@@ -518,6 +512,12 @@ export default function DashboardPage() {
 
   // ---- Global navigation (Projects / Account) ----
   const [activeGlobalTab, setActiveGlobalTab] = useState<"projects" | "account" | "schedule">("projects");
+
+  useEffect(() => {
+    if (activeGlobalTab === "schedule") {
+      void loadGlobalScheduleEvents();
+    }
+  }, [activeGlobalTab]);
 
   // ---- Project-level navigation (Timeline / Estimate) ----
   const [activeProjectTab, setActiveProjectTab] = useState<"timeline" | "estimate" | "documents" | "schedule">("timeline");
