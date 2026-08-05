@@ -65,6 +65,7 @@ import {
   getRecentProjects,
 } from "@/lib/offlineRecentProjects";
 import { saveCachedAttachments, loadCachedAttachments } from "@/lib/offlineAttachmentCache";
+import { computeApprovedTotal, computeTaxAndTotal, computeBalanceDue } from "@/lib/estimateCalc";
 
 type Project = {
   id: string;
@@ -78,6 +79,7 @@ type Project = {
   archived_at?: string | null;
   created_at?: string | null;
   tax_rate?: number | null;
+  closed_at?: string | null;
 };
 
 type Proof = {
@@ -427,6 +429,27 @@ export default function DashboardPage() {
   // single-event day skips this and opens straight to that event's Edit
   // modal instead (see the day-cell onClick below).
   const [dayEventsModalDate, setDayEventsModalDate] = useState<string | null>(null);
+
+  // ---- Portfolio tab (2026-08-05) -- see "Portfolio Tab - Implementation
+  // Plan.md". Cross-record Total/Paid/Balance Due rollup, computed
+  // server-side (app/api/portfolio/summary/route.ts) since this needs to
+  // run across every accessible record at once, not one record's already-
+  // loaded approvals/payments the way estimateSummary/paymentsSummary work.
+  type PortfolioProjectRow = {
+    id: string;
+    title: string;
+    closedAt: string | null;
+    hasBaseline: boolean;
+    totalWithTax: number;
+    paidTotal: number;
+    balanceDue: number;
+  };
+  const [portfolioRows, setPortfolioRows] = useState<PortfolioProjectRow[]>([]);
+  const [portfolioLoading, setPortfolioLoading] = useState(false);
+  const [portfolioError, setPortfolioError] = useState<string | null>(null);
+  const [closeOutModalOpen, setCloseOutModalOpen] = useState(false);
+  const [closeOutSubmitting, setCloseOutSubmitting] = useState(false);
+
   const [documentUploadStatus, setDocumentUploadStatus] = useState<string | null>(null);
   // Files from a failed upload attempt, kept in memory only (never written to
   // IndexedDB/localStorage/a DB row) so Retry doesn't require re-picking the
@@ -520,11 +543,21 @@ export default function DashboardPage() {
   // ---- Global navigation (Records / Schedule / Account tab bar, 2026-08-04:
   // replaces the old flat header buttons + Account dropdown -- see "Global
   // Nav - Records-Schedule-Account Tab Bar - Implementation Plan.md" ----
-  const [activeGlobalTab, setActiveGlobalTab] = useState<"projects" | "account" | "schedule">("projects");
+  // "portfolio" added 2026-08-05 -- see "Portfolio Tab - Implementation
+  // Plan.md". Owner-gated (see isPortfolioEligible below), so unlike the
+  // other three values this one is never reachable for a non-owner org
+  // member -- setActiveGlobalTab("portfolio") is only ever called from the
+  // tab button itself, which doesn't render for them.
+  const [activeGlobalTab, setActiveGlobalTab] = useState<
+    "projects" | "account" | "schedule" | "portfolio"
+  >("projects");
 
   useEffect(() => {
     if (activeGlobalTab === "schedule") {
       void loadGlobalScheduleEvents();
+    }
+    if (activeGlobalTab === "portfolio") {
+      void loadPortfolioSummary();
     }
   }, [activeGlobalTab]);
 
@@ -2091,7 +2124,7 @@ export default function DashboardPage() {
               organization_id: record.organizationId ?? null,
             })
             .select(
-              "id,title,user_id,client_name,client_email,client_phone,project_address,private_notes,archived_at,created_at"
+              "id,title,user_id,client_name,client_email,client_phone,project_address,private_notes,archived_at,created_at,tax_rate,closed_at"
             )
             .single();
 
@@ -2141,7 +2174,7 @@ export default function DashboardPage() {
             })
             .eq("id", record.id)
             .select(
-              "id,title,user_id,client_name,client_email,client_phone,project_address,private_notes,archived_at,created_at"
+              "id,title,user_id,client_name,client_email,client_phone,project_address,private_notes,archived_at,created_at,tax_rate,closed_at"
             )
             .single();
 
@@ -2306,7 +2339,7 @@ export default function DashboardPage() {
     }
     const { data, error } = await supabase
       .from("projects")
-      .select("id,title,user_id,client_name,client_email,client_phone,project_address,private_notes,archived_at,created_at")
+      .select("id,title,user_id,client_name,client_email,client_phone,project_address,private_notes,archived_at,created_at,tax_rate,closed_at")
       .is("archived_at", null)
       .order("created_at", { ascending: false });
 
@@ -2922,6 +2955,165 @@ export default function DashboardPage() {
       setGlobalScheduleLoading(false);
     }
   }
+
+  async function loadPortfolioSummary() {
+    try {
+      setPortfolioLoading(true);
+      setPortfolioError(null);
+      const token = await getAccessToken();
+
+      const res = await fetch("/api/portfolio/summary", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setPortfolioError(json?.error || "Failed to load portfolio.");
+        return;
+      }
+
+      setPortfolioRows((json?.projects ?? []) as PortfolioProjectRow[]);
+    } catch (err: any) {
+      setPortfolioError(err?.message || "Failed to load portfolio.");
+    } finally {
+      setPortfolioLoading(false);
+    }
+  }
+
+  // Close Out / Reopen -- a record's own closed_at flag, deliberately
+  // independent of archived_at (see the Portfolio Tab plan doc). Direct
+  // client-side Supabase update, same pattern archiveProject already uses
+  // -- the projects UPDATE RLS policy is row-level, not column-restricted,
+  // so no new API route is needed for this.
+  async function closeOutProject() {
+    if (!selectedProject) return;
+
+    try {
+      setCloseOutSubmitting(true);
+      const iso = new Date().toISOString();
+
+      const { error } = await supabase
+        .from("projects")
+        .update({ closed_at: iso })
+        .eq("id", selectedProject.id);
+
+      if (error) throw error;
+
+      setSelectedProjectWithTrace(
+        { ...selectedProject, closed_at: iso },
+        "closeOutProject"
+      );
+      setProjects((list) =>
+        list.map((p) => (p.id === selectedProject.id ? { ...p, closed_at: iso } : p))
+      );
+      setCloseOutModalOpen(false);
+      setProjectMenuOpen(false);
+      setStatus("Record closed out ✅");
+    } catch (e: any) {
+      setStatus(e?.message ?? "Close out failed");
+    } finally {
+      setCloseOutSubmitting(false);
+    }
+  }
+
+  async function reopenProject() {
+    if (!selectedProject) return;
+
+    const ok = window.confirm("Reopen this record? It will count toward your active portfolio again.");
+    if (!ok) return;
+
+    try {
+      setStatus("Reopening record...");
+
+      const { error } = await supabase
+        .from("projects")
+        .update({ closed_at: null })
+        .eq("id", selectedProject.id);
+
+      if (error) throw error;
+
+      setSelectedProjectWithTrace(
+        { ...selectedProject, closed_at: null },
+        "reopenProject"
+      );
+      setProjects((list) =>
+        list.map((p) => (p.id === selectedProject.id ? { ...p, closed_at: null } : p))
+      );
+      setProjectMenuOpen(false);
+      setStatus("Record reopened ✅");
+    } catch (e: any) {
+      setStatus(e?.message ?? "Reopen failed");
+    }
+  }
+
+  // Portfolio tab is only ever a nav-visibility choice, not a data-access
+  // change (every org member can already open any org project and see its
+  // own numbers) -- see the plan doc for why this doesn't touch Team
+  // Accounts V1's locked "no new roles/permissions" decision. Individual
+  // (solo) users have no orgContext at all, so they're always eligible.
+  const isPortfolioEligible =
+    !orgContext?.organizationId || orgContext?.role === "owner";
+
+  async function openProjectFromPortfolioRow(projectId: string) {
+    const existing = projects.find((p) => p.id === projectId);
+    async function openResolvedProject(project: Project) {
+      saveRecentProject({
+        id: project.id,
+        title: project.title,
+        client_name: project.client_name ?? null,
+        client_email: project.client_email ?? null,
+        client_phone: project.client_phone ?? null,
+        project_address: project.project_address ?? null,
+      });
+      saveLastOpenProjectId(project.id);
+      setSelectedProjectWithTrace(project, "view record from portfolio row");
+      loadProofs(project.id, false, project);
+      loadApprovals(project.id, false, project);
+      router.replace(`/dashboard?project=${project.id}`);
+      setActiveGlobalTab("projects");
+    }
+
+    if (existing) {
+      await openResolvedProject(existing);
+      return;
+    }
+
+    try {
+      const { data: project } = await supabase
+        .from("projects")
+        .select("*")
+        .eq("id", projectId)
+        .single();
+
+      if (project) {
+        await openResolvedProject(project);
+      } else {
+        setPortfolioError("Couldn't open that record.");
+      }
+    } catch {
+      setPortfolioError("Couldn't open that record.");
+    }
+  }
+
+  const portfolioBuckets = useMemo(() => {
+    const active = portfolioRows.filter((p) => !p.closedAt && p.hasBaseline);
+    const closedBalanceDue = portfolioRows.filter(
+      (p) => !!p.closedAt && p.balanceDue > 0.01
+    );
+
+    const activeContractValue = active.reduce((sum, p) => sum + p.totalWithTax, 0);
+    const outstandingBalance = portfolioRows.reduce(
+      (sum, p) => sum + (p.balanceDue > 0.01 ? p.balanceDue : 0),
+      0
+    );
+
+    return { active, closedBalanceDue, activeContractValue, outstandingBalance };
+  }, [portfolioRows]);
 
   // Opens the add form. Called two ways: with just a projectId (the
   // embedded "+" on either the per-record tab or the global calendar, no
@@ -4663,15 +4855,12 @@ export default function DashboardPage() {
   // the total until approved, per the design doc's snapshot-model decision --
   // a pending change order is visible in the feed but shouldn't move the
   // number a client might be looking at.
-  function approvalValue(a: Approval): number {
-    if (Array.isArray(a.line_items) && a.line_items.length > 0) {
-      return a.line_items.reduce(
-        (sum, li) => sum + (Number(li.line_total) || 0),
-        0
-      );
-    }
-    return Number(a.cost_delta) || 0;
-  }
+  //
+  // approvalValue/computeApprovedTotal/computeTaxAndTotal now live in
+  // lib/estimateCalc.ts (extracted 2026-08-05 for the Portfolio Tab feature)
+  // so the exact same formula runs server-side in
+  // app/api/portfolio/summary/route.ts -- see that file's header for why
+  // this had to be a single shared implementation rather than two.
 
   const estimateSummary = useMemo(() => {
     const baseline = visibleApprovals.find((a) => a.is_baseline);
@@ -4681,10 +4870,7 @@ export default function DashboardPage() {
     // from the record itself (set once, applies to the whole total -- see
     // the 20260803120000_project_tax_rate.sql migration). taxAmount/
     // totalWithTax are derived, not stored.
-    const approvedTotal = visibleApprovals.reduce((sum, a) => {
-      if (a.status !== "approved") return sum;
-      return sum + approvalValue(a);
-    }, 0);
+    const approvedTotal = computeApprovedTotal(visibleApprovals);
 
     const approvedCount = visibleApprovals.filter(
       (a) => a.status === "approved"
@@ -4695,9 +4881,7 @@ export default function DashboardPage() {
     ).length;
 
     const taxRate = selectedProject?.tax_rate ?? null;
-    const taxAmount =
-      taxRate != null ? Math.round(approvedTotal * (taxRate / 100) * 100) / 100 : 0;
-    const totalWithTax = approvedTotal + taxAmount;
+    const { taxAmount, totalWithTax } = computeTaxAndTotal(approvedTotal, taxRate);
 
     return {
       baseline,
@@ -4793,7 +4977,7 @@ export default function DashboardPage() {
       (sum, p) => sum + (Number(p.amount) || 0),
       0
     );
-    const balanceDue = estimateSummary.totalWithTax - paidTotal;
+    const balanceDue = computeBalanceDue(estimateSummary.totalWithTax, paidTotal);
 
     return { paidTotal, balanceDue };
   }, [payments, estimateSummary.totalWithTax]);
@@ -4924,6 +5108,22 @@ export default function DashboardPage() {
                     rename). */}
                 Calendar
               </button>
+              {isPortfolioEligible ? (
+                <button
+                  className="btn"
+                  onClick={() => setActiveGlobalTab("portfolio")}
+                  style={{
+                    flex: 1,
+                    background: activeGlobalTab === "portfolio" ? "var(--card)" : "transparent",
+                    color: activeGlobalTab === "portfolio" ? "var(--text)" : "var(--muted)",
+                    fontWeight: activeGlobalTab === "portfolio" ? 700 : 500,
+                    border: "none",
+                    boxShadow: activeGlobalTab === "portfolio" ? "var(--shadow)" : "none",
+                  }}
+                >
+                  Portfolio
+                </button>
+              ) : null}
               <button
                 className="btn"
                 onClick={() => setActiveGlobalTab("account")}
@@ -5342,6 +5542,189 @@ export default function DashboardPage() {
                   + Add New Event
                 </button>
               </div>
+            </div>
+          )}
+
+          {activeGlobalTab === "portfolio" && isPortfolioEligible && (
+            <div className="card">
+              <div style={{ fontWeight: 800, marginBottom: 6 }}>Portfolio</div>
+              <div className="sub" style={{ opacity: 0.75, marginBottom: 14 }}>
+                Every live record's contract value and balance due, combined.
+              </div>
+
+              {portfolioError && <div className="notice">{portfolioError}</div>}
+
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
+                <div
+                  style={{
+                    flex: "1 1 200px",
+                    borderRadius: 16,
+                    padding: 16,
+                    background: "var(--surfaceSoft)",
+                    border: "1px solid var(--borderSoft)",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.5,
+                      opacity: 0.55,
+                      marginBottom: 6,
+                    }}
+                  >
+                    Active Contract Value
+                  </div>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: "var(--text)" }}>
+                    {portfolioBuckets.activeContractValue.toLocaleString("en-US", {
+                      style: "currency",
+                      currency: "USD",
+                    })}
+                  </div>
+                  <div className="sub" style={{ marginTop: 6, opacity: 0.7 }}>
+                    {portfolioBuckets.active.length} active record
+                    {portfolioBuckets.active.length === 1 ? "" : "s"}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    flex: "1 1 200px",
+                    borderRadius: 16,
+                    padding: 16,
+                    background: "var(--surfaceSoft)",
+                    border: "1px solid var(--borderSoft)",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.5,
+                      opacity: 0.55,
+                      marginBottom: 6,
+                    }}
+                  >
+                    Outstanding Balance
+                  </div>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: "var(--text)" }}>
+                    {portfolioBuckets.outstandingBalance.toLocaleString("en-US", {
+                      style: "currency",
+                      currency: "USD",
+                    })}
+                  </div>
+                  <div className="sub" style={{ marginTop: 6, opacity: 0.7 }}>
+                    Owed across active and closed records
+                  </div>
+                </div>
+              </div>
+
+              {portfolioLoading && portfolioRows.length === 0 ? (
+                <div className="sub" style={{ opacity: 0.7 }}>Loading portfolio...</div>
+              ) : (
+                <>
+                  <div style={{ fontWeight: 700, marginBottom: 8 }}>Active</div>
+                  {portfolioBuckets.active.length === 0 ? (
+                    <div className="sub" style={{ opacity: 0.7, marginBottom: 16 }}>
+                      No active records with an estimate yet.
+                    </div>
+                  ) : (
+                    <div style={{ display: "grid", gap: 8, marginBottom: 18 }}>
+                      {portfolioBuckets.active.map((row) => (
+                        <div
+                          key={row.id}
+                          className="row"
+                          style={{
+                            border: "1px solid var(--borderSoft)",
+                            borderRadius: 12,
+                            padding: 12,
+                            cursor: "pointer",
+                            minWidth: 0,
+                          }}
+                          onClick={() => void openProjectFromPortfolioRow(row.id)}
+                        >
+                          <div style={{ minWidth: 0 }}>
+                            <div
+                              style={{
+                                fontWeight: 700,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {row.title}
+                            </div>
+                            {row.balanceDue > 0.01 ? (
+                              <div className="sub" style={{ opacity: 0.7, marginTop: 2 }}>
+                                Balance due{" "}
+                                {row.balanceDue.toLocaleString("en-US", {
+                                  style: "currency",
+                                  currency: "USD",
+                                })}
+                              </div>
+                            ) : null}
+                          </div>
+                          <div style={{ fontWeight: 800, flexShrink: 0 }}>
+                            {row.totalWithTax.toLocaleString("en-US", {
+                              style: "currency",
+                              currency: "USD",
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {portfolioBuckets.closedBalanceDue.length > 0 ? (
+                    <>
+                      <div style={{ fontWeight: 700, marginBottom: 8 }}>
+                        Closed — Balance Due
+                      </div>
+                      <div className="sub" style={{ opacity: 0.7, marginBottom: 8 }}>
+                        Work is done on these, but money is still owed — they stay
+                        listed here until the balance is paid off.
+                      </div>
+                      <div style={{ display: "grid", gap: 8 }}>
+                        {portfolioBuckets.closedBalanceDue.map((row) => (
+                          <div
+                            key={row.id}
+                            className="row"
+                            style={{
+                              border: "1px solid var(--borderSoft)",
+                              borderRadius: 12,
+                              padding: 12,
+                              cursor: "pointer",
+                              minWidth: 0,
+                            }}
+                            onClick={() => void openProjectFromPortfolioRow(row.id)}
+                          >
+                            <div style={{ minWidth: 0 }}>
+                              <div
+                                style={{
+                                  fontWeight: 700,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {row.title}
+                              </div>
+                            </div>
+                            <div style={{ fontWeight: 800, color: "var(--dangerText)", flexShrink: 0 }}>
+                              {row.balanceDue.toLocaleString("en-US", {
+                                style: "currency",
+                                currency: "USD",
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : null}
+                </>
+              )}
             </div>
           )}
 
@@ -6088,6 +6471,34 @@ export default function DashboardPage() {
                                 Export dispute package
                               </button>
 
+                              {/* Close Out / Reopen (2026-08-05) -- see
+                                  "Portfolio Tab - Implementation Plan.md".
+                                  Deliberately independent of Archive below:
+                                  closing means "this job's work is done"
+                                  (a Portfolio concept), archiving means
+                                  "hide from my record list" -- neither one
+                                  implies the other. */}
+                              {selectedProject.closed_at ? (
+                                <button
+                                  className="btn"
+                                  style={{ width: "100%" }}
+                                  onClick={reopenProject}
+                                >
+                                  Reopen
+                                </button>
+                              ) : (
+                                <button
+                                  className="btn"
+                                  style={{ width: "100%" }}
+                                  onClick={() => {
+                                    setProjectMenuOpen(false);
+                                    setCloseOutModalOpen(true);
+                                  }}
+                                >
+                                  Close Out
+                                </button>
+                              )}
+
                               <button
                                 className="btn btnDanger"
                                 style={{ width: "100%" }}
@@ -6534,6 +6945,54 @@ export default function DashboardPage() {
                   await loadApprovals(selectedProject.id);
                 }}
               />
+            </ModalShell>
+          )}
+
+          {selectedProject && (
+            <ModalShell
+              open={closeOutModalOpen}
+              onClose={() => setCloseOutModalOpen(false)}
+              title="Close out record?"
+            >
+              <div className="sub" style={{ opacity: 0.85 }}>
+                This takes "{selectedProject.title}" out of your active
+                Portfolio total. If money is still owed, it'll keep showing
+                under "Closed — Balance Due" until it's paid off — nothing
+                owed ever disappears. You can reopen it anytime from this
+                same menu.
+              </div>
+
+              <button
+                className="btn"
+                style={{ width: "100%" }}
+                onClick={() => void handleShareInvoice(selectedProject.id)}
+              >
+                Send Final Invoice
+              </button>
+
+              {shareInvoiceStatus ? (
+                <div className="sub" style={{ opacity: 0.8, wordBreak: "break-all" }}>
+                  {shareInvoiceStatus}
+                </div>
+              ) : null}
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  className="btn"
+                  style={{ flex: 1 }}
+                  onClick={() => setCloseOutModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn btnPrimary"
+                  style={{ flex: 1 }}
+                  onClick={closeOutProject}
+                  disabled={closeOutSubmitting}
+                >
+                  {closeOutSubmitting ? "Closing..." : "Close Out"}
+                </button>
+              </div>
             </ModalShell>
           )}
 
