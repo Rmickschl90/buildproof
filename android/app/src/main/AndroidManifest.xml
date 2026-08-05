@@ -32,7 +32,7 @@
                  the app frozen with no way to know checkout completed.
                  MainActivity is already singleTask above, so this routes
                  into the existing instance rather than creating a new one.
-                 No android:autoVerify -- that's only needed for https App
+                 No android:autoVerify: that's only needed for https App
                  Links, which don't reliably fire on this exact
                  redirect-chain scenario; a plain custom scheme needs no
                  domain verification and is the standard, documented
