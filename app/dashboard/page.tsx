@@ -4727,7 +4727,20 @@ export default function DashboardPage() {
           <div className="card">
             <div
               className="row"
-              style={{ flexWrap: "wrap", rowGap: 10, alignItems: "center" }}
+              style={{
+                flexWrap: "wrap",
+                rowGap: 10,
+                alignItems: "center",
+                // Centered (2026-08-04): this row used to hold the logo AND
+                // the Schedule/Account header buttons side by side, so
+                // `.row`'s justify-content: space-between made sense --
+                // logo left, buttons right. Now that those buttons are gone
+                // (replaced by the tab bar below), a single flex child under
+                // space-between sits flush left with dead space filling the
+                // rest of the row. Centering here instead of leaving the
+                // class default.
+                justifyContent: "center",
+              }}
             >
               <div style={{ display: "flex", alignItems: "center" }}>
                 {/* The logo PNG has a baked-in white background (not
@@ -7173,9 +7186,40 @@ export default function DashboardPage() {
                   onChange={(e) => setScheduleFormDate(e.target.value)}
                 />
 
-                <label className="sub" style={{ display: "block", marginBottom: 4 }}>
-                  Time (optional)
-                </label>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: 4,
+                  }}
+                >
+                  <label className="sub" style={{ display: "block" }}>
+                    Time (optional)
+                  </label>
+                  {/* 2026-08-04: a native <input type="time"> won't let you
+                      get back to a blank/optional value once any segment
+                      has a value typed in -- an accidental tap into the
+                      field forces picking a real time before you can move
+                      on. Explicit one-tap reset instead of fighting the
+                      native picker. */}
+                  {scheduleFormTime ? (
+                    <button
+                      type="button"
+                      className="sub"
+                      onClick={() => setScheduleFormTime("")}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        padding: 0,
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                      }}
+                    >
+                      Clear time
+                    </button>
+                  ) : null}
+                </div>
                 <input
                   type="time"
                   className="input"
