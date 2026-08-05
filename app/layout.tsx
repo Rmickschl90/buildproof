@@ -5,6 +5,7 @@ import OfflineAttachmentBootstrap from "@/app/components/OfflineAttachmentBootst
 import OfflineSendIndicator from "@/app/components/OfflineSendIndicator";
 import OfflineAppShellBootstrap from "@/app/components/OfflineAppShellBootstrap";
 import OfflineReconnectBootstrap from "@/app/components/OfflineReconnectBootstrap";
+import CapacitorCheckoutReturnBootstrap from "@/app/components/CapacitorCheckoutReturnBootstrap";
 import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme";
 
 export const metadata = {
@@ -47,6 +48,7 @@ export default function RootLayout({
         <OfflineAppShellBootstrap />
         <OfflineAttachmentBootstrap />
         <OfflineReconnectBootstrap />
+        <CapacitorCheckoutReturnBootstrap />
         <OfflineSendIndicator />
         {children}
         <OfflineSendBootstrap />

@@ -48,8 +48,18 @@ export async function POST(req: NextRequest) {
       params.append("subscription_data[trial_period_days]", "30");
     }
     params.append("subscription_data[metadata][user_id]", user.id);
-    params.append("success_url", `${appUrl}/dashboard?billing=success`);
-    params.append("cancel_url", `${appUrl}/dashboard?billing=cancelled`);
+    // 2026-08-06: routed through /checkout-return (not straight to
+    // /dashboard) so native Android checkout can hand back into the app
+    // instead of getting stranded in the system browser -- see
+    // lib/capacitorCheckout.ts for the full explanation. No effect on web.
+    params.append(
+      "success_url",
+      `${appUrl}/checkout-return?dest=%2Fdashboard&billing=success`
+    );
+    params.append(
+      "cancel_url",
+      `${appUrl}/checkout-return?dest=%2Fdashboard&billing=cancelled`
+    );
 
     if (user.email) {
       params.append("customer_email", user.email);

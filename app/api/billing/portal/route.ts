@@ -42,7 +42,10 @@ export async function POST(req: NextRequest) {
 
     const params = new URLSearchParams();
     params.append("customer", data.stripe_customer_id);
-    params.append("return_url", `${appUrl}/dashboard`);
+    // 2026-08-06: routed through /checkout-return -- see
+    // lib/capacitorCheckout.ts and app/api/billing/checkout/route.ts's
+    // matching comment for the full explanation.
+    params.append("return_url", `${appUrl}/checkout-return?dest=%2Fdashboard`);
 
     const stripeRes = await fetch("https://api.stripe.com/v1/billing_portal/sessions", {
       method: "POST",

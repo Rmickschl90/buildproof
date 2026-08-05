@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { Capacitor, registerPlugin } from "@capacitor/core";
+import { openCheckoutUrl } from "@/lib/capacitorCheckout";
 
 type PdfSaverPlugin = {
   savePdf(options: {
@@ -1308,7 +1309,7 @@ export default function DashboardPage() {
         return;
       }
 
-      window.location.href = checkoutJson.url;
+      await openCheckoutUrl(checkoutJson.url);
     } catch (e: any) {
       setUpgradeError(e?.message || "Failed to start checkout.");
     } finally {
@@ -5838,7 +5839,7 @@ export default function DashboardPage() {
                         throw new Error(data?.error || "Unable to open billing portal.");
                       }
 
-                      window.location.href = data.url;
+                      await openCheckoutUrl(data.url);
                     } catch (e: any) {
                       setStatus(e?.message || "Unable to open billing portal.");
                     }

@@ -24,6 +24,26 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Added 2026-08-06: catches this app's own custom URL scheme
+                 so Stripe Checkout/the billing portal (opened via
+                 @capacitor/browser's in-app browser, see
+                 lib/capacitorCheckout.ts) can hand back into this
+                 already-running app once it finishes, instead of leaving
+                 the app frozen with no way to know checkout completed.
+                 MainActivity is already singleTask above, so this routes
+                 into the existing instance rather than creating a new one.
+                 No android:autoVerify -- that's only needed for https App
+                 Links, which don't reliably fire on this exact
+                 redirect-chain scenario; a plain custom scheme needs no
+                 domain verification and is the standard, documented
+                 Capacitor pattern for this. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.linquelabs.leeward" />
+            </intent-filter>
+
         </activity>
 
         <provider

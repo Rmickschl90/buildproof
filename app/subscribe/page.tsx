@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { openCheckoutUrl } from "@/lib/capacitorCheckout";
 
 type BillingStatus = {
   status: string;
@@ -114,7 +115,7 @@ export default function SubscribePage() {
         throw new Error(data?.error || "Unable to start checkout.");
       }
 
-      window.location.href = data.url;
+      await openCheckoutUrl(data.url);
     } catch (e: any) {
       setError(e?.message || "Checkout failed.");
       setStartingCheckout(false);
@@ -154,7 +155,7 @@ export default function SubscribePage() {
         throw new Error(data?.error || "Unable to start checkout.");
       }
 
-      window.location.href = data.url;
+      await openCheckoutUrl(data.url);
     } catch (e: any) {
       setError(e?.message || "Checkout failed.");
       setStartingTeamCheckout(false);

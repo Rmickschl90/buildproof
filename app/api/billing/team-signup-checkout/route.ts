@@ -70,11 +70,19 @@ export async function POST(req: NextRequest) {
       "subscription_data[metadata][pending_organization_name]",
       name
     );
+    // 2026-08-06: routed through /checkout-return -- see
+    // lib/capacitorCheckout.ts and app/api/billing/checkout/route.ts's
+    // matching comment for the full explanation. dest carries the real
+    // destination (/dashboard on success, back to /subscribe on cancel),
+    // exactly as these two URLs did before this change.
     params.append(
       "success_url",
-      `${appUrl}/dashboard?billing=success&team=welcome`
+      `${appUrl}/checkout-return?dest=%2Fdashboard&billing=success&team=welcome`
     );
-    params.append("cancel_url", `${appUrl}/subscribe?billing=cancelled`);
+    params.append(
+      "cancel_url",
+      `${appUrl}/checkout-return?dest=%2Fsubscribe&billing=cancelled`
+    );
 
     // Always a fresh customer - by construction (see comment above) a user reaching this
     // route has no existing Stripe customer worth reusing.

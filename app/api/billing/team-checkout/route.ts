@@ -133,8 +133,17 @@ export async function POST(req: NextRequest) {
       context.organizationId
     );
     params.append("subscription_data[metadata][billing_owner_id]", user.id);
-    params.append("success_url", `${appUrl}/dashboard?billing=success`);
-    params.append("cancel_url", `${appUrl}/dashboard?billing=cancelled`);
+    // 2026-08-06: routed through /checkout-return -- see
+    // lib/capacitorCheckout.ts and app/api/billing/checkout/route.ts's
+    // matching comment for the full explanation.
+    params.append(
+      "success_url",
+      `${appUrl}/checkout-return?dest=%2Fdashboard&billing=success`
+    );
+    params.append(
+      "cancel_url",
+      `${appUrl}/checkout-return?dest=%2Fdashboard&billing=cancelled`
+    );
 
     // Reuse the owner's existing Stripe customer when one exists, rather than
     // customer_email (which creates a brand new Customer object). This matters
