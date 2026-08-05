@@ -5040,12 +5040,18 @@ export default function DashboardPage() {
                         key={i}
                         style={{ cursor: "pointer" }}
                         onClick={() => {
+                          // 2026-08-05, per Ryan: a day that already has an
+                          // event still needs a way to add another -- a
+                          // single-event day used to jump straight to that
+                          // event's Edit modal with no add option at all.
+                          // Now every day with 1+ events opens the same
+                          // list view (below), which always includes an
+                          // "+ Add New Event" action alongside whatever's
+                          // already there.
                           if (eventsForDay.length === 0) {
                             setSchedulePickerDate(cell.dateKey);
                             setSchedulePickerSearch("");
                             setSchedulePickerOpen(true);
-                          } else if (eventsForDay.length === 1) {
-                            openEditScheduleEvent(eventsForDay[0]);
                           } else {
                             setDayEventsModalDate(cell.dateKey);
                           }
@@ -5317,6 +5323,24 @@ export default function DashboardPage() {
                     </div>
                   ))}
                 </div>
+
+                {/* 2026-08-05, per Ryan: a day that already has events
+                    still needs a way to add another -- reuses the same
+                    record-picker flow an empty day uses, with this day's
+                    date carried through the same way. */}
+                <button
+                  className="btn btnPrimary"
+                  style={{ width: "100%", marginTop: 12 }}
+                  onClick={() => {
+                    const date = dayEventsModalDate;
+                    setDayEventsModalDate(null);
+                    setSchedulePickerDate(date);
+                    setSchedulePickerSearch("");
+                    setSchedulePickerOpen(true);
+                  }}
+                >
+                  + Add New Event
+                </button>
               </div>
             </div>
           )}
