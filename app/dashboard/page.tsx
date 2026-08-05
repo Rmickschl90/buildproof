@@ -4830,7 +4830,17 @@ export default function DashboardPage() {
                   boxShadow: activeGlobalTab === "schedule" ? "var(--shadow)" : "none",
                 }}
               >
-                Schedule
+                {/* Labeled "Calendar" (2026-08-04), per Ryan: this global,
+                    cross-record month-view tab and the per-record
+                    Timeline/Estimate/Documents/Schedule tab bar's own
+                    "Schedule" tab were both visible on screen at once
+                    (this tab bar sits above the record view), both saying
+                    "Schedule" but meaning different things -- confusing.
+                    Display label only; activeGlobalTab's internal value is
+                    still "schedule" (state/API/DB naming unchanged, same
+                    copy-only-rename discipline as the Project -> Record
+                    rename). */}
+                Calendar
               </button>
               <button
                 className="btn"
@@ -5034,9 +5044,9 @@ export default function DashboardPage() {
               <div className="card" style={{ marginTop: 16 }}>
                 <div style={{ fontWeight: 800, marginBottom: 10 }}>Upcoming</div>
                 {globalScheduleLoading && globalScheduleEvents.length === 0 ? (
-                  <p className="sub" style={{ opacity: 0.6 }}>Loading schedule...</p>
+                  <p className="sub" style={{ opacity: 0.6 }}>Loading calendar...</p>
                 ) : globalScheduleEvents.length === 0 ? (
-                  <p className="sub" style={{ opacity: 0.6 }}>Nothing scheduled yet.</p>
+                  <p className="sub" style={{ opacity: 0.6 }}>Nothing on the calendar yet.</p>
                 ) : (
                   <div style={{ display: "grid", gap: 8 }}>
                     {globalScheduleEvents.map((event) => (
