@@ -344,6 +344,26 @@ export default function InvitePage() {
               >
                 {busy ? "Verifying..." : "Verify Code"}
               </button>
+              {/* 2026-08-06, per Ryan: found on Android/Outlook (didn't
+                  reproduce on Gmail, so this is isolated to certain mail
+                  apps' in-app browsers) -- leaving this screen to go read
+                  the code, then coming back, reloads the page and resets
+                  it back to "Send Sign-In Code" instead of showing the
+                  code box again. The email's own sign-in link isn't
+                  affected by that reset (it's a fresh, self-contained
+                  action from the mail app), so it's the more reliable path
+                  on those browsers -- this note exists so people don't
+                  have to spot it themselves the way Ryan did. Static text,
+                  not tied to authMessage, so it can't get overwritten by a
+                  later error message and disappear right when it's needed
+                  most. */}
+              <p className="sub" style={{ fontSize: 13 }}>
+                You can enter the code above, or just tap the sign-in link
+                in that same email instead — no need to come back here to
+                type it. Don't see the email within a minute or two? Check
+                your spam or junk folder; it can land there depending on
+                your email app.
+              </p>
             </div>
           )}
 
