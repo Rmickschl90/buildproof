@@ -179,6 +179,7 @@ export default function ArchivedPage() {
                       alignItems: "center",
                       justifyContent: "space-between",
                       gap: 12,
+                      minWidth: 0,
                       transition: "transform 120ms ease, box-shadow 120ms ease",
                       boxShadow: "0 1px 0 rgba(0,0,0,0.03)",
                     }}
@@ -235,6 +236,7 @@ export default function ArchivedPage() {
                         opacity: isRestoring ? 0.7 : 1,
                         transition: "opacity 120ms ease",
                         whiteSpace: "nowrap",
+                        flexShrink: 0,
                       }}
                     >
                       {isRestoring ? "Restoring…" : "Restore"}
