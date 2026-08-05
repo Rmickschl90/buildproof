@@ -1165,7 +1165,21 @@ export default function DashboardPage() {
     }
   }
 
-  async function removeOrgMember(memberRowId: string) {
+  async function removeOrgMember(memberRowId: string, memberEmail?: string | null) {
+    // 2026-08-06, per Ryan: this removed a member immediately on click with
+    // no confirmation at all -- "one simple click and I was gone," found
+    // during real Team invite testing on Android. Every other destructive
+    // action in this app (deleteEntry, archiveEntry, archiveProject,
+    // exportDisputePackage, handleDeleteScheduleEvent) already gates behind
+    // window.confirm(), so this matches the app's own established pattern
+    // rather than introducing a new one. Removal isn't permanent -- a
+    // re-invited member's membership row is revived, not recreated (see the
+    // Members/Invite UI re-invite-after-removal fix) -- so the copy says so.
+    const ok = window.confirm(
+      `Remove ${memberEmail || "this member"} from this organization? They'll lose access immediately. You can invite them again later.`
+    );
+    if (!ok) return;
+
     setMemberActionBusyId(memberRowId);
     setMembersError("");
 
@@ -9031,7 +9045,7 @@ export default function DashboardPage() {
                     <button
                       className="btn btnDanger"
                       disabled={memberActionBusyId === m.id}
-                      onClick={() => removeOrgMember(m.id)}
+                      onClick={() => removeOrgMember(m.id, m.email)}
                     >
                       Remove
                     </button>
