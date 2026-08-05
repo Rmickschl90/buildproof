@@ -152,6 +152,33 @@ type ProjectDocument = {
   uploaded_by: string;
 };
 
+type ScheduleEventType = "site_visit" | "start_date" | "completion_date" | "inspection" | "custom";
+
+type ScheduleEvent = {
+  id: string;
+  project_id: string;
+  event_type: ScheduleEventType;
+  custom_label: string | null;
+  event_date: string;
+  event_time: string | null;
+  note: string | null;
+  created_at: string;
+  created_by: string;
+};
+
+const SCHEDULE_EVENT_TYPE_LABELS: Record<ScheduleEventType, string> = {
+  site_visit: "Site visit",
+  start_date: "Estimated start",
+  completion_date: "Estimated completion",
+  inspection: "Inspection",
+  custom: "Custom",
+};
+
+function scheduleEventLabel(event: Pick<ScheduleEvent, "event_type" | "custom_label">) {
+  if (event.event_type === "custom" && event.custom_label) return event.custom_label;
+  return SCHEDULE_EVENT_TYPE_LABELS[event.event_type] ?? "Event";
+}
+
 type TimelineApproval = Approval;
 
 type TimelineProof = Proof | (OfflineProofRecord & { isOffline: true });
@@ -367,6 +394,38 @@ export default function DashboardPage() {
   const [documents, setDocuments] = useState<ProjectDocument[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
+  const [scheduleEvents, setScheduleEvents] = useState<ScheduleEvent[]>([]);
+  const [scheduleEventsLoading, setScheduleEventsLoading] = useState(false);
+  const [scheduleFormOpen, setScheduleFormOpen] = useState(false);
+  const [scheduleFormProjectId, setScheduleFormProjectId] = useState<string | null>(null);
+  const [editingScheduleEventId, setEditingScheduleEventId] = useState<string | null>(null);
+  const [scheduleFormType, setScheduleFormType] = useState<ScheduleEventType>("site_visit");
+  const [scheduleFormCustomLabel, setScheduleFormCustomLabel] = useState("");
+  const [scheduleFormDate, setScheduleFormDate] = useState("");
+  const [scheduleFormTime, setScheduleFormTime] = useState("");
+  const [scheduleFormNote, setScheduleFormNote] = useState("");
+  const [scheduleFormStatus, setScheduleFormStatus] = useState<string | null>(null);
+  const [scheduleFormSubmitting, setScheduleFormSubmitting] = useState(false);
+  // Global Schedule view (header button, next to Account) -- aggregates
+  // schedule events across every record the caller can access. Separate
+  // from the per-record scheduleEvents state above.
+  const [globalScheduleEvents, setGlobalScheduleEvents] = useState<
+    (ScheduleEvent & { projectTitle: string | null; clientName: string | null })[]
+  >([]);
+  const [globalScheduleLoading, setGlobalScheduleLoading] = useState(false);
+  const [scheduleCalendarMonth, setScheduleCalendarMonth] = useState(() => {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() };
+  });
+  const [schedulePickerOpen, setSchedulePickerOpen] = useState(false);
+  const [schedulePickerDate, setSchedulePickerDate] = useState<string | null>(null);
+  const [schedulePickerSearch, setSchedulePickerSearch] = useState("");
+
+  useEffect(() => {
+    if (activeGlobalTab === "schedule") {
+      void loadGlobalScheduleEvents();
+    }
+  }, [activeGlobalTab]);
   const [documentUploadStatus, setDocumentUploadStatus] = useState<string | null>(null);
   // Files from a failed upload attempt, kept in memory only (never written to
   // IndexedDB/localStorage/a DB row) so Retry doesn't require re-picking the
@@ -458,10 +517,10 @@ export default function DashboardPage() {
   }
 
   // ---- Global navigation (Projects / Account) ----
-  const [activeGlobalTab, setActiveGlobalTab] = useState<"projects" | "account">("projects");
+  const [activeGlobalTab, setActiveGlobalTab] = useState<"projects" | "account" | "schedule">("projects");
 
   // ---- Project-level navigation (Timeline / Estimate) ----
-  const [activeProjectTab, setActiveProjectTab] = useState<"timeline" | "estimate" | "documents">("timeline");
+  const [activeProjectTab, setActiveProjectTab] = useState<"timeline" | "estimate" | "documents" | "schedule">("timeline");
 
   useEffect(() => {
     setActiveProjectTab("timeline");
@@ -1347,6 +1406,7 @@ export default function DashboardPage() {
       setDocuments([]);
       setDocumentUploadStatus(null);
       setFailedDocumentUploads([]);
+      setScheduleEvents([]);
       return;
     }
 
@@ -1355,6 +1415,7 @@ export default function DashboardPage() {
     void loadPayments(selectedProject.id);
     void refreshOfflinePayments(selectedProject.id);
     void loadDocuments(selectedProject.id);
+    void loadScheduleEvents(selectedProject.id);
     setDocumentUploadStatus(null);
     setFailedDocumentUploads([]);
 
@@ -2813,6 +2874,184 @@ export default function DashboardPage() {
       await loadDocuments(selectedProject.id);
     } catch (err: any) {
       console.error("Failed to delete document:", err?.message);
+    }
+  }
+
+  // ---------------- SCHEDULE (Phase 1: online-only, no offline outbox yet) ----------------
+  async function loadScheduleEvents(projectId: string) {
+    if (projectId.startsWith("offline-project-")) return;
+    if (typeof navigator !== "undefined" && !navigator.onLine) return;
+
+    try {
+      setScheduleEventsLoading(true);
+      const token = await getAccessToken();
+
+      const res = await fetch("/api/schedule/list", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ projectId }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        console.error("Failed to load schedule:", json?.error);
+        return;
+      }
+
+      setScheduleEvents((json?.events ?? []) as ScheduleEvent[]);
+    } catch (err: any) {
+      console.error("Failed to load schedule:", err?.message);
+    } finally {
+      setScheduleEventsLoading(false);
+    }
+  }
+
+  async function loadGlobalScheduleEvents() {
+    try {
+      setGlobalScheduleLoading(true);
+      const token = await getAccessToken();
+
+      const res = await fetch("/api/schedule/list-for-org", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        console.error("Failed to load global schedule:", json?.error);
+        return;
+      }
+
+      setGlobalScheduleEvents(json?.events ?? []);
+    } catch (err: any) {
+      console.error("Failed to load global schedule:", err?.message);
+    } finally {
+      setGlobalScheduleLoading(false);
+    }
+  }
+
+  // Opens the add form. Called two ways: with just a projectId (the
+  // embedded "+" on either the per-record tab or the global calendar, no
+  // date pre-filled), or with both a projectId and a date (tapping an
+  // empty day on the global calendar - date carries through pre-filled).
+  function openAddScheduleEvent(projectId: string, prefillDate?: string) {
+    setEditingScheduleEventId(null);
+    setScheduleFormProjectId(projectId);
+    setScheduleFormType("site_visit");
+    setScheduleFormCustomLabel("");
+    setScheduleFormDate(prefillDate ?? "");
+    setScheduleFormTime("");
+    setScheduleFormNote("");
+    setScheduleFormStatus(null);
+    setSchedulePickerOpen(false);
+    setScheduleFormOpen(true);
+  }
+
+  function openEditScheduleEvent(event: ScheduleEvent) {
+    setEditingScheduleEventId(event.id);
+    setScheduleFormProjectId(event.project_id);
+    setScheduleFormType(event.event_type);
+    setScheduleFormCustomLabel(event.custom_label ?? "");
+    setScheduleFormDate(event.event_date);
+    setScheduleFormTime(event.event_time ?? "");
+    setScheduleFormNote(event.note ?? "");
+    setScheduleFormStatus(null);
+    setScheduleFormOpen(true);
+  }
+
+  async function handleSubmitScheduleForm() {
+    if (!scheduleFormProjectId) return;
+
+    if (!scheduleFormDate) {
+      setScheduleFormStatus("Pick a date.");
+      return;
+    }
+
+    if (scheduleFormType === "custom" && !scheduleFormCustomLabel.trim()) {
+      setScheduleFormStatus("Custom events need a label.");
+      return;
+    }
+
+    try {
+      setScheduleFormSubmitting(true);
+      setScheduleFormStatus(null);
+      const token = await getAccessToken();
+
+      const isEdit = !!editingScheduleEventId;
+      const res = await fetch(`/api/schedule/${isEdit ? "update" : "create"}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          ...(isEdit ? { eventId: editingScheduleEventId } : { projectId: scheduleFormProjectId }),
+          eventType: scheduleFormType,
+          customLabel: scheduleFormType === "custom" ? scheduleFormCustomLabel.trim() : null,
+          eventDate: scheduleFormDate,
+          eventTime: scheduleFormTime || null,
+          note: scheduleFormNote.trim() || null,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setScheduleFormStatus(json?.error || "Failed to save event.");
+        return;
+      }
+
+      setScheduleFormOpen(false);
+
+      if (selectedProject && selectedProject.id === scheduleFormProjectId) {
+        await loadScheduleEvents(scheduleFormProjectId);
+      }
+      if (activeGlobalTab === "schedule") {
+        await loadGlobalScheduleEvents();
+      }
+    } catch (err: any) {
+      setScheduleFormStatus(err?.message || "Failed to save event.");
+    } finally {
+      setScheduleFormSubmitting(false);
+    }
+  }
+
+  async function handleDeleteScheduleEvent(eventId: string, projectId: string) {
+    try {
+      const token = await getAccessToken();
+
+      const res = await fetch("/api/schedule/delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ eventId }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        console.error("Failed to delete event:", json?.error);
+        return;
+      }
+
+      if (selectedProject && selectedProject.id === projectId) {
+        await loadScheduleEvents(projectId);
+      }
+      if (activeGlobalTab === "schedule") {
+        await loadGlobalScheduleEvents();
+      }
+    } catch (err: any) {
+      console.error("Failed to delete event:", err?.message);
     }
   }
 
@@ -4435,6 +4674,60 @@ export default function DashboardPage() {
   // totalWithTax when tax support was added -- for any record with no
   // tax_rate set, totalWithTax === approvedTotal, so this is a no-op for
   // every existing record.
+  const SCHEDULE_EVENT_TYPE_COLORS: Record<ScheduleEventType, string> = {
+    site_visit: "#3b82f6",
+    start_date: "#f59e0b",
+    completion_date: "#16a34a",
+    inspection: "#7c6fd6",
+    custom: "#7c6fd6",
+  };
+
+  const scheduleEventsByDate = useMemo(() => {
+    const map = new Map<string, typeof globalScheduleEvents>();
+    for (const event of globalScheduleEvents) {
+      const list = map.get(event.event_date) ?? [];
+      list.push(event);
+      map.set(event.event_date, list);
+    }
+    return map;
+  }, [globalScheduleEvents]);
+
+  const scheduleCalendarDays = useMemo(() => {
+    const { year, month } = scheduleCalendarMonth;
+    const firstDayOfWeek = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    const cells: { day: number | null; dateKey: string | null }[] = [];
+    for (let i = 0; i < firstDayOfWeek; i++) cells.push({ day: null, dateKey: null });
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      cells.push({ day, dateKey });
+    }
+    return cells;
+  }, [scheduleCalendarMonth]);
+
+  const scheduleCalendarMonthLabel = useMemo(() => {
+    return new Date(scheduleCalendarMonth.year, scheduleCalendarMonth.month, 1).toLocaleDateString(
+      "en-US",
+      { month: "long", year: "numeric" }
+    );
+  }, [scheduleCalendarMonth]);
+
+  const filteredSchedulePickerProjects = useMemo(() => {
+    const q = schedulePickerSearch.trim().toLowerCase();
+    if (!q) return projects;
+    return projects.filter(
+      (p) =>
+        p.title?.toLowerCase().includes(q) ||
+        p.client_name?.toLowerCase().includes(q)
+    );
+  }, [projects, schedulePickerSearch]);
+
+  const todayDateKey = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  }, []);
+
   const paymentsSummary = useMemo(() => {
     const paidTotal = payments.reduce(
       (sum, p) => sum + (Number(p.amount) || 0),
@@ -4502,6 +4795,16 @@ export default function DashboardPage() {
                   marginLeft: "auto",
                 }}
               >
+                <button
+                  className="btn headerActionBtn"
+                  onClick={() =>
+                    setActiveGlobalTab((v) => (v === "schedule" ? "projects" : "schedule"))
+                  }
+                  title="Schedule"
+                >
+                  Schedule
+                </button>
+
                 <div style={{ position: "relative" }} ref={accountMenuRef}>
                   <button
                     className="btn headerActionBtn"
@@ -4633,6 +4936,270 @@ export default function DashboardPage() {
               </div>
             ) : null}
           </div>
+
+          {activeGlobalTab === "schedule" && (
+            <>
+              <div className="card" style={{ position: "relative" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: 14,
+                  }}
+                >
+                  <button
+                    className="btn"
+                    style={{ padding: "4px 10px" }}
+                    onClick={() =>
+                      setScheduleCalendarMonth((prev) => {
+                        const month = prev.month - 1;
+                        return month < 0
+                          ? { year: prev.year - 1, month: 11 }
+                          : { year: prev.year, month };
+                      })
+                    }
+                  >
+                    ‹
+                  </button>
+                  <div style={{ fontWeight: 700 }}>{scheduleCalendarMonthLabel}</div>
+                  <button
+                    className="btn"
+                    style={{ padding: "4px 10px" }}
+                    onClick={() =>
+                      setScheduleCalendarMonth((prev) => {
+                        const month = prev.month + 1;
+                        return month > 11
+                          ? { year: prev.year + 1, month: 0 }
+                          : { year: prev.year, month };
+                      })
+                    }
+                  >
+                    ›
+                  </button>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(7, 1fr)",
+                    textAlign: "center",
+                    fontSize: 11,
+                    color: "var(--muted)",
+                    marginBottom: 6,
+                  }}
+                >
+                  {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+                    <div key={i}>{d}</div>
+                  ))}
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(7, 1fr)",
+                    rowGap: 10,
+                    textAlign: "center",
+                    fontSize: 13,
+                  }}
+                >
+                  {scheduleCalendarDays.map((cell, i) => {
+                    if (cell.day === null || !cell.dateKey) return <div key={i} />;
+                    const eventsForDay = scheduleEventsByDate.get(cell.dateKey) ?? [];
+                    const isToday = cell.dateKey === todayDateKey;
+
+                    return (
+                      <div
+                        key={i}
+                        style={{ cursor: "pointer" }}
+                        onClick={() => {
+                          if (eventsForDay.length === 0) {
+                            setSchedulePickerDate(cell.dateKey);
+                            setSchedulePickerSearch("");
+                            setSchedulePickerOpen(true);
+                          }
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 24,
+                            height: 24,
+                            lineHeight: "24px",
+                            margin: "0 auto",
+                            borderRadius: "50%",
+                            background: isToday ? "var(--text)" : "transparent",
+                            color: isToday ? "var(--card)" : "var(--text)",
+                          }}
+                        >
+                          {cell.day}
+                        </div>
+                        <div style={{ display: "flex", gap: 2, justifyContent: "center", marginTop: 2 }}>
+                          {eventsForDay.slice(0, 3).map((e) => (
+                            <div
+                              key={e.id}
+                              style={{
+                                width: 4,
+                                height: 4,
+                                borderRadius: "50%",
+                                background: SCHEDULE_EVENT_TYPE_COLORS[e.event_type],
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 14,
+                    marginTop: 14,
+                    paddingTop: 12,
+                    borderTop: "1px solid var(--borderSoft)",
+                    fontSize: 11,
+                    color: "var(--muted)",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {(Object.keys(SCHEDULE_EVENT_TYPE_LABELS) as ScheduleEventType[])
+                    .filter((t) => t !== "custom")
+                    .map((t) => (
+                      <div key={t} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <div
+                          style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: "50%",
+                            background: SCHEDULE_EVENT_TYPE_COLORS[t],
+                          }}
+                        />
+                        {SCHEDULE_EVENT_TYPE_LABELS[t]}
+                      </div>
+                    ))}
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
+                  <button
+                    className="btn btnPrimary"
+                    style={{ borderRadius: "50%", width: 42, height: 42, padding: 0 }}
+                    title="Add event"
+                    onClick={() => {
+                      setSchedulePickerDate(null);
+                      setSchedulePickerSearch("");
+                      setSchedulePickerOpen(true);
+                    }}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              <div className="card" style={{ marginTop: 16 }}>
+                <div style={{ fontWeight: 800, marginBottom: 10 }}>Upcoming</div>
+                {globalScheduleLoading && globalScheduleEvents.length === 0 ? (
+                  <p className="sub" style={{ opacity: 0.6 }}>Loading schedule...</p>
+                ) : globalScheduleEvents.length === 0 ? (
+                  <p className="sub" style={{ opacity: 0.6 }}>Nothing scheduled yet.</p>
+                ) : (
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {globalScheduleEvents.map((event) => (
+                      <div
+                        key={event.id}
+                        style={{
+                          borderLeft: `3px solid ${SCHEDULE_EVENT_TYPE_COLORS[event.event_type]}`,
+                          borderRadius: "0 12px 12px 0",
+                          background: "var(--surfaceSoft)",
+                          padding: "10px 12px",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          gap: 12,
+                          cursor: "pointer",
+                        }}
+                        onClick={() => openEditScheduleEvent(event)}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, color: "var(--text)" }}>
+                            {scheduleEventLabel(event)}
+                            {event.event_time ? ` · ${event.event_time}` : ""}
+                          </div>
+                          <div className="sub" style={{ opacity: 0.65, marginTop: 2 }}>
+                            {new Date(`${event.event_date}T00:00:00`).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                            {" · "}
+                            {event.projectTitle ?? "Record"}
+                            {event.clientName ? ` · ${event.clientName}` : ""}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {schedulePickerOpen && (
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(0,0,0,0.45)",
+                zIndex: 60,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 16,
+              }}
+              onClick={() => setSchedulePickerOpen(false)}
+            >
+              <div
+                className="card"
+                style={{ maxWidth: 420, width: "100%" }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 12 }}>
+                  Choose a record
+                </div>
+                <input
+                  className="input"
+                  style={{ width: "100%", marginBottom: 12 }}
+                  placeholder="Search records or clients..."
+                  value={schedulePickerSearch}
+                  onChange={(e) => setSchedulePickerSearch(e.target.value)}
+                />
+                <div style={{ display: "grid", gap: 8, maxHeight: 320, overflowY: "auto" }}>
+                  {filteredSchedulePickerProjects.map((p) => (
+                    <div
+                      key={p.id}
+                      style={{
+                        border: "1px solid var(--borderSoft)",
+                        borderRadius: 10,
+                        padding: "10px 12px",
+                        cursor: "pointer",
+                      }}
+                      onClick={() => {
+                        setSchedulePickerOpen(false);
+                        openAddScheduleEvent(p.id, schedulePickerDate ?? undefined);
+                      }}
+                    >
+                      <div style={{ fontWeight: 700, color: "var(--text)" }}>{p.title}</div>
+                      {p.client_name ? (
+                        <div className="sub" style={{ opacity: 0.65 }}>{p.client_name}</div>
+                      ) : null}
+                    </div>
+                  ))}
+                  {filteredSchedulePickerProjects.length === 0 ? (
+                    <p className="sub" style={{ opacity: 0.6 }}>No records match.</p>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          )}
 
           {dashboardReady && activeGlobalTab === "projects" ? (
             <OnboardingWizard
@@ -5418,6 +5985,21 @@ export default function DashboardPage() {
                   }}
                 >
                   Documents
+                </button>
+
+                <button
+                  className="btn"
+                  onClick={() => setActiveProjectTab("schedule")}
+                  style={{
+                    flex: 1,
+                    background: activeProjectTab === "schedule" ? "var(--card)" : "transparent",
+                    color: activeProjectTab === "schedule" ? "var(--text)" : "var(--muted)",
+                    fontWeight: activeProjectTab === "schedule" ? 700 : 500,
+                    border: "none",
+                    boxShadow: activeProjectTab === "schedule" ? "var(--shadow)" : "none",
+                  }}
+                >
+                  Schedule
                 </button>
               </div>
 
@@ -6446,6 +7028,227 @@ export default function DashboardPage() {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {selectedProject && activeGlobalTab === "projects" && activeProjectTab === "schedule" && (
+            <div className="card">
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 10,
+                  flexWrap: "wrap",
+                  rowGap: 8,
+                }}
+              >
+                <div style={{ fontWeight: 800 }}>Schedule</div>
+
+                <button
+                  className="btn btnPrimary"
+                  onClick={() => openAddScheduleEvent(selectedProject.id)}
+                >
+                  + Add Event
+                </button>
+              </div>
+
+              <p className="sub" style={{ opacity: 0.65, marginTop: -4, marginBottom: 14 }}>
+                Site visits, start/completion dates, inspections — internal
+                planning only, never shown to the client.
+              </p>
+
+              {scheduleEventsLoading && scheduleEvents.length === 0 ? (
+                <p className="sub" style={{ opacity: 0.6 }}>Loading schedule...</p>
+              ) : scheduleEvents.length === 0 ? (
+                <p className="sub" style={{ opacity: 0.6 }}>No events scheduled yet.</p>
+              ) : (
+                <div style={{ display: "grid", gap: 8 }}>
+                  {scheduleEvents.map((event) => (
+                    <div
+                      key={event.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        borderRadius: 12,
+                        padding: "10px 12px",
+                        background: "var(--surfaceSoft)",
+                        border: "1px solid var(--borderSoft)",
+                        flexWrap: "wrap",
+                        rowGap: 8,
+                        cursor: "pointer",
+                      }}
+                      onClick={() => openEditScheduleEvent(event)}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, color: "var(--text)" }}>
+                          {scheduleEventLabel(event)}
+                        </div>
+                        <div className="sub" style={{ opacity: 0.65, marginTop: 2 }}>
+                          {new Date(`${event.event_date}T00:00:00`).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                          {event.event_time ? ` · ${event.event_time}` : ""}
+                        </div>
+                        {event.note ? (
+                          <div className="sub" style={{ opacity: 0.6, marginTop: 2 }}>
+                            {event.note}
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <button
+                        className="btn"
+                        style={{ padding: "4px 10px", fontSize: 12, opacity: 0.7, flexShrink: 0 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleDeleteScheduleEvent(event.id, event.project_id);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {scheduleFormOpen && scheduleFormProjectId && (
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(0,0,0,0.45)",
+                zIndex: 60,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 16,
+              }}
+              onClick={() => setScheduleFormOpen(false)}
+            >
+              <div
+                className="card"
+                style={{ maxWidth: 420, width: "100%" }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: 14,
+                  }}
+                >
+                  <div style={{ fontWeight: 800, fontSize: 16 }}>
+                    {editingScheduleEventId ? "Edit event" : "Add event"}
+                  </div>
+                  <button
+                    className="btn"
+                    style={{ padding: "4px 10px" }}
+                    onClick={() => setScheduleFormOpen(false)}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <label className="sub" style={{ display: "block", marginBottom: 4 }}>
+                  Type
+                </label>
+                <select
+                  className="input"
+                  style={{ marginBottom: 10, width: "100%" }}
+                  value={scheduleFormType}
+                  onChange={(e) => setScheduleFormType(e.target.value as ScheduleEventType)}
+                >
+                  <option value="site_visit">Site visit</option>
+                  <option value="start_date">Start date</option>
+                  <option value="completion_date">Completion date</option>
+                  <option value="inspection">Inspection</option>
+                  <option value="custom">Custom</option>
+                </select>
+
+                {scheduleFormType === "custom" ? (
+                  <>
+                    <label className="sub" style={{ display: "block", marginBottom: 4 }}>
+                      Label
+                    </label>
+                    <input
+                      className="input"
+                      style={{ marginBottom: 10, width: "100%" }}
+                      value={scheduleFormCustomLabel}
+                      onChange={(e) => setScheduleFormCustomLabel(e.target.value)}
+                      placeholder="e.g. Permit pickup"
+                    />
+                  </>
+                ) : null}
+
+                <label className="sub" style={{ display: "block", marginBottom: 4 }}>
+                  Date
+                </label>
+                <input
+                  type="date"
+                  className="input"
+                  style={{ marginBottom: 10, width: "100%" }}
+                  value={scheduleFormDate}
+                  onChange={(e) => setScheduleFormDate(e.target.value)}
+                />
+
+                <label className="sub" style={{ display: "block", marginBottom: 4 }}>
+                  Time (optional)
+                </label>
+                <input
+                  type="time"
+                  className="input"
+                  style={{ marginBottom: 10, width: "100%" }}
+                  value={scheduleFormTime}
+                  onChange={(e) => setScheduleFormTime(e.target.value)}
+                />
+
+                <label className="sub" style={{ display: "block", marginBottom: 4 }}>
+                  Note (optional)
+                </label>
+                <input
+                  className="input"
+                  style={{ marginBottom: 14, width: "100%" }}
+                  value={scheduleFormNote}
+                  onChange={(e) => setScheduleFormNote(e.target.value)}
+                  placeholder="e.g. gate code, parking, reminders"
+                />
+
+                {scheduleFormStatus ? (
+                  <div className="sub" style={{ marginBottom: 10, opacity: 0.8 }}>
+                    {scheduleFormStatus}
+                  </div>
+                ) : null}
+
+                <div style={{ display: "flex", gap: 8 }}>
+                  {editingScheduleEventId ? (
+                    <button
+                      className="btn"
+                      style={{ flex: 1 }}
+                      onClick={() => {
+                        setScheduleFormOpen(false);
+                        void handleDeleteScheduleEvent(editingScheduleEventId, scheduleFormProjectId);
+                      }}
+                    >
+                      Delete
+                    </button>
+                  ) : null}
+                  <button
+                    className="btn btnPrimary"
+                    style={{ flex: 2 }}
+                    disabled={scheduleFormSubmitting}
+                    onClick={() => void handleSubmitScheduleForm()}
+                  >
+                    {scheduleFormSubmitting ? "Saving..." : "Save event"}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
