@@ -5085,18 +5085,46 @@ export default function DashboardPage() {
                         onClick={() => openEditScheduleEvent(event)}
                       >
                         <div style={{ minWidth: 0 }}>
+                          {/* 2026-08-04, per Ryan: same date/time-as-title
+                              swap as the per-record card below -- type
+                              moves into this card's small colored-dot line
+                              alongside the record/client, since color
+                              already carries it and repeating it as the
+                              biggest text on every card was redundant. */}
                           <div style={{ fontWeight: 700, color: "var(--text)" }}>
-                            {scheduleEventLabel(event)}
-                            {event.event_time ? ` · ${event.event_time}` : ""}
-                          </div>
-                          <div className="sub" style={{ opacity: 0.65, marginTop: 2 }}>
                             {new Date(`${event.event_date}T00:00:00`).toLocaleDateString("en-US", {
                               month: "short",
                               day: "numeric",
                             })}
-                            {" · "}
-                            {event.projectTitle ?? "Record"}
-                            {event.clientName ? ` · ${event.clientName}` : ""}
+                            {event.event_time ? ` · ${event.event_time}` : ""}
+                          </div>
+                          <div
+                            className="sub"
+                            style={{
+                              opacity: 0.65,
+                              marginTop: 2,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 5,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <span
+                              style={{
+                                width: 6,
+                                height: 6,
+                                borderRadius: "50%",
+                                background: SCHEDULE_EVENT_TYPE_COLORS[event.event_type],
+                                flexShrink: 0,
+                                display: "inline-block",
+                              }}
+                            />
+                            <span>{scheduleEventLabel(event)}</span>
+                            <span>·</span>
+                            <span>
+                              {event.projectTitle ?? "Record"}
+                              {event.clientName ? ` · ${event.clientName}` : ""}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -7111,15 +7139,41 @@ export default function DashboardPage() {
                       onClick={() => openEditScheduleEvent(event)}
                     >
                       <div style={{ minWidth: 0 }}>
+                        {/* 2026-08-04, per Ryan: date/time is now the
+                            primary/bold text instead of the event type --
+                            type was already conveyed by color (the dot
+                            below), so leading with it as the biggest text
+                            on every card was redundant, and date/time is
+                            the more useful thing to see first (always
+                            present, unlike the optional note). */}
                         <div style={{ fontWeight: 700, color: "var(--text)" }}>
-                          {scheduleEventLabel(event)}
-                        </div>
-                        <div className="sub" style={{ opacity: 0.65, marginTop: 2 }}>
                           {new Date(`${event.event_date}T00:00:00`).toLocaleDateString("en-US", {
                             month: "short",
                             day: "numeric",
                           })}
                           {event.event_time ? ` · ${event.event_time}` : ""}
+                        </div>
+                        <div
+                          className="sub"
+                          style={{
+                            opacity: 0.65,
+                            marginTop: 2,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 5,
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: 6,
+                              height: 6,
+                              borderRadius: "50%",
+                              background: SCHEDULE_EVENT_TYPE_COLORS[event.event_type],
+                              flexShrink: 0,
+                              display: "inline-block",
+                            }}
+                          />
+                          {scheduleEventLabel(event)}
                         </div>
                         {event.note ? (
                           <div className="sub" style={{ opacity: 0.6, marginTop: 2 }}>
