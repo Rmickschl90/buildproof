@@ -3024,9 +3024,19 @@ export default function DashboardPage() {
   async function reopenProject() {
     if (!selectedProject) return;
 
-    const ok = window.confirm("Reopen this record? It will count toward your active portfolio again.");
-    if (!ok) return;
-
+    // 2026-08-05, per Ryan: clicking Reopen appeared to do nothing on a
+    // real click-through. Root cause not confirmed with certainty (this
+    // sandbox's own Chrome automation independently hit a real, different
+    // issue -- a native window.confirm() here freezes CDP -- and Chrome
+    // itself offers a "Prevent this page from creating additional dialogs"
+    // checkbox after repeated confirm()s, which would make every later
+    // confirm() on the page silently return false with no visible
+    // feedback, matching "the button doesn't do anything" exactly).
+    // Removed the confirm entirely rather than debug the dialog further --
+    // unlike Archive/Delete, reopening isn't destructive or hard to undo
+    // (closing it again is one click), so gating it behind a confirmation
+    // was never load-bearing to begin with. Matches the plan doc's own
+    // framing of Reopen as an easy, low-friction undo action.
     try {
       setStatus("Reopening record...");
 
