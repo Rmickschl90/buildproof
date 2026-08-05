@@ -410,9 +410,25 @@ a:hover {
    sparse/imbalanced next to the shorter logo. Grown to fill that space --
    confirmed via getBoundingClientRect (not eyeballed) that the row still
    has comfortable slack before wrapping at the card's narrowest measured
-   width. */
+   width.
+
+   Switched to a responsive clamp() (2026-08-04): the header buttons that
+   used to sit beside the logo are gone (replaced by the Records/Schedule/
+   Account tab bar below, see dashboard/page.tsx), and the row is now
+   centered rather than space-between -- so the logo alone at a fixed 76px
+   left a lot of empty margin on both sides on anything wider than a small
+   phone. clamp(76px, 24vw, 108px) scales the logo up with viewport width
+   (real phones: ~77-104px in the 320-430px range; anything wider,
+   including desktop, caps at 108px) instead of a single fixed size, so it
+   fills the header better on typical/larger screens while leaving the
+   old, already-safe 76px floor untouched on the narrowest phones this
+   comment's original measurement was based on. Image's natural aspect
+   ratio (1618x548, ~2.95:1) means 108px tall renders at ~319px wide --
+   still comfortably inside the card's ~410-436px inner width (440px
+   .shell max-width minus .card's 12-14px padding per side) at every size
+   in the clamp's range. */
 .dashboardLogo {
-  height: 76px;
+  height: clamp(76px, 24vw, 108px);
   width: auto;
   display: block;
 }

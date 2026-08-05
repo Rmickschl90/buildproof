@@ -4795,7 +4795,18 @@ export default function DashboardPage() {
             >
               <button
                 className="btn"
-                onClick={() => setActiveGlobalTab("projects")}
+                onClick={() => {
+                  // 2026-08-04, per Ryan: clicking Records while a record is
+                  // open used to be a no-op (activeGlobalTab was already
+                  // "projects", so setActiveGlobalTab("projects") changed
+                  // nothing and the open record stayed showing). Records
+                  // should always mean "take me back to the full record
+                  // list" -- reuse the existing Close-record-view behavior
+                  // (same as the record header's own Close button) whenever
+                  // a record is open, in addition to switching tabs.
+                  setActiveGlobalTab("projects");
+                  if (selectedProject) closeProjectView();
+                }}
                 style={{
                   flex: 1,
                   background: activeGlobalTab === "projects" ? "var(--card)" : "transparent",
