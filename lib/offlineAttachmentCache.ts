@@ -35,3 +35,23 @@ export function loadCachedAttachments(proofId: number): CachedAttachment[] {
     return [];
   }
 }
+
+// Added 2026-08-06, same account-isolation-on-logout fix as
+// offlineDashboardCache.ts / offlineRecentProjects.ts -- these blobs are
+// only ever reachable via a proof_id surfaced by a cached project that's
+// now being cleared anyway, but sweeping them too avoids leaving orphaned
+// data behind.
+export function clearAllCachedAttachments() {
+  if (typeof window === "undefined") return;
+
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (key && key.startsWith(PREFIX)) keysToRemove.push(key);
+    }
+    keysToRemove.forEach((key) => window.localStorage.removeItem(key));
+  } catch (error) {
+    console.error("Failed to clear attachment cache", error);
+  }
+}

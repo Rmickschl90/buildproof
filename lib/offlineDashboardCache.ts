@@ -97,3 +97,27 @@ export function removeCachedDashboardProject(projectId: string) {
     console.error("Failed to remove dashboard cache", error);
   }
 }
+
+// Added 2026-08-06: logout() never cleared any of this account-scoped local
+// cache, so a second, different account signing in on the same device (the
+// exact scenario a shared/reused device or the Team invite flow produces)
+// could have a stale project id restored on first load -- surfacing a
+// confusing "not authorized" error for a project that was never theirs --
+// and, more importantly, could see a previous account's cached project
+// titles/client contact info still sitting in localStorage. Sweeps every
+// buildproof-dashboard-cache:* entry rather than tracking ids, since
+// nothing else needs these keys once logout starts.
+export function clearAllCachedDashboardProjects() {
+  if (typeof window === "undefined") return;
+
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (key && key.startsWith(STORAGE_PREFIX)) keysToRemove.push(key);
+    }
+    keysToRemove.forEach((key) => window.localStorage.removeItem(key));
+  } catch (error) {
+    console.error("Failed to clear dashboard cache", error);
+  }
+}

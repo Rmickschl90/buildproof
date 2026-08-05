@@ -57,3 +57,15 @@ export function saveRecentProject(project: {
 export function getRecentProjects(): RecentProject[] {
   return read();
 }
+
+// Added 2026-08-06: this key was never cleared on logout, so a different
+// account signing in on the same device would see the previous account's
+// recent project titles and client contact info (name/email/phone) --
+// see the matching fix in offlineDashboardCache.ts for the full context.
+export function clearRecentProjects() {
+  if (typeof window === "undefined") return;
+
+  try {
+    localStorage.removeItem(KEY);
+  } catch {}
+}

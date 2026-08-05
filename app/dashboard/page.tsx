@@ -59,12 +59,18 @@ import OfflineAttachmentBootstrap from "../components/OfflineAttachmentBootstrap
 import {
   loadCachedDashboardProject,
   saveCachedDashboardProject,
+  clearAllCachedDashboardProjects,
 } from "@/lib/offlineDashboardCache";
 import {
   saveRecentProject,
   getRecentProjects,
+  clearRecentProjects,
 } from "@/lib/offlineRecentProjects";
-import { saveCachedAttachments, loadCachedAttachments } from "@/lib/offlineAttachmentCache";
+import {
+  saveCachedAttachments,
+  loadCachedAttachments,
+  clearAllCachedAttachments,
+} from "@/lib/offlineAttachmentCache";
 import { computeApprovedTotal, computeTaxAndTotal, computeBalanceDue } from "@/lib/estimateCalc";
 
 type Project = {
@@ -4370,6 +4376,22 @@ export default function DashboardPage() {
   }
 
   async function logout() {
+    // 2026-08-06: found during real Team signup testing on a device that
+    // had a different account's session on it previously -- the new
+    // account's very first dashboard load tried to restore a project id
+    // left behind by the old account, got correctly blocked by
+    // canUserAccessProject(), and surfaced a confusing "not authorized"
+    // error before self-correcting. logout() never cleared any of this
+    // account-scoped local cache (last-open-project pointer, recent
+    // projects list, per-project/per-attachment offline view caches), so
+    // a second account on the same device could also see the previous
+    // account's cached project titles and client contact info. These are
+    // all read caches, not unsynced offline mutation queues -- clearing
+    // them on logout can never drop real pending work.
+    clearLastOpenProjectId();
+    clearRecentProjects();
+    clearAllCachedDashboardProjects();
+    clearAllCachedAttachments();
     await supabase.auth.signOut();
     router.push("/login");
   }
