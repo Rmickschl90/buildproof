@@ -3111,7 +3111,23 @@ export default function DashboardPage() {
   }
 
   const portfolioBuckets = useMemo(() => {
-    const active = portfolioRows.filter((p) => !p.closedAt && p.hasBaseline);
+    // Bug found 2026-08-05 during real production verification: this used
+    // to also require p.hasBaseline, which silently dropped any record
+    // whose approvals predate the is_baseline column (added 2026-07-26 --
+    // every real historical record from before that date has no approval
+    // with is_baseline set at all) out of the Active list AND out of
+    // activeContractValue, while outstandingBalance below was never
+    // filtered by hasBaseline and summed all of them anyway. On staging
+    // this was invisible because every test record happened to have a
+    // baseline flagged; on production, 17 of 18 real active org records
+    // had none, so Active Contract Value showed $1,350 (1 record) right
+    // next to an Outstanding Balance of $12,889 with no closed records
+    // anywhere to explain the gap. hasBaseline isn't used for display
+    // anywhere in this bucket (see PortfolioProjectRow / the row JSX) --
+    // it was only ever this filter -- so dropping it here just makes
+    // "active" mean the same thing both stats already agree it should
+    // mean: not closed.
+    const active = portfolioRows.filter((p) => !p.closedAt);
     const closedBalanceDue = portfolioRows.filter(
       (p) => !!p.closedAt && p.balanceDue > 0.01
     );
