@@ -420,6 +420,13 @@ export default function DashboardPage() {
   const [schedulePickerOpen, setSchedulePickerOpen] = useState(false);
   const [schedulePickerDate, setSchedulePickerDate] = useState<string | null>(null);
   const [schedulePickerSearch, setSchedulePickerSearch] = useState("");
+  // 2026-08-04, per Ryan / the original design doc: tapping a calendar day
+  // that already has events should show that day's event(s) for viewing,
+  // not silently do nothing (previously only empty days responded to a
+  // tap at all). Holds the tapped date while this small list is open; a
+  // single-event day skips this and opens straight to that event's Edit
+  // modal instead (see the day-cell onClick below).
+  const [dayEventsModalDate, setDayEventsModalDate] = useState<string | null>(null);
   const [documentUploadStatus, setDocumentUploadStatus] = useState<string | null>(null);
   // Files from a failed upload attempt, kept in memory only (never written to
   // IndexedDB/localStorage/a DB row) so Retry doesn't require re-picking the
@@ -3052,6 +3059,62 @@ export default function DashboardPage() {
     }
   }
 
+  // 2026-08-04, per Ryan: "View Record" link inside the schedule event
+  // Edit modal (per-record Schedule tab and global Calendar), per the
+  // original design doc ("a 'view record' row that jumps straight to the
+  // source record") which didn't make it into the Phase 1 build. Mirrors
+  // the Records list's own click-to-open behavior (the online branch of
+  // its onClick) rather than reusing the boot-time projectIdFromUrl
+  // restore effect -- that effect only runs once at mount, so pushing a
+  // new ?project= URL from an already-loaded dashboard wouldn't re-trigger
+  // it. Looks the project up in the already-loaded `projects` list first
+  // (virtually always present, since schedule events are only ever shown
+  // for projects the same org-access-scoped query already returned); the
+  // direct-fetch fallback mirrors the exact query the boot-restore path
+  // already uses, for the unlikely case it isn't.
+  async function openProjectFromScheduleEvent(projectId: string) {
+    async function openResolvedProject(project: Project) {
+      saveRecentProject({
+        id: project.id,
+        title: project.title,
+        client_name: project.client_name ?? null,
+        client_email: project.client_email ?? null,
+        client_phone: project.client_phone ?? null,
+        project_address: project.project_address ?? null,
+      });
+      saveLastOpenProjectId(project.id);
+      setSelectedProjectWithTrace(project, "view record from schedule event");
+      loadProofs(project.id, false, project);
+      loadApprovals(project.id, false, project);
+      router.replace(`/dashboard?project=${project.id}`);
+      setScheduleFormOpen(false);
+      setSchedulePickerOpen(false);
+      setActiveGlobalTab("projects");
+    }
+
+    const existing = projects.find((p) => p.id === projectId);
+    if (existing) {
+      await openResolvedProject(existing);
+      return;
+    }
+
+    try {
+      const { data: project } = await supabase
+        .from("projects")
+        .select("*")
+        .eq("id", projectId)
+        .single();
+
+      if (project) {
+        await openResolvedProject(project);
+      } else {
+        setScheduleFormStatus("Couldn't open that record.");
+      }
+    } catch {
+      setScheduleFormStatus("Couldn't open that record.");
+    }
+  }
+
   // ---------------- PROJECT CRUD ----------------
   async function addProject(fields?: {
     title?: string;
@@ -4981,6 +5044,10 @@ export default function DashboardPage() {
                             setSchedulePickerDate(cell.dateKey);
                             setSchedulePickerSearch("");
                             setSchedulePickerOpen(true);
+                          } else if (eventsForDay.length === 1) {
+                            openEditScheduleEvent(eventsForDay[0]);
+                          } else {
+                            setDayEventsModalDate(cell.dateKey);
                           }
                         }}
                       >
@@ -5188,6 +5255,67 @@ export default function DashboardPage() {
                   {filteredSchedulePickerProjects.length === 0 ? (
                     <p className="sub" style={{ opacity: 0.6 }}>No records match.</p>
                   ) : null}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 2026-08-04, per Ryan / the original design doc: tapping a
+              calendar day with more than one event shows this list so the
+              user can pick which one to view/edit -- a single-event day
+              skips this and opens straight to that event's Edit modal
+              (see the day-cell onClick above). */}
+          {dayEventsModalDate && (
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(0,0,0,0.45)",
+                zIndex: 60,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 16,
+              }}
+              onClick={() => setDayEventsModalDate(null)}
+            >
+              <div
+                className="card"
+                style={{ maxWidth: 420, width: "100%" }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 12 }}>
+                  {new Date(`${dayEventsModalDate}T00:00:00`).toLocaleDateString("en-US", {
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </div>
+                <div style={{ display: "grid", gap: 8, maxHeight: 320, overflowY: "auto" }}>
+                  {(scheduleEventsByDate.get(dayEventsModalDate) ?? []).map((event) => (
+                    <div
+                      key={event.id}
+                      style={{
+                        borderLeft: `3px solid ${SCHEDULE_EVENT_TYPE_COLORS[event.event_type]}`,
+                        borderRadius: "0 10px 10px 0",
+                        background: "var(--surfaceSoft)",
+                        padding: "10px 12px",
+                        cursor: "pointer",
+                      }}
+                      onClick={() => {
+                        setDayEventsModalDate(null);
+                        openEditScheduleEvent(event);
+                      }}
+                    >
+                      <div style={{ fontWeight: 700, color: "var(--text)" }}>
+                        {scheduleEventLabel(event)}
+                        {event.event_time ? ` · ${event.event_time}` : ""}
+                      </div>
+                      <div className="sub" style={{ opacity: 0.65 }}>
+                        {event.projectTitle ?? "Record"}
+                        {event.clientName ? ` · ${event.clientName}` : ""}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -7237,6 +7365,26 @@ export default function DashboardPage() {
                     ✕
                   </button>
                 </div>
+
+                {/* 2026-08-04, per Ryan / the original design doc: "view
+                    record" row that jumps to the source record -- only
+                    shown while editing an existing event (not the Add
+                    flow, where jumping away mid-creation would just lose
+                    whatever's been filled in so far), and only when not
+                    already viewing that exact record (opening this modal
+                    from the per-record Schedule tab means you're already
+                    on it -- the button would just be a no-op reload). */}
+                {editingScheduleEventId &&
+                scheduleFormProjectId &&
+                selectedProject?.id !== scheduleFormProjectId ? (
+                  <button
+                    className="btn"
+                    style={{ width: "100%", marginBottom: 14 }}
+                    onClick={() => void openProjectFromScheduleEvent(scheduleFormProjectId)}
+                  >
+                    View Record →
+                  </button>
+                ) : null}
 
                 <label className="sub" style={{ display: "block", marginBottom: 4 }}>
                   Type
