@@ -495,6 +495,60 @@ export default function HelpPage() {
                         </p>
                     </HelpCard>
                 </section>
+
+                <section style={gridStyle}>
+                    <HelpCard title="14. Schedule & Calendar">
+                        <p>
+                            Each record has its own <strong>Schedule</strong> tab for
+                            upcoming events tied to that record — a site visit, an
+                            inspection, a delivery, anything with a date attached.
+                        </p>
+
+                        <p>
+                            The global <strong>Calendar</strong> tab (in the top
+                            navigation, alongside Records and Account) shows every
+                            record&apos;s events together in one month view, with an
+                            agenda list below it. Tapping a day with events opens that
+                            day&apos;s list — from there you can view an event, or add a
+                            new one to the same day.
+                        </p>
+
+                        <p>
+                            Opening an event from the Calendar includes a{" "}
+                            <strong>View Record</strong> link that jumps straight to the
+                            record it belongs to. Schedule events are internal only —
+                            they are never shown to clients on a share link or included
+                            in a sent update.
+                        </p>
+                    </HelpCard>
+
+                    <HelpCard title="15. Portfolio">
+                        <p>
+                            The <strong>Portfolio</strong> tab (Account menu) rolls up
+                            every record you can access into one view: total{" "}
+                            <strong>Active Contract Value</strong> across your open
+                            records, and total <strong>Outstanding Balance</strong>{" "}
+                            still owed across your whole book of work — not just one
+                            record at a time.
+                        </p>
+
+                        <p>
+                            Records are grouped into <strong>Active</strong> and{" "}
+                            <strong>Closed</strong> (with a balance still due, if any).{" "}
+                            <strong>Close Out</strong> marks a record as finished
+                            independently of archiving — a closed record can still show
+                            an outstanding balance until it&apos;s fully paid, and can be
+                            reopened later if needed.
+                        </p>
+
+                        <p>
+                            On a Team account, Portfolio is visible to the owner only —
+                            every member can still see and work on every record, this
+                            is just a billing-level rollup, not a new access
+                            restriction.
+                        </p>
+                    </HelpCard>
+                </section>
             </div>
         </main>
     );
