@@ -39,13 +39,19 @@ export async function POST(req: NextRequest) {
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+    // 2026-08-06: see lib/capacitorCheckout.ts's withNativeFlag() comment.
+    const isNativeRequest = req.nextUrl.searchParams.get("platform") === "native";
+    const nativeSuffix = isNativeRequest ? "&native=1" : "";
 
     const params = new URLSearchParams();
     params.append("customer", data.stripe_customer_id);
     // 2026-08-06: routed through /checkout-return -- see
     // lib/capacitorCheckout.ts and app/api/billing/checkout/route.ts's
     // matching comment for the full explanation.
-    params.append("return_url", `${appUrl}/checkout-return?dest=%2Fdashboard`);
+    params.append(
+      "return_url",
+      `${appUrl}/checkout-return?dest=%2Fdashboard${nativeSuffix}`
+    );
 
     const stripeRes = await fetch("https://api.stripe.com/v1/billing_portal/sessions", {
       method: "POST",

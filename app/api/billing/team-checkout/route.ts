@@ -45,6 +45,9 @@ export async function POST(req: NextRequest) {
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+    // 2026-08-06: see lib/capacitorCheckout.ts's withNativeFlag() comment.
+    const isNativeRequest = req.nextUrl.searchParams.get("platform") === "native";
+    const nativeSuffix = isNativeRequest ? "&native=1" : "";
 
     const { data: existingOrgSubscription, error: orgSubscriptionLookupError } =
       await supabaseServer
@@ -138,11 +141,11 @@ export async function POST(req: NextRequest) {
     // matching comment for the full explanation.
     params.append(
       "success_url",
-      `${appUrl}/checkout-return?dest=%2Fdashboard&billing=success`
+      `${appUrl}/checkout-return?dest=%2Fdashboard&billing=success${nativeSuffix}`
     );
     params.append(
       "cancel_url",
-      `${appUrl}/checkout-return?dest=%2Fdashboard&billing=cancelled`
+      `${appUrl}/checkout-return?dest=%2Fdashboard&billing=cancelled${nativeSuffix}`
     );
 
     // Reuse the owner's existing Stripe customer when one exists, rather than

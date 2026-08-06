@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { openCheckoutUrl } from "@/lib/capacitorCheckout";
+import { openCheckoutUrl, withNativeFlag } from "@/lib/capacitorCheckout";
 
 type BillingStatus = {
   status: string;
@@ -102,7 +102,7 @@ export default function SubscribePage() {
         throw new Error("Please log in to start checkout.");
       }
 
-      const res = await fetch("/api/billing/checkout", {
+      const res = await fetch(withNativeFlag("/api/billing/checkout"), {
         method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -140,7 +140,7 @@ export default function SubscribePage() {
         throw new Error("Please log in to start checkout.");
       }
 
-      const res = await fetch("/api/billing/team-signup-checkout", {
+      const res = await fetch(withNativeFlag("/api/billing/team-signup-checkout"), {
         method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken}`,

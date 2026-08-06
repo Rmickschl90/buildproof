@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { Capacitor, registerPlugin } from "@capacitor/core";
-import { openCheckoutUrl } from "@/lib/capacitorCheckout";
+import { openCheckoutUrl, withNativeFlag } from "@/lib/capacitorCheckout";
 
 type PdfSaverPlugin = {
   savePdf(options: {
@@ -1297,7 +1297,7 @@ export default function DashboardPage() {
         }
       }
 
-      const checkoutRes = await fetch("/api/billing/team-checkout", {
+      const checkoutRes = await fetch(withNativeFlag("/api/billing/team-checkout"), {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -5826,7 +5826,21 @@ export default function DashboardPage() {
                     try {
                       const token = await getAccessToken();
 
-                      const res = await fetch("/api/billing/portal", {
+                      // 2026-08-06, real bug found on a real device: this
+                      // always called the individual portal route, even
+                      // for a Team owner (billingSource === "organization"),
+                      // who has no individual Stripe customer at all --
+                      // producing a confusing "No Stripe customer found"
+                      // error instead of actually opening their team's
+                      // billing portal. Branch to the org route that
+                      // already existed (app/api/billing/portal/team) but
+                      // had never actually been wired to a button.
+                      const portalPath =
+                        billingSource === "organization"
+                          ? "/api/billing/portal/team"
+                          : "/api/billing/portal";
+
+                      const res = await fetch(withNativeFlag(portalPath), {
                         method: "POST",
                         headers: {
                           Authorization: `Bearer ${token}`,

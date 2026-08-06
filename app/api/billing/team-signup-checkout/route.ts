@@ -52,6 +52,9 @@ export async function POST(req: NextRequest) {
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+    // 2026-08-06: see lib/capacitorCheckout.ts's withNativeFlag() comment.
+    const isNativeRequest = req.nextUrl.searchParams.get("platform") === "native";
+    const nativeSuffix = isNativeRequest ? "&native=1" : "";
 
     const params = new URLSearchParams();
     params.append("mode", "subscription");
@@ -77,11 +80,11 @@ export async function POST(req: NextRequest) {
     // exactly as these two URLs did before this change.
     params.append(
       "success_url",
-      `${appUrl}/checkout-return?dest=%2Fdashboard&billing=success&team=welcome`
+      `${appUrl}/checkout-return?dest=%2Fdashboard&billing=success&team=welcome${nativeSuffix}`
     );
     params.append(
       "cancel_url",
-      `${appUrl}/checkout-return?dest=%2Fsubscribe&billing=cancelled`
+      `${appUrl}/checkout-return?dest=%2Fsubscribe&billing=cancelled${nativeSuffix}`
     );
 
     // Always a fresh customer - by construction (see comment above) a user reaching this

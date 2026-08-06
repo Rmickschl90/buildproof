@@ -34,3 +34,31 @@ export async function openCheckoutUrl(url: string) {
     window.location.href = url;
   }
 }
+
+// Added 2026-08-06, fixing a real bug found on a real device: the checkout
+// API routes need to know, at the moment they build success_url/cancel_url/
+// return_url, whether this request came from the native app -- but they
+// can't ask app/checkout-return/page.tsx to answer that with
+// Capacitor.isNativePlatform() once it's actually running, because that
+// page loads inside the in-app browser Stripe/the portal is shown in
+// (@capacitor/browser's Chrome Custom Tabs on Android), and Custom Tabs
+// don't have Capacitor's JS bridge injected into them -- only the app's own
+// screens do. Capacitor.isNativePlatform() there silently and always comes
+// back false, which meant /checkout-return took its "web" branch for real
+// on-device: it just navigated to the final destination inside that same
+// Custom Tab instead of handing back to the native app, leaving the app
+// itself exactly as stuck as before this whole fix.
+//
+// The one place that DOES reliably know whether this is native is right
+// here, in the app's own already-running WebView, at the moment checkout
+// is being initiated -- so that's where the signal has to originate.
+// Every checkout-initiating fetch call appends this to the request URL;
+// every billing API route reads it and bakes a matching `&native=1` into
+// the success_url/cancel_url/return_url it hands to Stripe, so
+// /checkout-return can make the right call from a plain, reliable URL
+// param instead of re-detecting platform somewhere it structurally can't.
+export function withNativeFlag(path: string): string {
+  if (!Capacitor.isNativePlatform()) return path;
+  const separator = path.includes("?") ? "&" : "?";
+  return `${path}${separator}platform=native`;
+}

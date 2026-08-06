@@ -20,6 +20,12 @@ export async function POST(req: NextRequest) {
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+    // 2026-08-06: see lib/capacitorCheckout.ts's withNativeFlag() comment --
+    // this has to be read from a query param set at checkout-initiation
+    // time, not re-detected on the bridge page, since /checkout-return runs
+    // inside a Chrome Custom Tab that has no Capacitor JS bridge.
+    const isNativeRequest = req.nextUrl.searchParams.get("platform") === "native";
+    const nativeSuffix = isNativeRequest ? "&native=1" : "";
 
     const { data: existingSubscription, error: subscriptionLookupError } =
       await supabaseServer
@@ -54,11 +60,11 @@ export async function POST(req: NextRequest) {
     // lib/capacitorCheckout.ts for the full explanation. No effect on web.
     params.append(
       "success_url",
-      `${appUrl}/checkout-return?dest=%2Fdashboard&billing=success`
+      `${appUrl}/checkout-return?dest=%2Fdashboard&billing=success${nativeSuffix}`
     );
     params.append(
       "cancel_url",
-      `${appUrl}/checkout-return?dest=%2Fdashboard&billing=cancelled`
+      `${appUrl}/checkout-return?dest=%2Fdashboard&billing=cancelled${nativeSuffix}`
     );
 
     if (user.email) {
