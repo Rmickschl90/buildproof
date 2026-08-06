@@ -20,9 +20,24 @@ workflows:
       - name: Install npm dependencies
         script: |
           npm install
-      - name: Copy web assets and generate native config files
+      - name: Sync web assets and native plugin config
         script: |
-          npx cap copy ios
+          # 2026-08-06: was `npx cap copy ios`, which only copies web assets
+          # and capacitor.config.json into the native project -- it does NOT
+          # regenerate native plugin registrations (ios/App/CapApp-SPM/Package.swift
+          # for Swift Package Manager). That meant newly-added Capacitor
+          # plugins (@capacitor/app, @capacitor/browser, added for the native
+          # checkout fix) were never actually wired into the built .ipa, even
+          # though they were correctly in package.json -- confirmed live on a
+          # real device: TestFlight build 10 threw "'Browser' plugin is not
+          # implemented on ios" at the exact moment the app tried to open
+          # Stripe checkout. `cap sync` = `cap copy` + `cap update`, and
+          # `cap update` is the step that actually regenerates Package.swift's
+          # plugin dependency list. This is the only environment that can run
+          # this correctly (no local Mac/Xcode for this project), so this has
+          # to happen here, on every build, rather than being a one-time local
+          # fix the way the Android equivalent (npx cap sync android) was.
+          npx cap sync ios
       - name: Set up code signing settings on Xcode project
         script: |
           xcode-project use-profiles
