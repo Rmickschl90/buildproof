@@ -24,6 +24,31 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- Added 2026-08-06, iOS half of the native checkout fix (see
+	     lib/capacitorCheckout.ts and android/app/src/main/AndroidManifest.xml's
+	     matching comment for the full explanation). Registers this app's own
+	     custom URL scheme so iOS hands com.linquelabs.leeward:// links back to
+	     this already-running app instead of leaving it stranded after Stripe
+	     checkout/the billing portal finishes in the in-app browser
+	     (@capacitor/browser's SFSafariViewController on iOS). AppDelegate.swift
+	     already has the Capacitor-generated application(_:open:options:) method
+	     that forwards this to the App plugin: no changes needed there.
+	     Deliberately the same scheme string as Android's, since
+	     app/checkout-return/page.tsx uses one shared constant for both
+	     platforms: it does not need to match this app's bundle identifier
+	     (com.linquelabs.leewardapp), it just needs to be a unique string this
+	     app registers and the web code and native manifests agree on. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.linquelabs.leewardapp</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.linquelabs.leeward</string>
+			</array>
+		</dict>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
