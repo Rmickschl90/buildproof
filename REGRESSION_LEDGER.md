@@ -3081,3 +3081,26 @@ Added `minWidth: 0` to the row's style (matching the same property already used 
 
 ## Result
 Fixed and verified on production. No other archived/list pages found with the same pattern during scope-check.
+
+---
+
+# NATIVE CHECKOUT STRANDING (ANDROID + IOS) — FIXED — 2026-08-05/06
+
+## Objective
+Real production bug found on a real Android device from Google Play: after completing Stripe checkout (Team signup), the app was left frozen on "Opening checkout...", stuck in whatever browser Stripe's redirect landed in, no way back into the native app. Escalated as a genuine fix required, not a band-aid, given the app is live.
+
+## Root cause (two layers)
+1. Capacitor's WebView hands any navigation outside its configured origin (`app.getleeward.com`) to the system browser as a separate app/task - Stripe's success_url/cancel_url/return_url just loaded there with no way to signal the native app.
+2. After fixing that with an in-app browser (`@capacitor/browser`) plus a bridge page (`/checkout-return`), a second bug surfaced on real-device testing: Chrome Custom Tabs (and iOS's in-app browser equivalent) do not have Capacitor's JS bridge injected - only the app's own WebView does. `/checkout-return`'s `Capacitor.isNativePlatform()` check, evaluated inside the Custom Tab, always silently returned `false` on-device, defeating the fix.
+
+## Fix
+Platform detection moved to checkout-INITIATION time (the one place it's reliable) via `lib/capacitorCheckout.ts`'s `withNativeFlag()`, threaded through as a `platform=native` -> `native=1` query param across all 5 billing routes and `/checkout-return`. Android: `AndroidManifest.xml` custom-scheme intent-filter. iOS: matching `CFBundleURLTypes` entry in `Info.plist`. Two real XML build failures hit and fixed along the way (literal `--` inside XML comments, invalid anywhere in the comment body, not just next to `-->`) - once in each manifest file's own explanatory comment. Separate real bug found and fixed in the same pass: Codemagic's `codemagic.yaml` build script ran `npx cap copy ios` instead of `npx cap sync ios`, so newly-added native plugins (`@capacitor/app`, `@capacitor/browser`) were never actually compiled into the iOS build (`ios/App/CapApp-SPM/Package.swift` never regenerated) despite being correctly in `package.json` - confirmed live via a real TestFlight build throwing `"Browser" plugin is not implemented on ios`. Also fixed: dashboard's "Manage Billing" button always hit the individual portal route even for Team owners (no individual Stripe customer to find) - now branches to `/api/billing/portal/team` based on `billingSource`.
+
+## Verification
+Real devices, both platforms, not simulated. Android: local debug APK built and installed via Android Studio over USB onto a real Samsung device (diagnosed a charge-only USB cable as the reason ADB never prompted), confirmed a real Individual-plan Stripe checkout returns cleanly to `/dashboard` post-fix, versus the pre-fix build's exact reported stuck state. iOS: via Codemagic (no local Mac for this project) - TestFlight build 10 reproduced the Custom-Tab plugin gap live, build 11 (post `cap sync` fix) completed a real Stripe checkout via TestFlight and returned cleanly. Both platforms' resulting subscriptions confirmed correct server-side via direct Supabase queries against production (real `stripe_customer_id`/`stripe_subscription_id`, correct trial state). Three stray test trials from this testing were canceled through the now-fixed Manage Billing button itself, doubling as live verification of that fix.
+
+## App Store resubmission
+Found mid-investigation: the app's only prior App Store submission (built Saturday 8/1) was "Waiting for Review" with "Automatically release this version" selected - would have gone live with the broken checkout still in it the moment Apple approved it. Pulled from review before resubmitting with the verified-working build (TestFlight build 11).
+
+## Result
+Fixed and verified end-to-end on real devices, both platforms. Web-side fix deployed directly to production (narrow, additive URL-param-only change - no billing logic/schema touched). iOS build 11 submitted for App Store review, outcome pending. Merged `native-checkout-fix` into `estimate-nav-phase-1` (clean fast-forward). Deliberately NOT merged into `main`, which has been stale since the PR #28 incident and has diverged by months of real work - full "catch main up" explicitly deferred to a dedicated future session rather than folded into this one. Full detail: CLAUDE.md's "Fixed: Native Checkout Stranding (Android + iOS) + App Store Resubmission" section.
