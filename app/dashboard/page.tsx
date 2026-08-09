@@ -5071,12 +5071,17 @@ export default function DashboardPage() {
                 justifyContent: "center",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
                 {/* The logo PNG has a baked-in white background (not
                     transparent), so on a dark theme it reads as a stray
                     white rectangle unless it's deliberately framed as a
                     white "chip" -- a real transparent/dark-mode logo asset
-                    would be the better long-term fix. */}
+                    would be the better long-term fix.
+                    Widened (2026-08-09) per Ryan: stretched to the full row
+                    width instead of hugging just the logo, so the white
+                    area reads as a banner rather than a tight box -- logo
+                    size/padding unchanged, just centered within the wider
+                    area. */}
                 <div
                   style={{
                     background: "#ffffff",
@@ -5084,7 +5089,9 @@ export default function DashboardPage() {
                     padding: "3px 6px",
                     display: "flex",
                     alignItems: "center",
+                    justifyContent: "center",
                     lineHeight: 0,
+                    width: "100%",
                   }}
                 >
                   <img

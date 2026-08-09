@@ -428,7 +428,13 @@ a:hover {
    .shell max-width minus .card's 12-14px padding per side) at every size
    in the clamp's range. */
 .dashboardLogo {
-  height: clamp(76px, 24vw, 108px);
+  /* Halved (2026-08-09) per Ryan: the header logo card looked fine
+     stylistically but was taking up too much vertical space. Scaling
+     the clamp() range down proportionally (not a non-uniform squish)
+     keeps the logo's aspect ratio intact -- width shrinks along with
+     height, it's just a smaller version of the same mark, not a
+     distorted one. */
+  height: clamp(38px, 12vw, 54px);
   width: auto;
   display: block;
 }
