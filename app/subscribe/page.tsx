@@ -182,7 +182,7 @@ export default function SubscribePage() {
           <div className="card">
             <h1 className="h1">Choose your plan</h1>
             <p className="sub">
-              Start with a free 30-day trial on either plan. No charge today.
+              Start with a free 30-day trial on either plan. No card required today.
             </p>
 
             <div
@@ -250,8 +250,9 @@ export default function SubscribePage() {
           <div className="card">
             <h1 className="h1">Name your team</h1>
             <p className="sub">
-              Start your free 30-day trial. No charge today. After your trial
-              ends, Leeward Team continues for $69/month for up to 5 users.
+              Start your free 30-day trial. No card required today. After 30
+              days, add a payment method to keep your team's access —
+              $69/month for up to 5 users.
             </p>
 
             <div style={{ marginTop: 18, display: "grid", gap: 10 }}>
@@ -301,7 +302,7 @@ export default function SubscribePage() {
         <div className="card">
           <h1 className="h1">Start your free 30-day trial</h1>
           <p className="sub">
-            No charge today. After your trial ends, Leeward continues for $29/month.
+            No card required today. After 30 days, add a payment method to keep your access — $29/month.
           </p>
 
           <div style={{ marginTop: 18 }}>

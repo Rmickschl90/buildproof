@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     const { data: existingSubscription, error: subscriptionLookupError } =
       await supabaseServer
         .from("user_subscriptions")
-        .select("id,trial_start,trial_end,stripe_subscription_id,status")
+        .select("id,trial_start,trial_end,stripe_subscription_id,stripe_customer_id,status")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -82,7 +82,16 @@ export async function POST(req: NextRequest) {
       `${appUrl}/checkout-return?dest=%2Fdashboard&billing=cancelled${nativeSuffix}`
     );
 
-    if (user.email) {
+    // No-card free trial (2026-08-13): reuse the existing Stripe customer
+    // when this user already has one (e.g. a canceled trial from before,
+    // now resubscribing for real) instead of always passing customer_email,
+    // which makes Stripe create a brand-new Customer object every time --
+    // confirmed on staging: a resubscribe left two separate Customer
+    // records for the same person in Stripe. customer_email is only a
+    // fallback for a genuinely first-time customer.
+    if (existingSubscription?.stripe_customer_id) {
+      params.append("customer", existingSubscription.stripe_customer_id);
+    } else if (user.email) {
       params.append("customer_email", user.email);
     }
 

@@ -33,6 +33,20 @@ async function upsertSubscription(subscription: Stripe.Subscription) {
 
   const priceId = subscription.items.data[0]?.price?.id ?? null;
 
+  // No-card free trial (2026-08-13): onConflict targets user_id, not
+  // stripe_subscription_id. user_subscriptions has a unique(user_id)
+  // constraint (one subscription per individual), and the subscription id
+  // itself changes across a cancel/resubscribe cycle -- which is now a
+  // normal, expected path (trial lapses with no card -> cancel -> user
+  // returns later and starts a real paid subscription with a brand-new
+  // Stripe subscription id). Targeting stripe_subscription_id here let a
+  // changed subscription id slip past onConflict and attempt an INSERT
+  // that then collided with the unrelated unique(user_id) constraint
+  // instead of updating the existing row -- a real 500/retry failure mode,
+  // caught behaviorally testing this exact scenario on staging. Mirrors
+  // the fix already applied to upsertOrganizationSubscription below
+  // (targets organization_id, same reasoning) -- that function had this
+  // right already; this one never got the matching fix until now.
   const { error } = await supabaseServer
     .from("user_subscriptions")
     .upsert(
@@ -53,7 +67,7 @@ async function upsertSubscription(subscription: Stripe.Subscription) {
         updated_at: new Date().toISOString(),
       },
       {
-        onConflict: "stripe_subscription_id",
+        onConflict: "user_id",
       }
     );
 
