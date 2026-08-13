@@ -52,6 +52,21 @@ export async function POST(req: NextRequest) {
     params.append("metadata[user_id]", user.id);
     if (isTrialEligible) {
       params.append("subscription_data[trial_period_days]", "30");
+      // No-card free trial (2026-08-13): skip requiring a payment method
+      // upfront during the trial -- see "No-Card Free Trial -
+      // Implementation Plan.md" in the Obsidian vault for the full
+      // reasoning (cold ad clicks converting at 0% with a card gate in
+      // front of them was the trigger). If the trial ends and the
+      // customer never added a card, cancel rather than pause -- this
+      // repo's existing billing enforcement only ever checks Stripe
+      // subscription `status`, and a canceled subscription already
+      // produces a status this app correctly understands with zero new
+      // code, unlike an untested `paused` status.
+      params.append("payment_method_collection", "if_required");
+      params.append(
+        "subscription_data[trial_settings][end_behavior][missing_payment_method]",
+        "cancel"
+      );
     }
     params.append("subscription_data[metadata][user_id]", user.id);
     // 2026-08-06: routed through /checkout-return (not straight to

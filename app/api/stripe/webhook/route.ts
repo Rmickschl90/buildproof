@@ -62,6 +62,87 @@ async function upsertSubscription(subscription: Stripe.Subscription) {
   }
 }
 
+const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
+const RESEND_FROM = process.env.RESEND_FROM || process.env.RESEND_FROM_EMAIL || "";
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://app.getleeward.com").replace(
+  /\/+$/,
+  ""
+);
+
+// No-card free trial (2026-08-13): Stripe fires this event ~3 days before
+// a trial ends, for every trial regardless of whether a card is on file.
+// Only send the reminder when there's genuinely no payment method yet --
+// legacy subscriptions from before this change (or a future reversion,
+// see "No-Card Free Trial - Implementation Plan.md" in the Obsidian
+// vault) already have a card and don't need this email. Best-effort and
+// non-fatal by design, same pattern as this repo's other fire-and-forget
+// notification calls -- a failure here must never make the webhook
+// itself fail/retry, since the subscription upsert above is the part
+// that actually matters for billing correctness.
+async function sendTrialEndingReminderIfNoPaymentMethod(
+  subscription: Stripe.Subscription
+) {
+  try {
+    if (!stripe || !RESEND_API_KEY || !RESEND_FROM) return;
+
+    if (subscription.default_payment_method) return;
+
+    const customerId =
+      typeof subscription.customer === "string"
+        ? subscription.customer
+        : subscription.customer.id;
+
+    const customer = await stripe.customers.retrieve(customerId);
+    if (!customer || (customer as any).deleted) return;
+
+    const email = (customer as Stripe.Customer).email;
+    if (!email) return;
+
+    const invoiceSettingsDefaultPm = (customer as Stripe.Customer)
+      .invoice_settings?.default_payment_method;
+    if (invoiceSettingsDefaultPm) return;
+
+    const trialEnd = subscription.trial_end
+      ? new Date(subscription.trial_end * 1000)
+      : null;
+    const trialEndText = trialEnd
+      ? trialEnd.toLocaleDateString("en-US", {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        })
+      : "in a few days";
+
+    const subject = "Your Leeward trial ends soon";
+    const text = `Your 30-day Leeward trial ends on ${trialEndText}. No payment method is on file yet, so your access will pause automatically at that point unless you add one first.
+
+Add a payment method any time before then: ${APP_URL}/dashboard (click "Manage Billing" once you're signed in).
+
+No action needed if you'd rather let the trial lapse.`;
+    const html = `<p>Your 30-day Leeward trial ends on <strong>${trialEndText}</strong>. No payment method is on file yet, so your access will pause automatically at that point unless you add one first.</p><p><a href="${APP_URL}/dashboard">Add a payment method</a> any time before then (click "Manage Billing" once you're signed in).</p><p>No action needed if you'd rather let the trial lapse.</p>`;
+
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: RESEND_FROM,
+        to: [email],
+        subject,
+        text,
+        html,
+      }),
+    });
+  } catch (err) {
+    console.error(
+      "[stripe/webhook] trial-ending reminder email failed (non-fatal)",
+      err
+    );
+  }
+}
+
 async function upsertOrganizationSubscription(
   subscription: Stripe.Subscription,
   organizationIdOverride?: string
@@ -326,6 +407,11 @@ export async function POST(req: Request) {
       } else {
         await upsertSubscription(subscription);
       }
+    }
+
+    if (event.type === "customer.subscription.trial_will_end") {
+      const subscription = event.data.object as Stripe.Subscription;
+      await sendTrialEndingReminderIfNoPaymentMethod(subscription);
     }
 
     return NextResponse.json({ received: true });

@@ -130,6 +130,15 @@ export async function POST(req: NextRequest) {
     params.append("metadata[billing_owner_id]", user.id);
     if (isTrialEligible) {
       params.append("subscription_data[trial_period_days]", "30");
+      // No-card free trial (2026-08-13) -- see the matching comment in
+      // app/api/billing/checkout/route.ts and "No-Card Free Trial -
+      // Implementation Plan.md" in the Obsidian vault for the full
+      // reasoning.
+      params.append("payment_method_collection", "if_required");
+      params.append(
+        "subscription_data[trial_settings][end_behavior][missing_payment_method]",
+        "cancel"
+      );
     }
     params.append(
       "subscription_data[metadata][organization_id]",
