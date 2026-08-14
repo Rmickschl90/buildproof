@@ -49,6 +49,23 @@
 			</array>
 		</dict>
 	</array>
+	<!-- Added 2026-08-13: without these purpose strings, iOS crashes the app
+	     outright the moment it tries to invoke the camera or photo library
+	     (no permission prompt shown, no graceful denial: an immediate
+	     termination). This is almost certainly why "Take Photo" crashed
+	     repeatedly on a fresh TestFlight install of build 11 while
+	     attempting to attach a photo to an entry, and very likely why
+	     Apple's review was rejected under Guideline 2.1 (Performance: App
+	     Completeness) rather than a purely informational request: Apple's
+	     own rejection message separately flags Guideline 5.1.1 (missing
+	     purpose strings) as a common cause. Camera capture itself uses a
+	     plain HTML file input (accept="image/*" capture="environment"),
+	     which still requires these native iOS purpose strings to be
+	     present even though no native Capacitor camera plugin is used. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Leeward needs camera access so you can take and attach photos to your project entries and approvals in the field.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Leeward needs access to your photo library so you can attach existing photos to your project entries and approvals.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
