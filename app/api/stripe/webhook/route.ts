@@ -128,12 +128,32 @@ async function sendTrialEndingReminderIfNoPaymentMethod(
       : "in a few days";
 
     const subject = "Your Leeward trial ends soon";
-    const text = `Your 30-day Leeward trial ends on ${trialEndText}. No payment method is on file yet, so your access will pause automatically at that point unless you add one first.
+    // Wording note (2026-08-13): says "end", not "pause" -- this matches the
+    // actual Stripe config (subscription_data[trial_settings][end_behavior]
+    // [missing_payment_method] = "cancel"), which fully cancels the
+    // subscription rather than pausing it. "Pause" was the original wording
+    // here but implies something that resumes on its own, which isn't what
+    // happens -- caught during behavioral verification of this exact email
+    // via a real Resend send. The practical effect for the customer is
+    // unchanged either way (access blocked until they check out again, data
+    // preserved), so this is a copy fix only, not a behavior change.
+    // 2026-08-14: link carries ?billing=manage, which the dashboard's boot
+    // effect reads and uses to auto-open the Stripe billing portal once the
+    // user is confirmed signed in (see openManageBillingPortal in
+    // app/dashboard/page.tsx). Previously this linked to a bare /dashboard
+    // with a parenthetical "(click Manage Billing once you're signed in)"
+    // instruction -- Ryan flagged that a link reading "Add a payment
+    // method" landing on a plain dashboard felt like it didn't do what it
+    // said. Sign-in (if needed) still has to happen in between since a
+    // static email link can't carry a live session, but the click-through
+    // now actually lands on Stripe with no extra manual tap required.
+    const manageBillingUrl = `${APP_URL}/dashboard?billing=manage`;
+    const text = `Your 30-day Leeward trial ends on ${trialEndText}. No payment method is on file yet, so your access will end automatically at that point unless you add one first.
 
-Add a payment method any time before then: ${APP_URL}/dashboard (click "Manage Billing" once you're signed in).
+Add a payment method any time before then: ${manageBillingUrl} (you may need to sign in first).
 
 No action needed if you'd rather let the trial lapse.`;
-    const html = `<p>Your 30-day Leeward trial ends on <strong>${trialEndText}</strong>. No payment method is on file yet, so your access will pause automatically at that point unless you add one first.</p><p><a href="${APP_URL}/dashboard">Add a payment method</a> any time before then (click "Manage Billing" once you're signed in).</p><p>No action needed if you'd rather let the trial lapse.</p>`;
+    const html = `<p>Your 30-day Leeward trial ends on <strong>${trialEndText}</strong>. No payment method is on file yet, so your access will end automatically at that point unless you add one first.</p><p><a href="${manageBillingUrl}">Add a payment method</a> any time before then (you may need to sign in first).</p><p>No action needed if you'd rather let the trial lapse.</p>`;
 
     await fetch("https://api.resend.com/emails", {
       method: "POST",

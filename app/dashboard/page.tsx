@@ -881,7 +881,20 @@ export default function DashboardPage() {
             return;
           }
 
-          router.push("/login");
+          // 2026-08-14: preserve the current path+query (e.g. ?billing=
+          // manage from the trial-ending reminder email, or ?project=X from
+          // a deep link) as redirectedFrom, which /login already knows how
+          // to carry through OTP sign-in and hand back to /auth/finish. Was
+          // previously a bare router.push("/login") -- caught while
+          // verifying the reminder email's link: a not-yet-signed-in user
+          // clicking it would sign in successfully but land on a plain
+          // dashboard with no auto-portal-open, since ?billing=manage was
+          // silently dropped at this exact redirect.
+          const currentPathAndQuery =
+            window.location.pathname + window.location.search;
+          router.push(
+            `/login?redirectedFrom=${encodeURIComponent(currentPathAndQuery)}`
+          );
           return;
         }
 
@@ -914,6 +927,30 @@ export default function DashboardPage() {
         }
 
         setBillingSource(billing?.source ?? null);
+
+        // 2026-08-14: the trial-ending reminder email links here with
+        // ?billing=manage instead of a real Stripe URL, since a Checkout/
+        // Portal session can't be pre-generated into a static email -- see
+        // openManageBillingPortal's own comment for the full reasoning.
+        // Ryan flagged that landing on a plain dashboard after a link that
+        // says "Add a payment method" felt like the link didn't do what it
+        // promised. This auto-opens the portal once billing status (and
+        // therefore billingSource, which the org vs. individual portal
+        // routing depends on) is known, so the click-through actually lands
+        // on Stripe with no extra manual tap required. Strips the param
+        // immediately after so a later refresh of /dashboard doesn't keep
+        // re-triggering it.
+        const bootUrlParams = new URLSearchParams(window.location.search);
+        if (bootUrlParams.get("billing") === "manage") {
+          bootUrlParams.delete("billing");
+          const remainingQuery = bootUrlParams.toString();
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname + (remainingQuery ? `?${remainingQuery}` : "")
+          );
+          void openManageBillingPortal(billing?.source ?? null);
+        }
 
         void refreshOrgContext(billingAccessToken);
 
@@ -1765,6 +1802,53 @@ export default function DashboardPage() {
     if (!token) throw new Error("Not logged in");
 
     return token;
+  }
+
+  // Extracted 2026-08-14 from the Account tab's "Manage Billing" button so
+  // the same logic can also fire automatically on dashboard boot -- see the
+  // ?billing=manage handling in the main boot effect. The trial-ending
+  // reminder email links here (?billing=manage) instead of straight to
+  // Stripe because a Checkout/Portal session URL can't be pre-generated
+  // into a static email: it's single-use, short-lived, and has to be
+  // created fresh via an authenticated call tied to the signed-in user's
+  // session token. Landing on /dashboard and auto-opening the portal once
+  // signed in is the closest this can get to "the link does what it says"
+  // without a real Stripe redirect baked into the email itself.
+  async function openManageBillingPortal(
+    source: "individual" | "organization" | null
+  ) {
+    try {
+      const token = await getAccessToken();
+
+      // 2026-08-06, real bug found on a real device: this always called the
+      // individual portal route, even for a Team owner (source ===
+      // "organization"), who has no individual Stripe customer at all --
+      // producing a confusing "No Stripe customer found" error instead of
+      // actually opening their team's billing portal. Branch to the org
+      // route that already existed (app/api/billing/portal/team) but had
+      // never actually been wired to a button.
+      const portalPath =
+        source === "organization"
+          ? "/api/billing/portal/team"
+          : "/api/billing/portal";
+
+      const res = await fetch(withNativeFlag(portalPath), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.url) {
+        throw new Error(data?.error || "Unable to open billing portal.");
+      }
+
+      await openCheckoutUrl(data.url);
+    } catch (e: any) {
+      setStatus(e?.message || "Unable to open billing portal.");
+    }
   }
 
   // Estimate tab's "Share Invoice" -- reuses the existing share-link
@@ -5829,42 +5913,7 @@ export default function DashboardPage() {
                 <button
                   className="btn"
                   style={{ width: "100%" }}
-                  onClick={async () => {
-                    try {
-                      const token = await getAccessToken();
-
-                      // 2026-08-06, real bug found on a real device: this
-                      // always called the individual portal route, even
-                      // for a Team owner (billingSource === "organization"),
-                      // who has no individual Stripe customer at all --
-                      // producing a confusing "No Stripe customer found"
-                      // error instead of actually opening their team's
-                      // billing portal. Branch to the org route that
-                      // already existed (app/api/billing/portal/team) but
-                      // had never actually been wired to a button.
-                      const portalPath =
-                        billingSource === "organization"
-                          ? "/api/billing/portal/team"
-                          : "/api/billing/portal";
-
-                      const res = await fetch(withNativeFlag(portalPath), {
-                        method: "POST",
-                        headers: {
-                          Authorization: `Bearer ${token}`,
-                        },
-                      });
-
-                      const data = await res.json();
-
-                      if (!res.ok || !data?.url) {
-                        throw new Error(data?.error || "Unable to open billing portal.");
-                      }
-
-                      await openCheckoutUrl(data.url);
-                    } catch (e: any) {
-                      setStatus(e?.message || "Unable to open billing portal.");
-                    }
-                  }}
+                  onClick={() => openManageBillingPortal(billingSource)}
                 >
                   Manage Billing
                 </button>
