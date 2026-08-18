@@ -1866,3 +1866,116 @@ archived record ("Sksksk" /
 iframe-based mobile-width DOM measurement technique: confirmed
 `minWidth: 0` present in the deployed code, row no longer overflows,
 Restore button fully on-screen.
+
+## Fixed: iOS Camera Crash on Take Photo + App Store Guideline 2.1 Reply (2026-08-17)
+
+Real production-blocking bug found while trying to record the screen
+demo Apple's App Review requested (see below) — Ryan hit a repeatable
+crash on a fresh TestFlight install (build 11) every time he tapped
+Take Photo to attach a photo to an entry.
+
+### Root cause
+`ios/App/App/Info.plist` had zero camera or photo-library purpose
+strings (`NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription`)
+declared anywhere. On iOS, invoking the camera without a declared
+purpose string doesn't show a permission prompt — it crashes the app
+outright, no graceful denial. Leeward's camera capture uses a plain
+HTML file input (`accept="image/*" capture="environment"`, no native
+Capacitor camera plugin), but this still requires the native purpose
+strings to be present on iOS. Android never hit this because its file
+input doesn't require the same native permission declaration. This is
+also very likely the underlying cause of the Guideline 2.1 rejection
+itself (review status showed "2.1.0 Performance: App Completeness",
+not just an informational request), since Apple's own boilerplate
+separately flagged Guideline 5.1.1 (missing purpose strings) as a
+common cause.
+
+### Fix
+Added `NSCameraUsageDescription` and `NSPhotoLibraryUsageDescription`
+to `ios/App/App/Info.plist` (branch `ios-camera-permission-fix`,
+commit `401711e0`) with plain-language reasons. Purely additive, no
+other native config touched.
+
+Real build-breaking mistake caught and fixed along the way: the first
+draft of the explanatory comment above the new keys used a literal
+`--` inside the XML comment body (not just adjacent to `-->`) — the
+same class of bug already documented elsewhere in this file (Native
+Checkout Stranding section) — which produced invalid, non-well-formed
+XML. Caught via a Python `xml.dom.minidom` parse check before
+committing, not by a build failure this time; fixed by swapping `--`
+for `:`, consistent with the existing convention.
+
+### Verification
+New Codemagic build (build 12, from `ios-camera-permission-fix`)
+installed via TestFlight on Ryan's real iPhone 15 (iOS 26.6) after
+first getting stuck on build 12's "Missing Compliance" status in
+TestFlight (a required per-build export-compliance question that
+blocked distribution to Internal Testers until answered — unrelated
+to this fix, just a normal Apple step). Confirmed on-device: Take
+Photo now shows a real iOS camera-permission prompt (previously no
+prompt ever appeared, since the crash happened before iOS could show
+one) and successfully takes and uploads a photo with no crash.
+
+### App Review reply sent
+Build 12 was selected as the reviewed build (via the rejected
+submission's Edit flow) and a full reply was sent to Apple covering
+all 7 items their Guideline 2.1 message requested: a screen recording
+(launch → sign-up with a fresh alias account → start free trial →
+add an entry with a photo, showing the camera permission prompt →
+Manage Billing → cancel the subscription), device/OS tested (iPhone
+15, iOS 26.6), app description/target audience, demo account setup
+instructions (the existing reviewer bypass code), external services
+list (Supabase, Stripe, Resend, Twilio), regional differences (none),
+and regulated-industry material (not applicable). Real friction hit
+along the way, worth remembering for next time: the recording (160MB)
+exceeded App Store Connect's reply-attachment size limit (undocumented
+exact number, but well below 100MB per community reports) and uploaded
+with no visible error — several retries silently succeeded and had to
+be cleaned up via "Continue Draft" before sending a clean single
+attachment. Fixed by re-recording a tighter, tightly-scripted version
+and compressing it via Clipchamp (trim + 720p export) before
+reattaching.
+
+As of this writing, Apple has not yet responded to the reply — per
+Apple Developer Forums precedent for this exact "Information Needed"
+pattern, the expected flow is to wait for a reviewer response rather
+than resubmit, and the "Resubmit to App Review" button stays correctly
+greyed out until they do. A second, more detailed follow-up (covering
+the full ~3-week timeline across both the original 7/31 submission and
+the 8/6 resubmission) was sent to Apple Developer Support separately
+once the wait started feeling long. Still open as of 2026-08-17 — no
+further action needed on Leeward's side until Apple responds.
+
+## Help Page Content Update + Section Navigation (2026-08-17)
+
+Closes out the "in-app Help section needs a content review/update
+pass" item flagged as deferred back under the Estimate/Invoice UI Nav
+Overhaul section above. Turned out `app/help/page.tsx` already covered
+Team Accounts, Estimates/Change Orders, Payments, Documents, and
+Schedule/Calendar/Portfolio (written in a prior session not otherwise
+logged here) — the remaining real gaps were billing/subscription
+lifecycle, dark mode, and no FAQ.
+
+Added three new sections (16-18): **Billing & subscriptions** (trial
+terms, what happens if the trial lapses without a payment method,
+Manage Billing, Team plan cancellation/Dissolve behavior, Individual→
+Team upgrade), **Appearance** (dark/light mode toggle), and a short
+**FAQ** covering subscription lapses, plan switching, offline support,
+Team record visibility, and — at Ryan's specific request — an entry
+explaining *why* entries finalize on send (ties the design choice
+directly back to Leeward's dispute-protection value prop, not just
+describing the behavior).
+
+Also added, per Ryan's separate request once he saw how long the page
+had grown: a collapsible "Jump to a section" menu under the header
+(native HTML `<details>`/`<summary>`, zero client-side JS/state, page
+stays a server component) linking to all 18 sections via anchor `id`s,
+plus a "Back to top" link at the bottom of the page.
+
+Branch `help-page-billing-darkmode-faq` (commits `931b1da3`,
+`6a963285`). Deployed to `leeward-staging-internal` and verified via
+real browser sessions before promotion — new content sections render
+correctly in dark mode, the jump-to-section menu expands and each link
+scrolls to the correct anchor, and Back to top returns cleanly.
+Promoted to production (`buildproof-staging --prod`) and re-verified
+live on `app.getleeward.com/help`.

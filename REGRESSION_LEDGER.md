@@ -3104,3 +3104,22 @@ Found mid-investigation: the app's only prior App Store submission (built Saturd
 
 ## Result
 Fixed and verified end-to-end on real devices, both platforms. Web-side fix deployed directly to production (narrow, additive URL-param-only change - no billing logic/schema touched). iOS build 11 submitted for App Store review, outcome pending. Merged `native-checkout-fix` into `estimate-nav-phase-1` (clean fast-forward). Deliberately NOT merged into `main`, which has been stale since the PR #28 incident and has diverged by months of real work - full "catch main up" explicitly deferred to a dedicated future session rather than folded into this one. Full detail: CLAUDE.md's "Fixed: Native Checkout Stranding (Android + iOS) + App Store Resubmission" section.
+
+---
+
+# IOS CAMERA CRASH ON TAKE PHOTO — FIXED — 2026-08-17
+
+## Objective
+Real bug found while trying to record the screen demo Apple's App Review requested for a Guideline 2.1 "Information Needed" reply: Take Photo crashed the app repeatedly on a fresh TestFlight install (build 11) every time it was tapped to attach a photo to an entry.
+
+## Root cause
+`ios/App/App/Info.plist` had no `NSCameraUsageDescription` or `NSPhotoLibraryUsageDescription` purpose strings declared. On iOS, invoking the camera without a declared purpose string crashes the app outright instead of showing a permission prompt. Leeward's camera capture uses a plain HTML file input (`accept="image/*" capture="environment"`, no native Capacitor camera plugin), but iOS still requires the native purpose strings regardless. Android never hit this - its file input doesn't require the same native permission declaration. Very likely also the root cause of the Guideline 2.1 rejection itself (review status showed "2.1.0 Performance: App Completeness," and Apple's own boilerplate separately flagged missing purpose strings as a common cause).
+
+## Fix
+Added `NSCameraUsageDescription` and `NSPhotoLibraryUsageDescription` to `ios/App/App/Info.plist` (branch `ios-camera-permission-fix`, commit `401711e0`). Purely additive. Real mistake caught before committing: a literal `--` inside the new explanatory XML comment (not just adjacent to `-->`) produced invalid XML - same bug class already documented above in the Native Checkout Stranding entry. Caught via a Python `xml.dom.minidom` parse check, fixed by swapping `--` for `:`.
+
+## Verification
+New Codemagic build (build 12) installed via TestFlight on a real iPhone 15 (iOS 26.6). Confirmed on-device: Take Photo now shows a real iOS camera-permission prompt (none ever appeared before, since the crash happened before iOS could show one) and successfully takes and uploads a photo with no crash.
+
+## Result
+Fixed and verified on a real device. Build 12 selected as the build under review and a full reply sent to Apple covering all 7 items their Guideline 2.1 message requested (screen recording, device/OS, app description, demo setup, external services, regional differences, regulated-industry material). Awaiting Apple's response as of this writing - full detail: CLAUDE.md's "Fixed: iOS Camera Crash on Take Photo + App Store Guideline 2.1 Reply" section.
