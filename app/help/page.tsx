@@ -18,7 +18,7 @@ export default function HelpPage() {
                     gap: 18,
                 }}
             >
-                <header style={panelStyle}>
+                <header id="top" style={panelStyle}>
                     <a
                         href="/dashboard"
                         style={{
@@ -61,8 +61,27 @@ export default function HelpPage() {
                     </p>
                 </header>
 
+                <details style={tocStyle}>
+                    <summary style={tocSummaryStyle}>Jump to a section ▾</summary>
+
+                    <nav
+                        style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                            gap: 4,
+                            marginTop: 14,
+                        }}
+                    >
+                        {tocEntries.map((entry) => (
+                            <a key={entry.id} href={`#${entry.id}`} style={tocLinkStyle}>
+                                {entry.label}
+                            </a>
+                        ))}
+                    </nav>
+                </details>
+
                 <section style={gridStyle}>
-                    <HelpCard title="1. How Leeward works">
+                    <HelpCard id="section-1" title="1. How Leeward works">
                         <p>
                             Each record has a timeline. Add entries as work happens,
                             attach photos or files, and keep client information in one
@@ -93,7 +112,7 @@ export default function HelpPage() {
                         />
                     </HelpCard>
 
-                    <HelpCard title="2. Draft entries and finalized updates">
+                    <HelpCard id="section-2" title="2. Draft entries and finalized updates">
                         <p>
                             Draft entries are internal while you are still working. They
                             are visible on your dashboard, but they are not included in
@@ -123,7 +142,7 @@ export default function HelpPage() {
                     </HelpCard>
                 </section>
 
-                <section style={panelStyle}>
+                <section id="section-3" style={{ ...panelStyle, scrollMarginTop: 20 }}>
                     <h2
                         style={{
                             margin: "0 0 10px",
@@ -186,7 +205,7 @@ export default function HelpPage() {
                 </section>
 
                 <section style={gridStyle}>
-                    <HelpCard title="4. Approvals">
+                    <HelpCard id="section-4" title="4. Approvals">
                         <p>
                             Approvals are separate from update finalization. They are
                             used for decisions, changes, costs, schedule changes,
@@ -216,7 +235,7 @@ export default function HelpPage() {
                         />
                     </HelpCard>
 
-                    <HelpCard title="5. Estimates & Additional Charges">
+                    <HelpCard id="section-5" title="5. Estimates & Additional Charges">
                         <p>
                             The Estimate tab holds your <strong>Original Estimate</strong>{" "}
                             (the first approval on a record, marked as the baseline) and
@@ -246,7 +265,7 @@ export default function HelpPage() {
                         </p>
                     </HelpCard>
 
-                    <HelpCard title="6. Payments">
+                    <HelpCard id="section-6" title="6. Payments">
                         <p>
                             Log payments received against a record — a check, a Venmo
                             transfer, cash, anything. This tracks payment, it does not
@@ -271,7 +290,7 @@ export default function HelpPage() {
                         </p>
                     </HelpCard>
 
-                    <HelpCard title="7. Documents tab">
+                    <HelpCard id="section-7" title="7. Documents tab">
                         <p>
                             The Documents tab is a file vault for material that
                             describes the record generally rather than a specific
@@ -300,7 +319,7 @@ export default function HelpPage() {
                 </section>
 
                 <section style={gridStyle}>
-                    <HelpCard title="8. Working offline">
+                    <HelpCard id="section-8" title="8. Working offline">
                         <p>
                             Leeward is designed for real jobsites. If service drops, you
                             can keep adding records, entries, photos, approvals,
@@ -322,7 +341,7 @@ export default function HelpPage() {
                         />
                     </HelpCard>
 
-                    <HelpCard title="9. Private record notes">
+                    <HelpCard id="section-9" title="9. Private record notes">
                         <p>
                             Record notes are internal-only and are never included in
                             client-facing updates, approvals, PDFs, or share links.
@@ -340,7 +359,7 @@ export default function HelpPage() {
                         </p>
                     </HelpCard>
 
-                    <HelpCard title="10. Record documentation and history">
+                    <HelpCard id="section-10" title="10. Record documentation and history">
                         <p>
                             Leeward preserves structured records designed to remain
                             clear and understandable later.
@@ -380,7 +399,7 @@ export default function HelpPage() {
                         </div>
                     </HelpCard>
 
-                    <HelpCard title="11. Archiving and restoring records">
+                    <HelpCard id="section-11" title="11. Archiving and restoring records">
                         <p>
                             Records, entries, and approvals can all be archived to help
                             keep active timelines and dashboards organized without
@@ -402,7 +421,7 @@ export default function HelpPage() {
                 </section>
 
                 <section style={gridStyle}>
-                    <HelpCard title="12. One-click dispute package">
+                    <HelpCard id="section-12" title="12. One-click dispute package">
                         <p>
                             If a disagreement ever comes up, Leeward can generate a
                             structured dispute package in one click from the record
@@ -470,7 +489,7 @@ export default function HelpPage() {
                         </p>
                     </HelpCard>
 
-                    <HelpCard title="13. Team accounts">
+                    <HelpCard id="section-13" title="13. Team accounts">
                         <p>
                             Individual accounts can upgrade to a Team plan so multiple
                             people can share access to the same records — useful once
@@ -497,7 +516,7 @@ export default function HelpPage() {
                 </section>
 
                 <section style={gridStyle}>
-                    <HelpCard title="14. Schedule & Calendar">
+                    <HelpCard id="section-14" title="14. Schedule & Calendar">
                         <p>
                             Each record has its own <strong>Schedule</strong> tab for
                             upcoming events tied to that record — a site visit, an
@@ -522,7 +541,7 @@ export default function HelpPage() {
                         </p>
                     </HelpCard>
 
-                    <HelpCard title="15. Portfolio">
+                    <HelpCard id="section-15" title="15. Portfolio">
                         <p>
                             The <strong>Portfolio</strong> tab (Account menu) rolls up
                             every record you can access into one view: total{" "}
@@ -551,7 +570,7 @@ export default function HelpPage() {
                 </section>
 
                 <section style={gridStyle}>
-                    <HelpCard title="16. Billing & subscriptions">
+                    <HelpCard id="section-16" title="16. Billing & subscriptions">
                         <p>
                             Every new account starts with a{" "}
                             <strong>30-day free trial</strong> — no credit card
@@ -584,7 +603,7 @@ export default function HelpPage() {
                         </p>
                     </HelpCard>
 
-                    <HelpCard title="17. Appearance">
+                    <HelpCard id="section-17" title="17. Appearance">
                         <p>
                             Leeward supports both light and dark mode. Toggle it from
                             the Account menu — the whole app follows your choice, and
@@ -593,7 +612,7 @@ export default function HelpPage() {
                     </HelpCard>
                 </section>
 
-                <section style={panelStyle}>
+                <section id="section-18" style={{ ...panelStyle, scrollMarginTop: 20 }}>
                     <h2
                         style={{
                             margin: "0 0 16px",
@@ -643,20 +662,34 @@ export default function HelpPage() {
                         />
                     </div>
                 </section>
+
+                <a
+                    href="#top"
+                    style={{
+                        justifySelf: "start",
+                        color: "var(--accentText)",
+                        fontWeight: 800,
+                        textDecoration: "none",
+                    }}
+                >
+                    ↑ Back to top
+                </a>
             </div>
         </main>
     );
 }
 
 function HelpCard({
+    id,
     title,
     children,
 }: {
+    id?: string;
     title: string;
     children: React.ReactNode;
 }) {
     return (
-        <article style={cardStyle}>
+        <article id={id} style={{ ...cardStyle, scrollMarginTop: 20 }}>
             <h2
                 style={{
                     margin: "0 0 10px",
@@ -840,6 +873,52 @@ function getPillStyle(color: "yellow" | "green" | "blue"): React.CSSProperties {
         fontWeight: 800,
     };
 }
+
+const tocEntries: { id: string; label: string }[] = [
+    { id: "section-1", label: "1. How Leeward works" },
+    { id: "section-2", label: "2. Draft entries and finalized updates" },
+    { id: "section-3", label: "3. Live timeline vs. sent snapshot" },
+    { id: "section-4", label: "4. Approvals" },
+    { id: "section-5", label: "5. Estimates & Additional Charges" },
+    { id: "section-6", label: "6. Payments" },
+    { id: "section-7", label: "7. Documents tab" },
+    { id: "section-8", label: "8. Working offline" },
+    { id: "section-9", label: "9. Private record notes" },
+    { id: "section-10", label: "10. Record documentation and history" },
+    { id: "section-11", label: "11. Archiving and restoring records" },
+    { id: "section-12", label: "12. One-click dispute package" },
+    { id: "section-13", label: "13. Team accounts" },
+    { id: "section-14", label: "14. Schedule & Calendar" },
+    { id: "section-15", label: "15. Portfolio" },
+    { id: "section-16", label: "16. Billing & subscriptions" },
+    { id: "section-17", label: "17. Appearance" },
+    { id: "section-18", label: "18. Frequently asked questions" },
+];
+
+const tocStyle: React.CSSProperties = {
+    background: "var(--card)",
+    border: "1px solid var(--border)",
+    borderRadius: 18,
+    padding: "16px 22px",
+    boxShadow: "var(--shadow)",
+};
+
+const tocSummaryStyle: React.CSSProperties = {
+    cursor: "pointer",
+    fontWeight: 900,
+    fontSize: 16,
+    letterSpacing: "-0.01em",
+    color: "var(--text)",
+    userSelect: "none",
+};
+
+const tocLinkStyle: React.CSSProperties = {
+    color: "var(--accentText)",
+    fontSize: 14,
+    fontWeight: 700,
+    textDecoration: "none",
+    padding: "6px 0",
+};
 
 const panelStyle: React.CSSProperties = {
     background: "var(--card)",
