@@ -549,6 +549,100 @@ export default function HelpPage() {
                         </p>
                     </HelpCard>
                 </section>
+
+                <section style={gridStyle}>
+                    <HelpCard title="16. Billing & subscriptions">
+                        <p>
+                            Every new account starts with a{" "}
+                            <strong>30-day free trial</strong> — no credit card
+                            required to start.
+                        </p>
+
+                        <p>
+                            If you haven&apos;t added a payment method before the trial
+                            ends, you&apos;ll get a reminder email a few days out.
+                            Access ends automatically once the trial expires — your
+                            records are preserved, not deleted, and you can pick up
+                            right where you left off as soon as you check out again.
+                        </p>
+
+                        <p>
+                            <strong>Manage Billing</strong> (Account menu) opens
+                            Stripe&apos;s billing portal directly, where you can update
+                            your payment method, view your plan, or cancel.
+                        </p>
+
+                        <p>
+                            On a Team plan, only the account owner manages billing.
+                            Canceling a Team plan doesn&apos;t delete anything — the
+                            owner keeps every record from the team, reassigned to their
+                            individual account, and can resume Team billing on the same
+                            organization later if needed. Team members lose access once
+                            the plan is canceled. You can upgrade from an Individual to
+                            a Team plan at any time from the Account menu, and your
+                            existing records carry over.
+                        </p>
+                    </HelpCard>
+
+                    <HelpCard title="17. Appearance">
+                        <p>
+                            Leeward supports both light and dark mode. Toggle it from
+                            the Account menu — the whole app follows your choice, and
+                            it&apos;s remembered the next time you sign in.
+                        </p>
+                    </HelpCard>
+                </section>
+
+                <section style={panelStyle}>
+                    <h2
+                        style={{
+                            margin: "0 0 16px",
+                            fontSize: 22,
+                            lineHeight: 1.2,
+                            fontWeight: 950,
+                            letterSpacing: "-0.03em",
+                        }}
+                    >
+                        18. Frequently asked questions
+                    </h2>
+
+                    <div
+                        style={{
+                            display: "grid",
+                            gap: 10,
+                        }}
+                    >
+                        <RecordItem
+                            title="What happens to my data if my subscription lapses?"
+                            text="Nothing is deleted. Your records stay exactly as you left them — you'll just need an active subscription to get back into the dashboard."
+                        />
+
+                        <RecordItem
+                            title="Can I switch from an Individual plan to a Team plan later?"
+                            text="Yes, any time from the Account menu. Your existing records move with you."
+                        />
+
+                        <RecordItem
+                            title="Does Leeward work without an internet connection?"
+                            text="Yes, for nearly everything — records, entries, photos, approvals, payments, and notes all queue and sync automatically once your connection returns. Documents uploads are the one exception; they require an active connection."
+                        />
+
+                        <RecordItem
+                            title="Who can see a Team account's records?"
+                            text="Every team member can see and work on every record the team owns — there's no per-record restriction. Portfolio is the one owner-only view, and that's a billing rollup, not an access restriction."
+                        />
+
+                        <RecordItem
+                            title="Can I undo a sent update?"
+                            text="No — sending an update finalizes a snapshot to preserve an accurate communication history. You can keep adding new entries afterward; they'll be included the next time you send an update."
+                        />
+
+                        <RecordItem
+                            title="Why do entries finalize when I send an update?"
+                            text="A record that could be quietly edited after the fact wouldn't hold up as real evidence if a disagreement ever came up. Locking entries in place at send time — paired with integrity hashes and delivery/view history — is what makes a Leeward record dispute-ready instead of just a convenient notes app. It's the same reason behind most of Leeward's design choices: not to make things harder, but to make your documentation something you can actually rely on later."
+                        />
+                    </div>
+                </section>
             </div>
         </main>
     );
