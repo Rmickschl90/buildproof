@@ -1936,15 +1936,23 @@ attachment. Fixed by re-recording a tighter, tightly-scripted version
 and compressing it via Clipchamp (trim + 720p export) before
 reattaching.
 
-As of this writing, Apple has not yet responded to the reply — per
-Apple Developer Forums precedent for this exact "Information Needed"
-pattern, the expected flow is to wait for a reviewer response rather
-than resubmit, and the "Resubmit to App Review" button stays correctly
-greyed out until they do. A second, more detailed follow-up (covering
-the full ~3-week timeline across both the original 7/31 submission and
-the 8/6 resubmission) was sent to Apple Developer Support separately
-once the wait started feeling long. Still open as of 2026-08-17 — no
-further action needed on Leeward's side until Apple responds.
+As of 2026-08-17, Apple had not yet responded to the reply — per Apple
+Developer Forums precedent for this exact "Information Needed"
+pattern, the assumption at the time was to wait for a reviewer
+response rather than resubmit. A second, more detailed follow-up
+(covering the full ~3-week timeline across both the original 7/31
+submission and the 8/6 resubmission) was sent to Apple Developer
+Support separately once the wait started feeling long.
+
+**Correction (2026-08-18):** that assumption was incomplete. The
+"Resubmit to App Review" button did become available and Ryan
+resubmitted build 12 for review on 2026-08-18. So for this account/
+submission type, an explicit resubmit action was actually required on
+top of the written reply - replying alone did not automatically
+re-queue the app for review the way the forum precedent suggested.
+Build 12 (with the camera-permission fix) is now genuinely back in
+Apple's review queue as of 2026-08-18. Still open - no further action
+needed on Leeward's side until Apple responds.
 
 ## Help Page Content Update + Section Navigation (2026-08-17)
 
