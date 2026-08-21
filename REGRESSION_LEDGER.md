@@ -3123,3 +3123,24 @@ New Codemagic build (build 12) installed via TestFlight on a real iPhone 15 (iOS
 
 ## Result
 Fixed and verified on a real device. Build 12 selected as the build under review and a full reply sent to Apple covering all 7 items their Guideline 2.1 message requested (screen recording, device/OS, app description, demo setup, external services, regional differences, regulated-industry material). Awaiting Apple's response as of this writing - full detail: CLAUDE.md's "Fixed: iOS Camera Crash on Take Photo + App Store Guideline 2.1 Reply" section.
+
+---
+
+# APP REVIEW DEMO-LOGIN BYPASS: FOUND NEVER ACTUALLY DEPLOYED, FIXED — 2026-08-21
+
+## Objective
+Second Guideline 2.1 rejection (submission `63d6aeb4-3a48-4c94-ad27-cf4eea743198`, reviewed 2026-08-21): Apple couldn't sign in with the demo account credentials (`rmickschl23@gmail.com` / `Password: NorthS!de608`). Same submission also got a separate Guideline 3.1.1 (In-App Purchase) rejection - that one is a distinct, unresolved business-model decision, not covered by this entry.
+
+## Root cause
+Leeward has no password field anywhere - sign-in is email + a real emailed one-time code only (`app/login/page.tsx`). `NorthS!de608` was never a real password; it was meant to be typed into the app's code field as a fixed reviewer bypass code. That bypass mechanism was actually built on 2026-08-04 (`app/api/auth/review-demo-token/route.ts` + a matching `app/login/page.tsx` change) and even documented as complete in CLAUDE.md at the time - but it lived entirely on its own branch, `app-review-demo-login-bypass`, which was never merged into `main` or into `estimate-nav-phase-1` (the line every production deploy has actually come from since). Confirmed directly via `git merge-base --is-ancestor baf24d44 origin/main` and against `origin/estimate-nav-phase-1` - both false. The `APP_REVIEW_DEMO_EMAIL`/`APP_REVIEW_DEMO_CODE` env vars were, in fact, already correctly set on the real production Vercel project (`buildproof-staging`) since 2026-08-04 - so this wasn't the "wrong Vercel project" mistake documented on that old branch. The vars were right the whole time; the code that reads them just never shipped.
+
+Second, smaller issue found while fixing this: the code value in the actual submitted App Store Connect notes is `72189138` - different from the `NorthS!de608` sitting in Apple's generic "Password" field (which only exists because Apple's form requires *some* value there, unused by the app). The notes are the authoritative reviewer instruction, so the fixed code needs to match the notes' value, not the Password field.
+
+## Fix
+Re-implemented the same 2026-08-04 design (server route mints a real Supabase one-time code via `admin.generateLink()` when the submitted email/code pair matches `APP_REVIEW_DEMO_EMAIL`/`APP_REVIEW_DEMO_CODE`; any non-match falls straight through to the normal `verifyOtp()` path, completely unchanged for every real user) on a fresh branch, `app-review-demo-login-fix-v2`, off the actual current production line rather than trying to merge/rebase the stale original branch. Verified via `tsc --noEmit` (zero errors) before committing. `APP_REVIEW_DEMO_CODE` corrected to `72189138` to match the submitted notes.
+
+## Verification
+Deployed directly to the real production project (`vercel deploy --project buildproof-staging --prod` - an initial plain `vercel --prod` was caught deploying to the wrong default-linked project, `leeward-staging-internal`, before this). Verified live on `app.getleeward.com`, in a real browser: logged out, entered `rmickschl23@gmail.com` + `72189138` (the exact code from the submitted notes, not the Password-field placeholder), landed cleanly on the real dashboard with real records. Re-ran the full logout/login cycle a second time after the env var correction to confirm the corrected code specifically (not just any code) was what worked.
+
+## Result
+Fixed and verified end-to-end on live production. No new App Store Connect notes needed - the already-submitted notes correctly describe the mechanism; the code just wasn't live to back them up until now. Branch `app-review-demo-login-fix-v2` pushed to GitHub. Not yet merged into `main`/`estimate-nav-phase-1` at the git level (worth doing for history hygiene) - production itself is already correct via the direct `--project` deploy. The separate Guideline 3.1.1 (In-App Purchase) rejection from the same submission remains open and unresolved - full detail: CLAUDE.md's "Fixed: App Review Demo-Login Bypass Was Never Actually Deployed" section.

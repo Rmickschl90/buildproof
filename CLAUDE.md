@@ -1969,6 +1969,65 @@ Prepped, Gated, Not Yet Live". Pushed to GitHub; PR into
 has no network egress to github.com to open it directly) - safe to
 merge anytime since the feature is inert until the URL is set.
 
+## Fixed: App Review Demo-Login Bypass Was Never Actually Deployed (2026-08-21)
+
+Real root cause found for a second Guideline 2.1 ("unable to sign in
+with the demo credentials") rejection, submission ID
+`63d6aeb4-3a48-4c94-ad27-cf4eea743198`, reviewed 2026-08-21. Apple's
+rejection quoted `Password: NorthS!de608` for the demo account
+(`rmickschl23@gmail.com`) — but Leeward has no password field at all,
+only email + a real emailed one-time code (see `app/login/page.tsx`).
+That string was never a real password; it was meant to be typed into
+the app's code field as a fixed reviewer bypass code, per a fix that
+was actually built back on 2026-08-04.
+
+The real problem: that fix (`app/api/auth/review-demo-token/route.ts`
++ the matching `app/login/page.tsx` change) was built and even
+documented as complete on its own branch,
+`app-review-demo-login-bypass` — but that branch was **never merged**
+into `main` or into the `estimate-nav-phase-1` line every production
+deploy has actually come from since. Confirmed directly via
+`git merge-base --is-ancestor` against both. The `APP_REVIEW_DEMO_EMAIL`
+/ `APP_REVIEW_DEMO_CODE` env vars *were* correctly set on the real
+production Vercel project (`buildproof-staging`) back on 2026-08-04 —
+so the original "wrong Vercel project" theory documented on that old
+branch wasn't the issue this time. The vars were right; the code that
+reads them just was never actually live.
+
+Also found while fixing this: the code value in the App Store Connect
+demo notes (submitted alongside this rejection) is `72189138` — a
+different value than the `NorthS!de608` sitting in Apple's generic
+"Password" field. The notes are the authoritative instruction to the
+reviewer, so `APP_REVIEW_DEMO_CODE` must match the notes' value, not
+the Password field's.
+
+Fix: re-implemented the same design (server route mints a real
+Supabase one-time code via `admin.generateLink()` when the email/code
+pair matches `APP_REVIEW_DEMO_EMAIL`/`APP_REVIEW_DEMO_CODE`; any
+non-match falls straight through to the normal `verifyOtp()` path
+unchanged) on a fresh branch, `app-review-demo-login-fix-v2`, off the
+actual current production line. Verified via `tsc --noEmit` (clean,
+zero errors) before committing. `APP_REVIEW_DEMO_CODE` corrected to
+`72189138` to match the submitted notes exactly.
+
+Deployed to the real production project directly
+(`vercel deploy --project buildproof-staging --prod`, not the default
+`leeward-staging-internal` link an initial `vercel --prod` mistakenly
+hit first) and behaviorally verified live on `app.getleeward.com`:
+logged out, entered `rmickschl23@gmail.com` + `72189138` (the exact
+notes-promised code, not the Password-field placeholder), and landed
+on the real dashboard with real records — confirming this works
+end-to-end exactly as a reviewer following the submitted notes would
+experience it. No new App Store Connect notes needed — the existing
+submitted notes already correctly describe the mechanism; the code
+just wasn't live to back them up until now.
+
+Branch `app-review-demo-login-fix-v2` pushed to GitHub by Ryan (this
+session's sandbox has no network egress to github.com). Not yet
+merged into `main` or `estimate-nav-phase-1` at the git level — worth
+doing at some point for history hygiene, though production itself is
+already correct via the direct `--project buildproof-staging` deploy.
+
 ## Help Page Content Update + Section Navigation (2026-08-17)
 
 Closes out the "in-app Help section needs a content review/update
