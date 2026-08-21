@@ -2061,3 +2061,75 @@ correctly in dark mode, the jump-to-section menu expands and each link
 scrolls to the correct anchor, and Back to top returns cleanly.
 Promoted to production (`buildproof-staging --prod`) and re-verified
 live on `app.getleeward.com/help`.
+
+## In Progress: App Store Guideline 3.1.1 Fix — US-Only Distribution + External-Payment Disclosure (2026-08-21)
+
+Second half of the same submission's rejection (`63d6aeb4-3a48-4c94-
+ad27-cf4eea743198`) as the App Review demo-login bypass above — Apple
+also flagged 3.1.1 Business: Payments - In-App Purchase, since Leeward
+lets iOS users pay via Stripe/web checkout instead of Apple's IAP.
+Ryan's explicit constraint: fix this without giving Apple a cut, which
+rules out implementing real StoreKit/IAP.
+
+Researched current (2026) Apple App Review Guidelines: per a 2025 US
+court order in the ongoing Epic v. Apple litigation, apps distributed
+on the **US storefront specifically** may include external payment
+links/buttons with **no StoreKit entitlement required** and **0%**
+current Apple commission (Apple has proposed 15% to the court; not yet
+in effect). Requirements: the external link/button must not be styled
+or worded like a native IAP button, and must clearly disclose that
+checkout happens externally. This exception is **US-storefront-only**
+— other storefronts still need real IAP or the button hidden.
+
+Leeward's existing checkout architecture (`lib/capacitorCheckout.ts`'s
+`openCheckoutUrl()` → Capacitor's `Browser.open()`, a genuine external
+browser tab/Custom Tab, not an embedded WebView — built back in the
+Native Checkout Stranding fix, see above) already substantially
+matches this pattern. Two things were missing: (1) confirming
+distribution is actually scoped to the US, and (2) explicit disclosure
+copy telling the user, before they tap, that payment happens outside
+the app.
+
+**Distribution scoped to US-only.** Checked App Store Connect →
+Leeward Records → Pricing and Availability → App Availability directly
+(via browser automation) rather than assuming: it had never been
+explicitly configured and defaulted to "All Countries or Regions" (175
+countries) — i.e. worldwide, not previously scoped down. Changed to
+"Specific Countries or Regions" → United States only, confirmed via
+Apple's own confirmation dialog ("Make app available in United States
+after releasing it?") and the resulting Availability summary (`1
+Available`, `174 Not Available`, United States: "Available on App
+Release"). This was a live App Store Connect change, not a code change
+— takes effect on the App Store within 24 hours per Apple's own copy
+on that page.
+
+**Disclosure copy added**, branch `ios-external-payment-disclosure`
+(off the current production line, `app-review-demo-login-fix-v2`),
+commit `c7f05ee0`. Added explicit "not an Apple In-App Purchase" text
+directly next to every real checkout-initiating control:
+`app/subscribe/page.tsx`'s plan-choice step (general disclosure
+covering both plans), the Individual step's "Start Free Trial on
+Website" button, and the Team step's "Continue to Payment on Website"
+button — plus the dashboard's existing-user "Upgrade to Team" modal
+(`app/dashboard/page.tsx`), since that also triggers a real Stripe
+checkout via the same `openCheckoutUrl()` path. Button copy was also
+tightened ("...on Website") for extra clarity that tapping leaves the
+app. `tsc --noEmit` clean.
+
+**Not yet done**: this sandbox has no `vercel` CLI installed and no
+network egress to github.com (same limitation noted elsewhere in this
+file), so the commit exists locally on Ryan's own checkout (this
+session's shell operates directly on `C:\dev\buildproof`) but still
+needs Ryan to `git push` and run the staging deploy
+(`vercel --prod`, default-linked to `leeward-staging-internal`) himself,
+followed by a real browser check that the new disclosure text renders
+correctly in both light and dark mode, then promotion to production
+(`vercel deploy --project buildproof-staging --prod`) and a live check
+on `app.getleeward.com/subscribe`. Also not yet done: updating the App
+Store Connect review notes for resubmission to explicitly cite
+Guideline 3.1.1(a) and the external-link mechanism (draft prepared
+separately, not yet pasted into App Store Connect). Per Ryan's explicit
+instruction, do **not** resubmit to Apple until this fix is deployed
+and verified live — the same submission was already rejected once for
+this exact reason, and resubmitting with only the login fix would very
+likely bounce again.

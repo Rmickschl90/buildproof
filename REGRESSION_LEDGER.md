@@ -3144,3 +3144,23 @@ Deployed directly to the real production project (`vercel deploy --project build
 
 ## Result
 Fixed and verified end-to-end on live production. No new App Store Connect notes needed - the already-submitted notes correctly describe the mechanism; the code just wasn't live to back them up until now. Branch `app-review-demo-login-fix-v2` pushed to GitHub. Not yet merged into `main`/`estimate-nav-phase-1` at the git level (worth doing for history hygiene) - production itself is already correct via the direct `--project` deploy. The separate Guideline 3.1.1 (In-App Purchase) rejection from the same submission remains open and unresolved - full detail: CLAUDE.md's "Fixed: App Review Demo-Login Bypass Was Never Actually Deployed" section.
+
+---
+
+# APP STORE GUIDELINE 3.1.1 (IN-APP PURCHASE): US-ONLY DISTRIBUTION + EXTERNAL-PAYMENT DISCLOSURE — IN PROGRESS — 2026-08-21
+
+## Objective
+Second half of the same submission's rejection (`63d6aeb4-3a48-4c94-ad27-cf4eea743198`) as the demo-login entry above: Guideline 3.1.1 Business: Payments - In-App Purchase, since Leeward's iOS app lets users pay via Stripe/web checkout instead of Apple's IAP. Ryan's explicit constraint: fix this without Apple taking a cut, ruling out real StoreKit/IAP.
+
+## Root cause / research finding
+Per a 2025 US court order in the Epic v. Apple litigation, apps on the **US storefront only** may include external payment links/buttons with no StoreKit entitlement and 0% current Apple commission (Apple has proposed 15% to the court, not yet in effect). Requirement: the link/button must not look/read like a native IAP button and must clearly disclose checkout is external. This allowance is US-storefront-only - other storefronts still need real IAP or the button hidden. Leeward's existing checkout (`lib/capacitorCheckout.ts`'s `openCheckoutUrl()` -> Capacitor `Browser.open()`, a genuine external browser tab, not an embedded WebView) already matches the required architecture; two things were missing: confirmed US-only distribution, and explicit disclosure copy.
+
+## Fix
+1. **App Store Connect**: checked Leeward Records' Pricing and Availability -> App Availability directly (not assumed) - it had never been explicitly configured and defaulted to worldwide ("All Countries or Regions," 175 countries). Changed to "Specific Countries or Regions" -> United States only, confirmed via Apple's own confirmation dialog and the resulting availability summary (`1 Available`, `174 Not Available`). Live App Store Connect setting change, takes effect within 24 hours per Apple's own copy.
+2. **Code**: branch `ios-external-payment-disclosure` (off `app-review-demo-login-fix-v2`, the current production line), commit `c7f05ee0`. Added explicit "not an Apple In-App Purchase" disclosure text next to every real checkout-initiating control: `app/subscribe/page.tsx`'s plan-choice step, Individual step ("Start Free Trial on Website"), Team step ("Continue to Payment on Website"), and the dashboard's "Upgrade to Team" modal (`app/dashboard/page.tsx`). `tsc --noEmit` clean.
+
+## Verification
+Confirmed the App Store Connect availability change directly via browser automation (before/after screenshots of the Availability summary table). Code change verified via `tsc --noEmit` only so far - **not yet** deployed or behaviorally verified in a browser, staging or production, since this session's sandbox has no `vercel` CLI and no network egress to github.com. The commit exists on Ryan's actual local checkout (this session's shell operates directly on `C:\dev\buildproof`); Ryan needs to push and run the staging/production deploys himself.
+
+## Result
+IN PROGRESS, not complete. Distribution scoping is live in App Store Connect. Disclosure-copy code is committed locally but not yet pushed, deployed, or browser-verified. App Store Connect review notes for resubmission (citing Guideline 3.1.1(a) explicitly) drafted but not yet pasted into App Store Connect. Per Ryan's explicit instruction, do not resubmit to Apple until this is deployed and verified live - full detail: CLAUDE.md's "In Progress: App Store Guideline 3.1.1 Fix" section.
