@@ -184,6 +184,12 @@ export default function SubscribePage() {
             <p className="sub">
               Start with a free 30-day trial on either plan. No card required today.
             </p>
+            <p className="sub" style={{ marginTop: 6, fontSize: 12.5, opacity: 0.75 }}>
+              Payment for either plan is completed securely on our website
+              (getleeward.com) via Stripe — you'll briefly leave the app in a
+              secure browser tab. This is not an Apple In-App Purchase and
+              won't appear on your Apple account.
+            </p>
 
             <div
               style={{
@@ -270,8 +276,12 @@ export default function SubscribePage() {
                 onClick={startTeamCheckout}
                 disabled={startingTeamCheckout}
               >
-                {startingTeamCheckout ? "Opening checkout..." : "Continue to Payment"}
+                {startingTeamCheckout ? "Opening checkout..." : "Continue to Payment on Website"}
               </button>
+              <p className="sub" style={{ fontSize: 12.5, opacity: 0.75, textAlign: "center" }}>
+                Opens a secure browser tab on getleeward.com to complete
+                payment via Stripe — not an Apple In-App Purchase.
+              </p>
               <button
                 className="btn secondary"
                 type="button"
@@ -312,8 +322,12 @@ export default function SubscribePage() {
               onClick={startCheckout}
               disabled={startingCheckout}
             >
-              {startingCheckout ? "Opening checkout..." : "Start Free Trial"}
+              {startingCheckout ? "Opening checkout..." : "Start Free Trial on Website"}
             </button>
+            <p className="sub" style={{ marginTop: 8, fontSize: 12.5, opacity: 0.75 }}>
+              Opens a secure browser tab on getleeward.com to complete
+              payment via Stripe — not an Apple In-App Purchase.
+            </p>
           </div>
 
           <div style={{ marginTop: 12 }}>

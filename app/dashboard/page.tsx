@@ -9265,6 +9265,10 @@ export default function DashboardPage() {
             <div style={{ fontSize: 13, opacity: 0.7 }}>
               $69/month, up to 5 users, 30-day trial.
             </div>
+            <div style={{ fontSize: 12.5, opacity: 0.65 }}>
+              Payment is completed securely on getleeward.com via Stripe in a
+              browser tab — not an Apple In-App Purchase.
+            </div>
 
             {!orgContext?.organizationId && (
               <input
