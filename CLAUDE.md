@@ -1954,6 +1954,21 @@ Build 12 (with the camera-permission fix) is now genuinely back in
 Apple's review queue as of 2026-08-18. Still open - no further action
 needed on Leeward's side until Apple responds.
 
+**Marketing site prepped ahead of approval (2026-08-20)**: to avoid
+scrambling once Apple approves, `buildproof-site` (a separate repo) got
+a gated iOS App Store badge added on branch `ios-app-store-badge-prep`
+(commit `db28370`, off `marketing-site-overhaul-2026-07`). A single
+`IOS_APP_STORE_URL` toggle constant (currently `null`) in `app/page.tsx`
+controls whether the Apple badge, updated eyebrow copy, and updated body
+copy render — while `null`, the live site is unchanged. Once Apple
+approves and a real App Store URL exists, set that one constant and
+redeploy; no other site changes needed. Full detail in
+`buildproof-site/SITE_REGRESSION_LEDGER.md` under "iOS App Store Badge —
+Prepped, Gated, Not Yet Live". Pushed to GitHub; PR into
+`marketing-site-overhaul-2026-07` not yet opened (this session's sandbox
+has no network egress to github.com to open it directly) - safe to
+merge anytime since the feature is inert until the URL is set.
+
 ## Help Page Content Update + Section Navigation (2026-08-17)
 
 Closes out the "in-app Help section needs a content review/update
