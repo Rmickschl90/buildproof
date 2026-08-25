@@ -1,5 +1,4 @@
 import { Capacitor } from "@capacitor/core";
-import { Browser } from "@capacitor/browser";
 
 // Added 2026-08-06: found live in production -- every Stripe checkout/portal
 // entry point in this app (individual signup, team signup, existing-owner
@@ -27,12 +26,40 @@ import { Browser } from "@capacitor/browser";
 //
 // On web this is unchanged: Capacitor.isNativePlatform() is false, so this
 // is a plain window.location.href redirect exactly like before.
+//
+// CHANGED 2026-08-24: reverted the native branch away from
+// Browser.open() (an in-app SFSafariViewController on iOS / Chrome Custom
+// Tab on Android) back to a plain top-level window.location.href
+// navigation, identical to the web branch. Reason: Apple's App Review
+// rejected this app under Guideline 3.1.1 a second time, and this
+// rejection's specific wording ("Apps on the United States storefront may
+// link out to the default browser...") is meaningfully different from an
+// in-app browser sheet -- SFSafariViewController/Custom Tabs are
+// sandboxed and external in a security sense, but never actually leave
+// the app or switch to the real Safari/Chrome app the way Apple's
+// guideline describes. A plain window.location.href to a domain outside
+// capacitor.config.ts's server.url (checkout.stripe.com,
+// billing.stripe.com) is NOT specially intercepted by this app -- with no
+// `server.allowNavigation` entries configured, Capacitor's default
+// WebView navigation policy hands any such navigation off to the real
+// system default browser as a separate app/task. This is the exact same
+// default behavior that caused the original "Native Checkout Stranding"
+// bug this file's own history describes above -- the difference this
+// time is that /checkout-return's custom-URL-scheme bridge (built as
+// part of that same original fix, see app/checkout-return/page.tsx and
+// CapacitorCheckoutReturnBootstrap.tsx) does not care which browser
+// context loaded it. It performs a plain custom-scheme redirect
+// (`window.location.href = "com.linquelabs.leeward://..."`), which iOS/
+// Android intercept and route back into this already-running app
+// (MainActivity is singleTask) regardless of whether the page that
+// triggered it was inside Safari itself or an SFSafariViewController --
+// so switching back to a true external handoff should not reintroduce
+// the original stranding bug, since the return path was never actually
+// dependent on using an in-app browser. Still needs real-device
+// TestFlight/Play Store verification before this can be trusted, exactly
+// like the original fix was.
 export async function openCheckoutUrl(url: string) {
-  if (Capacitor.isNativePlatform()) {
-    await Browser.open({ url });
-  } else {
-    window.location.href = url;
-  }
+  window.location.href = url;
 }
 
 // Added 2026-08-06, fixing a real bug found on a real device: the checkout

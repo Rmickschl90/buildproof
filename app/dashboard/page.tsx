@@ -353,6 +353,12 @@ export default function DashboardPage() {
   const [upgradeSubmitting, setUpgradeSubmitting] = useState(false);
   const [upgradeError, setUpgradeError] = useState("");
 
+  // ---- Delete Account (added 2026-08-24, Apple Guideline 5.1.1(v)) ----
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [deleteAccountConfirmEmail, setDeleteAccountConfirmEmail] = useState("");
+  const [deleteAccountBusy, setDeleteAccountBusy] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState("");
+
   // ---------------- DATA ----------------
   const [projects, setProjects] = useState<Project[]>([]);
   // Project status badge feature (2026-07-27): projectId -> derived bid
@@ -1285,6 +1291,54 @@ export default function DashboardPage() {
       setDissolveError(e?.message || "Failed to cancel team.");
     } finally {
       setDissolveBusy(false);
+    }
+  }
+
+  // Added 2026-08-24, Apple Guideline 5.1.1(v). Genuinely irreversible --
+  // the confirm-by-typing-your-own-email gate (same pattern as Dissolve's
+  // confirm-by-typing-the-org-name) plus the modal's own explicit "gone
+  // forever" warning copy are both there to prevent accidental taps, per
+  // Apple's own guidance that confirmation steps are fine as long as they
+  // don't require contacting support. On success, signs the user out and
+  // sends them to /login -- there is no account left to show a dashboard
+  // for.
+  async function submitDeleteAccount() {
+    setDeleteAccountBusy(true);
+    setDeleteAccountError("");
+
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        setDeleteAccountError("Not signed in.");
+        return;
+      }
+
+      const res = await fetch("/api/account/delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ confirmEmail: deleteAccountConfirmEmail.trim() }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        setDeleteAccountError(json?.error || "Failed to delete account.");
+        return;
+      }
+
+      clearLastOpenProjectId();
+      clearRecentProjects();
+      clearAllCachedDashboardProjects();
+      clearAllCachedAttachments();
+      await supabase.auth.signOut();
+      router.push("/login");
+    } catch (e: any) {
+      setDeleteAccountError(e?.message || "Failed to delete account.");
+    } finally {
+      setDeleteAccountBusy(false);
     }
   }
 
@@ -5921,6 +5975,23 @@ export default function DashboardPage() {
                 <button className="btn btnDanger" style={{ width: "100%" }} onClick={logout}>
                   Logout
                 </button>
+
+                <button
+                  className="btn"
+                  style={{
+                    width: "100%",
+                    color: "var(--dangerTextAlt)",
+                    fontSize: 13,
+                    opacity: 0.75,
+                  }}
+                  onClick={() => {
+                    setDeleteAccountError("");
+                    setDeleteAccountConfirmEmail("");
+                    setDeleteAccountOpen(true);
+                  }}
+                >
+                  Delete Account
+                </button>
               </div>
             </div>
           )}
@@ -9302,6 +9373,92 @@ export default function DashboardPage() {
                 onClick={submitUpgrade}
               >
                 {upgradeSubmitting ? "Starting checkout..." : "Continue to Payment"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteAccountOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,0.35)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+          onClick={() => {
+            if (!deleteAccountBusy) setDeleteAccountOpen(false);
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 480,
+              background: "var(--card)",
+              borderRadius: 16,
+              padding: 16,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+              display: "grid",
+              gap: 12,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontWeight: 600, color: "var(--dangerTextAlt)" }}>
+              Delete Account
+            </div>
+            <div style={{ fontSize: 13, opacity: 0.85 }}>
+              This permanently deletes your account, cancels any active
+              subscription, and deletes every record, entry, attachment,
+              approval, payment, and document you own. This cannot be
+              undone -- your data will be gone forever.
+            </div>
+            <div style={{ fontSize: 13, opacity: 0.7 }}>
+              Type your account email (<b>{userEmail}</b>) to confirm.
+            </div>
+
+            <input
+              type="text"
+              value={deleteAccountConfirmEmail}
+              onChange={(e) => setDeleteAccountConfirmEmail(e.target.value)}
+              placeholder={userEmail || "you@example.com"}
+              disabled={deleteAccountBusy}
+              style={{
+                borderRadius: 10,
+                border: "1px solid var(--borderStrong)",
+                padding: "8px 10px",
+                fontSize: 14,
+              }}
+            />
+
+            {deleteAccountError && (
+              <div style={{ fontSize: 13, color: "var(--dangerTextAlt)" }}>
+                {deleteAccountError}
+              </div>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button
+                className="btn"
+                onClick={() => setDeleteAccountOpen(false)}
+                disabled={deleteAccountBusy}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btnDanger"
+                disabled={
+                  deleteAccountBusy ||
+                  deleteAccountConfirmEmail.trim().toLowerCase() !==
+                    (userEmail || "").trim().toLowerCase()
+                }
+                onClick={submitDeleteAccount}
+              >
+                {deleteAccountBusy ? "Deleting..." : "Delete Account Forever"}
               </button>
             </div>
           </div>
