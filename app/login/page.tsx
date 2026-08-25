@@ -93,6 +93,23 @@ export default function Login() {
 
     async function run() {
       try {
+        // Added 2026-08-24 alongside self-service account deletion (Apple
+        // Guideline 5.1.1v): the delete-account flow in the dashboard signs
+        // the user out and redirects here with ?deleted=1 once the account
+        // is genuinely gone. Without this, the user (or an App Review
+        // tester exercising this exact flow) would land on the ordinary
+        // sign-in screen with zero acknowledgment that anything happened.
+        // Checked first, ahead of the existing-session redirect below,
+        // since there should never be a session left after a real deletion
+        // -- but even if one somehow lingered, this still makes the
+        // deletion outcome explicit rather than silently bouncing away.
+        const deletedParam = new URLSearchParams(window.location.search).get("deleted");
+        if (deletedParam === "1" && !cancelled) {
+          setMessage("Your account and all its data have been permanently deleted.");
+          window.history.replaceState({}, document.title, window.location.pathname);
+          return;
+        }
+
         const { data: existing } = await supabase.auth.getSession();
         if (!cancelled && existing?.session) {
           await establishServerSession();

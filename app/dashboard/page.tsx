@@ -1334,7 +1334,12 @@ export default function DashboardPage() {
       clearAllCachedDashboardProjects();
       clearAllCachedAttachments();
       await supabase.auth.signOut();
-      router.push("/login");
+      // Added 2026-08-24: previously a bare router.push("/login"), which left
+      // no acknowledgment that deletion actually happened -- the user (or an
+      // App Review tester) just lands on the ordinary sign-in screen with no
+      // way to tell whether anything occurred. ?deleted=1 triggers a one-line
+      // confirmation banner on /login (see app/login/page.tsx).
+      router.push("/login?deleted=1");
     } catch (e: any) {
       setDeleteAccountError(e?.message || "Failed to delete account.");
     } finally {
