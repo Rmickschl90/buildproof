@@ -33,6 +33,37 @@ async function upsertSubscription(subscription: Stripe.Subscription) {
 
   const priceId = subscription.items.data[0]?.price?.id ?? null;
 
+  // Added 2026-08-25, found via real behavioral testing of the new
+  // self-service account-deletion route (POST /api/account/delete): that
+  // route synchronously cancels the user's Stripe subscription and
+  // deletes their user_subscriptions row as part of a real account
+  // deletion, then deletes the auth.users row itself. But Stripe's
+  // resulting customer.subscription.updated/deleted webhook event
+  // arrives asynchronously, sometimes after the deletion request has
+  // already finished -- and without this guard, this upsert would
+  // silently RE-CREATE a user_subscriptions row for a user_id that no
+  // longer exists in auth.users, leaving a genuinely orphaned billing
+  // record behind (confirmed happening on staging: a canceled-status row
+  // for a just-deleted test account, timestamped seconds after the
+  // deletion). Since there's no foreign key from user_subscriptions.user_id
+  // to auth.users (confirmed via pg_constraint while building the
+  // deletion route -- not every user-referencing column in this schema is
+  // FK-enforced), Postgres itself would not have caught this. A no-op
+  // here for a genuinely deleted user is always correct: there is no
+  // account left for this billing state to matter to, and the event
+  // isn't retried as a failure -- Stripe's webhook just gets a normal
+  // success response, since silently skipping is the correct behavior,
+  // not an error condition.
+  const { data: userLookup, error: userLookupError } =
+    await supabaseServer.auth.admin.getUserById(userId);
+
+  if (userLookupError || !userLookup?.user) {
+    console.log(
+      `[stripe/webhook] Skipping user_subscriptions upsert for deleted/nonexistent user_id ${userId} (subscription ${subscription.id})`
+    );
+    return;
+  }
+
   // No-card free trial (2026-08-13): onConflict targets user_id, not
   // stripe_subscription_id. user_subscriptions has a unique(user_id)
   // constraint (one subscription per individual), and the subscription id
