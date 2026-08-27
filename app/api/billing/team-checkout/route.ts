@@ -109,13 +109,44 @@ export async function POST(req: NextRequest) {
       if (!cancelRes.ok) {
         const cancelErrorText = await cancelRes.text();
 
-        return NextResponse.json(
-          {
-            error: "Failed to cancel existing individual subscription",
-            status: cancelRes.status,
-            bodyPreview: cancelErrorText.slice(0, 500),
-          },
-          { status: 500 }
+        // Added 2026-08-27: found via a real, reproducible failure on the
+        // App Review demo account (rmickschl23@gmail.com) -- its
+        // user_subscriptions row still pointed at a Stripe subscription ID
+        // that no longer exists in Stripe at all (confirmed directly via
+        // the Stripe dashboard: "No such subscription"). This row was
+        // stale (last updated 2026-06-22, long before this session), most
+        // likely from an earlier manual cancellation or test cleanup that
+        // never round-tripped back through the webhook to update/clear
+        // this row. Previously ANY non-2xx from Stripe's cancel call hard-
+        // failed the entire team-upgrade flow, even when the real reason
+        // was "there's nothing left to cancel" -- which is a fine outcome,
+        // not an error, since the intent (no active individual subscription
+        // standing in the way of the team subscription) is already true.
+        // Only this specific, unambiguous Stripe error code is treated as
+        // non-fatal; any other cancellation failure still hard-fails exactly
+        // as before, since those could reflect a real problem (auth error,
+        // rate limit, etc.) worth surfacing rather than silently ignoring.
+        let isAlreadyGone = false;
+        try {
+          const parsed = JSON.parse(cancelErrorText);
+          isAlreadyGone = parsed?.error?.code === "resource_missing";
+        } catch {
+          // Non-JSON body -- fall through, isAlreadyGone stays false.
+        }
+
+        if (!isAlreadyGone) {
+          return NextResponse.json(
+            {
+              error: "Failed to cancel existing individual subscription",
+              status: cancelRes.status,
+              bodyPreview: cancelErrorText.slice(0, 500),
+            },
+            { status: 500 }
+          );
+        }
+
+        console.log(
+          `[billing/team-checkout] Individual subscription ${existingIndividualSubscription.stripe_subscription_id} already gone in Stripe (resource_missing) -- treating as already-canceled and proceeding with team checkout for user ${user.id}.`
         );
       }
     }
