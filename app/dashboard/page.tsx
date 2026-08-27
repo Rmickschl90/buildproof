@@ -1548,6 +1548,42 @@ export default function DashboardPage() {
     };
   }, [selectedProject?.id]);
 
+  // Added 2026-08-27: found via a real test of the Individual -> Team
+  // upgrade flow -- after a real, successful Stripe checkout (confirmed via
+  // the webhook and a genuine organization_subscriptions row), the app kept
+  // showing "Upgrade" instead of "Invite Team" until the app was fully
+  // force-quit and reopened, with no in-app way to refresh. Root cause:
+  // CapacitorCheckoutReturnBootstrap's appUrlOpen handler returns from the
+  // native in-app checkout flow via router.replace(dest), which is a
+  // client-side navigation to the SAME already-mounted dashboard page
+  // instance (the WebView/JS context never actually unloaded while Stripe
+  // checkout was open on top of it) -- so the dashboard's one-time boot
+  // effect (which fetches billing status and org context on mount) never
+  // re-runs, and billingSource/orgContext stay stale indefinitely. This is
+  // deliberately a small, standalone listener -- NOT a second reconnect
+  // orchestrator (that rule is about offline sync/queue ownership, which
+  // this doesn't touch) -- and deliberately does not require a selected
+  // project, unlike runReconnectFlow above, since a user can return from
+  // checkout with no project open (e.g. upgrading from the Account tab).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handler = () => {
+      void (async () => {
+        const token = await getAuthToken();
+        if (!token) return;
+        void refreshOrgContext(token);
+        void checkBillingOnReconnect(token);
+      })();
+    };
+
+    window.addEventListener("buildproof-billing-return", handler);
+
+    return () => {
+      window.removeEventListener("buildproof-billing-return", handler);
+    };
+  }, []);
+
 
 
   useEffect(() => {

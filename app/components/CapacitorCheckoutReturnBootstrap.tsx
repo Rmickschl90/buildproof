@@ -49,6 +49,19 @@ export default function CapacitorCheckoutReturnBootstrap() {
         });
 
         router.replace(`${dest}${qs ? `?${qs}` : ""}`);
+
+        // Added 2026-08-27: this router.replace() is a client-side
+        // navigation back to the SAME already-mounted dashboard instance --
+        // it never unmounted while the checkout browser was open on top of
+        // it, so the dashboard's one-time-on-mount billing/org-context
+        // fetch never re-runs on its own. Found via a real Individual ->
+        // Team upgrade test that completed successfully in Stripe but left
+        // the dashboard showing stale "Upgrade" instead of "Invite Team"
+        // with no in-app way to refresh. The dashboard has been listening
+        // for this event the whole time the checkout browser was open
+        // (same JS context, never torn down), so there's no mount-order
+        // race to worry about here.
+        window.dispatchEvent(new Event("buildproof-billing-return"));
       } catch (e) {
         console.error("Checkout return handling failed", e);
       }
