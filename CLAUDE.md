@@ -2062,7 +2062,7 @@ scrolls to the correct anchor, and Back to top returns cleanly.
 Promoted to production (`buildproof-staging --prod`) and re-verified
 live on `app.getleeward.com/help`.
 
-## In Progress: App Store Guideline 3.1.1 Fix — US-Only Distribution + External-Payment Disclosure (2026-08-21)
+## Fixed: App Store Guideline 3.1.1 — US-Only Distribution + External-Payment Disclosure (2026-08-21, approved 2026-08-31)
 
 Second half of the same submission's rejection (`63d6aeb4-3a48-4c94-
 ad27-cf4eea743198`) as the App Review demo-login bypass above — Apple
@@ -2133,3 +2133,113 @@ instruction, do **not** resubmit to Apple until this fix is deployed
 and verified live — the same submission was already rejected once for
 this exact reason, and resubmitting with only the login fix would very
 likely bounce again.
+
+**Update: deployed, verified, and this fix is what ultimately got the
+app approved** — see the dated entry immediately below for the 3rd
+rejection, the clarification reply, and final approval.
+
+## App Store Approved — 3rd 3.1.1 Rejection, Clarification Reply, Final Approval (2026-08-31)
+
+After the disclosure copy and US-only scoping above were deployed to
+production and verified live, the same submission was rejected a
+**3rd** time, again citing Guideline 3.1.1 — despite the fix matching
+what appeared to be the compliant pattern (external-browser handoff,
+no embedded WebView, disclosure copy present, US-only distribution).
+Ryan flagged real confusion shared by both of us about what Apple
+still wanted, and separately reported a real bug hit while testing on
+the demo account: "Failed to cancel existing individual subscription"
+when attempting Team upgrade.
+
+Investigated and fixed two real, independent production bugs found
+during this pass:
+1. `app/api/billing/team-checkout/route.ts`'s cancel-existing-
+   individual-subscription step hard-failed on any Stripe error
+   without distinguishing "already gone" from a real failure. Root
+   cause: the demo account's stored `stripe_subscription_id` pointed
+   at a subscription already deleted in Stripe (confirmed via Stripe's
+   own dashboard — "No such subscription"). Fixed by parsing the
+   Stripe error and treating `error.code === "resource_missing"` as
+   success (log, proceed) rather than a hard failure.
+2. A stale `stripe_customer_id` (also pointing at a deleted Stripe
+   customer, "No such customer") was separately blocking the demo
+   account's individual checkout — fixed via direct DB cleanup
+   (nulled the column), not a code change.
+
+Also fixed, found via the same testing pass: `CapacitorCheckoutReturnBootstrap.tsx`'s
+post-checkout `router.replace()` is a client-side navigation back into
+the *same already-mounted* dashboard instance (it's never unmounted
+while the in-app checkout browser is open on top of it), so the
+dashboard's one-time-on-mount billing/org-context fetch never re-ran
+after a real checkout completed — Ryan's own words: "the user would
+have been stuck and confused... until the app finally updated itself."
+Fixed via a new, narrowly-scoped `buildproof-billing-return` window
+event (dispatched right after the client-side nav) that the dashboard
+listens for independently of the protected reconnect orchestrator —
+does not touch reconnect ownership. Confirmed working after deploy
+("ok awesome ti worked").
+
+With those bugs fixed and deployed, sent Apple a plain-language
+clarification reply (Ryan's request: "reply in lamens terms telling
+them what we did and what we understand about the policy and why we
+are confused and what we actaully need to do") laying out the
+US-storefront external-payment-link exception, the existing
+Browser.open()-based external handoff, the disclosure copy, and the
+US-only scoping — and asking directly what specifically still needed
+to change if this didn't already satisfy 3.1.1(a). Resubmitted.
+**Apple approved the app on 2026-08-31.** Confirmed via Apple's own
+approval email and via App Store Connect directly (Ryan: "YES!").
+
+No further 3.1.1 action needed. The webhook race-condition fix
+(`upsertSubscription()` skipping writes for deleted users, commit
+`1a570b1c`) and the account-deletion redirect message
+(`?deleted=1` on `/login`) from the same session are unrelated
+hardening picked up along the way, already live.
+
+## Marketing Site: Post-Approval Updates (2026-08-31)
+
+Once the app was approved, three follow-on marketing-site changes —
+all in the separate `buildproof-site` repo, deployed via plain
+`vercel --prod` (not `buildproof`'s staging-first flow, since this
+repo has no staging split):
+
+1. **iOS App Store badge activated.** The gated `IOS_APP_STORE_URL`
+   toggle added back on 2026-08-20 (see "Marketing site prepped ahead
+   of approval" above) was flipped from `null` to the real URL,
+   `https://apps.apple.com/us/app/leeward-records/id6796795666`.
+   Commit `2812e01` on `ios-app-store-badge-prep`, merged
+   (fast-forward) into `marketing-site-overhaul-2026-07`. Verified
+   live on `getleeward.com` — Apple badge, updated eyebrow ("Available
+   on Android and iPhone"), and updated availability copy all render
+   correctly.
+2. **"Get Started" routing changed.** Per Ryan's request, all 3 "Get
+   Started" links (previously straight to
+   `https://app.getleeward.com/login`) now point at `#download`,
+   scrolling to the existing Google Play / App Store download section
+   instead of defaulting straight into the web app. That section
+   itself gained `id="download"`. The plain-text "Web access is
+   available at app.getleeward.com" line was also turned into a real
+   link to `https://app.getleeward.com/login`, so web-only access is
+   still one click away, just no longer the default path. Commit
+   `9f8ea1e`, directly on `marketing-site-overhaul-2026-07`.
+3. **Documents-tab screenshot: tried a re-crop, reverted.** Ryan asked
+   to swap `public/documents-tab-dark.jpg` (used in the Documents-tab
+   feature section) for a tighter crop excluding the header/logo bar.
+   Made the swap (commit `7d30ddd`), but the new crop's aspect ratio
+   (1179×1682, notably squatter) didn't match its paired
+   `timeline-photo-dark.jpg` (1179×2275, much taller/narrower) at the
+   shared 280px display width, so the pair looked visually mismatched
+   ("that looks rough" / "it just looked stretched"). Confirmed via
+   direct DOM measurement (`getBoundingClientRect`/`naturalWidth`/
+   `naturalHeight` on the live page) that this was a real aspect-ratio
+   mismatch, not a CSS distortion bug — rendered aspect exactly matched
+   natural aspect for both images. Tried padding the new crop with
+   matching background color to force-match height — looked worse (an
+   empty void above the card, not a real phone-mockup look) — so
+   reverted to the original with-header image (commit `ff3a715`),
+   which already paired correctly. Net effect: no visual change from
+   before this session on this section; documented here since two
+   real commits were made and reverted, not because anything shipped
+   differently.
+
+Full technical detail (git diffs, exact verification steps) for all
+three: `buildproof-site/SITE_REGRESSION_LEDGER.md`.
